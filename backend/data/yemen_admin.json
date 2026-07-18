@@ -1,0 +1,1769 @@
+{
+  "governorates": [
+    {
+      "name_en": "Ibb",
+      "name_ar": "اب"
+    },
+    {
+      "name_en": "Abyan",
+      "name_ar": "ابين"
+    },
+    {
+      "name_en": "Sanaa City",
+      "name_ar": "امانة العاصمه"
+    },
+    {
+      "name_en": "Al Bayda",
+      "name_ar": "البيضاء"
+    },
+    {
+      "name_en": "Taiz",
+      "name_ar": "تعز"
+    },
+    {
+      "name_en": "Al Jawf",
+      "name_ar": "الجوف"
+    },
+    {
+      "name_en": "Hajjah",
+      "name_ar": "حجه"
+    },
+    {
+      "name_en": "Al Hodeidah",
+      "name_ar": "الحديده"
+    },
+    {
+      "name_en": "Hadramawt",
+      "name_ar": "حضرموت"
+    },
+    {
+      "name_en": "Dhamar",
+      "name_ar": "ذمار"
+    },
+    {
+      "name_en": "Shabwah",
+      "name_ar": "شبوه"
+    },
+    {
+      "name_en": "Sadah",
+      "name_ar": "صعده"
+    },
+    {
+      "name_en": "Sanaa",
+      "name_ar": "صنعاء"
+    },
+    {
+      "name_en": "Aden",
+      "name_ar": "عدن"
+    },
+    {
+      "name_en": "Lahj",
+      "name_ar": "لحج"
+    },
+    {
+      "name_en": "Marib",
+      "name_ar": "مارب"
+    },
+    {
+      "name_en": "Al Mahwit",
+      "name_ar": "المحويت"
+    },
+    {
+      "name_en": "Al Maharah",
+      "name_ar": "المهره"
+    },
+    {
+      "name_en": "Amran",
+      "name_ar": "عمران"
+    },
+    {
+      "name_en": "Ad Dali",
+      "name_ar": "الضالع"
+    },
+    {
+      "name_en": "Raymah",
+      "name_ar": "ريمه"
+    },
+    {
+      "name_en": "Socotra",
+      "name_ar": "سقطرى"
+    }
+  ],
+  "districts": [
+    {
+      "name_en": "Al Qafr",
+      "name_ar": "القفر",
+      "gov_en": "Ibb"
+    },
+    {
+      "name_en": "Yarim",
+      "name_ar": "يريم",
+      "gov_en": "Ibb"
+    },
+    {
+      "name_en": "Ar Radmah",
+      "name_ar": "الرضمه",
+      "gov_en": "Ibb"
+    },
+    {
+      "name_en": "An Nadirah",
+      "name_ar": "النادره",
+      "gov_en": "Ibb"
+    },
+    {
+      "name_en": "Ash Shair",
+      "name_ar": "الشعر",
+      "gov_en": "Ibb"
+    },
+    {
+      "name_en": "As Saddah",
+      "name_ar": "السده",
+      "gov_en": "Ibb"
+    },
+    {
+      "name_en": "Al Makhadir",
+      "name_ar": "المخادر",
+      "gov_en": "Ibb"
+    },
+    {
+      "name_en": "Hobeish",
+      "name_ar": "حبيش",
+      "gov_en": "Ibb"
+    },
+    {
+      "name_en": "Hazm Al Odayn",
+      "name_ar": "حزم العدين",
+      "gov_en": "Ibb"
+    },
+    {
+      "name_en": "Far Al Odayn",
+      "name_ar": "فرع العدين",
+      "gov_en": "Ibb"
+    },
+    {
+      "name_en": "Al Odayn",
+      "name_ar": "العدين",
+      "gov_en": "Ibb"
+    },
+    {
+      "name_en": "Jiblah",
+      "name_ar": "جبله",
+      "gov_en": "Ibb"
+    },
+    {
+      "name_en": "Badan",
+      "name_ar": "بعدان",
+      "gov_en": "Ibb"
+    },
+    {
+      "name_en": "As Sabrah",
+      "name_ar": "السبره",
+      "gov_en": "Ibb"
+    },
+    {
+      "name_en": "As Saiyani",
+      "name_ar": "السياني",
+      "gov_en": "Ibb"
+    },
+    {
+      "name_en": "Dhi As Sufal",
+      "name_ar": "ذي السفال",
+      "gov_en": "Ibb"
+    },
+    {
+      "name_en": "Mudhaykhirah",
+      "name_ar": "مذيخره",
+      "gov_en": "Ibb"
+    },
+    {
+      "name_en": "Al Mashannah",
+      "name_ar": "المشنه",
+      "gov_en": "Ibb"
+    },
+    {
+      "name_en": "Adh Dhihar",
+      "name_ar": "الظهار",
+      "gov_en": "Ibb"
+    },
+    {
+      "name_en": "Ibb",
+      "name_ar": "اب",
+      "gov_en": "Ibb"
+    },
+    {
+      "name_en": "Al Mahfad",
+      "name_ar": "المحفد",
+      "gov_en": "Abyan"
+    },
+    {
+      "name_en": "Mudiyah",
+      "name_ar": "موديه",
+      "gov_en": "Abyan"
+    },
+    {
+      "name_en": "Jayshan",
+      "name_ar": "جيشان",
+      "gov_en": "Abyan"
+    },
+    {
+      "name_en": "Lawdar",
+      "name_ar": "لودر",
+      "gov_en": "Abyan"
+    },
+    {
+      "name_en": "Sibah",
+      "name_ar": "سباح",
+      "gov_en": "Abyan"
+    },
+    {
+      "name_en": "Rassd",
+      "name_ar": "رصد",
+      "gov_en": "Abyan"
+    },
+    {
+      "name_en": "Sarar",
+      "name_ar": "سرار",
+      "gov_en": "Abyan"
+    },
+    {
+      "name_en": "Al Wadi",
+      "name_ar": "الوضيع",
+      "gov_en": "Abyan"
+    },
+    {
+      "name_en": "Ahwar",
+      "name_ar": "احور",
+      "gov_en": "Abyan"
+    },
+    {
+      "name_en": "Zinjibar",
+      "name_ar": "زنجبار",
+      "gov_en": "Abyan"
+    },
+    {
+      "name_en": "Khanfar",
+      "name_ar": "خنفر",
+      "gov_en": "Abyan"
+    },
+    {
+      "name_en": "Old City",
+      "name_ar": "صنعاء القديمه",
+      "gov_en": "Sanaa City"
+    },
+    {
+      "name_en": "Shuub",
+      "name_ar": "شعوب",
+      "gov_en": "Sanaa City"
+    },
+    {
+      "name_en": "Azaal",
+      "name_ar": "ازال",
+      "gov_en": "Sanaa City"
+    },
+    {
+      "name_en": "As Safiyah",
+      "name_ar": "الصافيه",
+      "gov_en": "Sanaa City"
+    },
+    {
+      "name_en": "As Sabin",
+      "name_ar": "السبعين",
+      "gov_en": "Sanaa City"
+    },
+    {
+      "name_en": "Al Wehdah",
+      "name_ar": "الوحده",
+      "gov_en": "Sanaa City"
+    },
+    {
+      "name_en": "At Tahrir",
+      "name_ar": "التحرير",
+      "gov_en": "Sanaa City"
+    },
+    {
+      "name_en": "Main",
+      "name_ar": "معين",
+      "gov_en": "Sanaa City"
+    },
+    {
+      "name_en": "Ath Thawrah",
+      "name_ar": "الثوره",
+      "gov_en": "Sanaa City"
+    },
+    {
+      "name_en": "Bani Al Harith",
+      "name_ar": "بني الحارث",
+      "gov_en": "Sanaa City"
+    },
+    {
+      "name_en": "Sanaa City Outskirts - Hamdan",
+      "name_ar": "ضواحي الامانة همدان",
+      "gov_en": "Sanaa City"
+    },
+    {
+      "name_en": "Sanaa City Outskirts -Sanhan wa Bani Bahlul",
+      "name_ar": "ضواحي الامانة سنحان وبني بهلول",
+      "gov_en": "Sanaa City"
+    },
+    {
+      "name_en": "Numan",
+      "name_ar": "نعمان",
+      "gov_en": "Al Bayda"
+    },
+    {
+      "name_en": "Nati",
+      "name_ar": "ناطع",
+      "gov_en": "Al Bayda"
+    },
+    {
+      "name_en": "Maswarah",
+      "name_ar": "مسوره",
+      "gov_en": "Al Bayda"
+    },
+    {
+      "name_en": "As Sawmaah",
+      "name_ar": "الصومعه",
+      "gov_en": "Al Bayda"
+    },
+    {
+      "name_en": "Az Zahir - Al Bayda",
+      "name_ar": "الزاهر",
+      "gov_en": "Al Bayda"
+    },
+    {
+      "name_en": "Dhi Naim",
+      "name_ar": "ذي ناعم",
+      "gov_en": "Al Bayda"
+    },
+    {
+      "name_en": "At Taffah",
+      "name_ar": "الطفه",
+      "gov_en": "Al Bayda"
+    },
+    {
+      "name_en": "Mukayras",
+      "name_ar": "مكيراس",
+      "gov_en": "Al Bayda"
+    },
+    {
+      "name_en": "Al Bayda City",
+      "name_ar": "مدينة البيضاء",
+      "gov_en": "Al Bayda"
+    },
+    {
+      "name_en": "Al Bayda",
+      "name_ar": "البيضاء",
+      "gov_en": "Al Bayda"
+    },
+    {
+      "name_en": "As Sawadiyah",
+      "name_ar": "السواديه",
+      "gov_en": "Al Bayda"
+    },
+    {
+      "name_en": "Radman",
+      "name_ar": "ردمان",
+      "gov_en": "Al Bayda"
+    },
+    {
+      "name_en": "Rada",
+      "name_ar": "رداع",
+      "gov_en": "Al Bayda"
+    },
+    {
+      "name_en": "Al Quraishyah",
+      "name_ar": "القريشيه",
+      "gov_en": "Al Bayda"
+    },
+    {
+      "name_en": "Wald Rabi",
+      "name_ar": "ولدربيع",
+      "gov_en": "Al Bayda"
+    },
+    {
+      "name_en": "Al Arsh",
+      "name_ar": "العرش",
+      "gov_en": "Al Bayda"
+    },
+    {
+      "name_en": "Sabah",
+      "name_ar": "صباح",
+      "gov_en": "Al Bayda"
+    },
+    {
+      "name_en": "Ar Ryashyyah",
+      "name_ar": "الرياشيه",
+      "gov_en": "Al Bayda"
+    },
+    {
+      "name_en": "Ash Sharyah",
+      "name_ar": "الشريه",
+      "gov_en": "Al Bayda"
+    },
+    {
+      "name_en": "Al Malajim",
+      "name_ar": "الملاجم",
+      "gov_en": "Al Bayda"
+    },
+    {
+      "name_en": "Mawiyah",
+      "name_ar": "ماويه",
+      "gov_en": "Taiz"
+    },
+    {
+      "name_en": "Sharab As Salam",
+      "name_ar": "شرعب السلام",
+      "gov_en": "Taiz"
+    },
+    {
+      "name_en": "Sharab Ar Rawnah",
+      "name_ar": "شرعب الرونه",
+      "gov_en": "Taiz"
+    },
+    {
+      "name_en": "Maqbanah",
+      "name_ar": "مقبنه",
+      "gov_en": "Taiz"
+    },
+    {
+      "name_en": "Al Makha",
+      "name_ar": "المخاء",
+      "gov_en": "Taiz"
+    },
+    {
+      "name_en": "Dhubab",
+      "name_ar": "باب المندب",
+      "gov_en": "Taiz"
+    },
+    {
+      "name_en": "Mawza",
+      "name_ar": "موزع",
+      "gov_en": "Taiz"
+    },
+    {
+      "name_en": "Jabal Habashi",
+      "name_ar": "جبل حبشي",
+      "gov_en": "Taiz"
+    },
+    {
+      "name_en": "Mashrah Wa Hadnan",
+      "name_ar": "مشرعة وحدنان",
+      "gov_en": "Taiz"
+    },
+    {
+      "name_en": "Sabir Al Mawadim",
+      "name_ar": "صبر الموادم",
+      "gov_en": "Taiz"
+    },
+    {
+      "name_en": "Al Misrakh",
+      "name_ar": "المسراخ",
+      "gov_en": "Taiz"
+    },
+    {
+      "name_en": "Dimnat Khadir",
+      "name_ar": "خدير",
+      "gov_en": "Taiz"
+    },
+    {
+      "name_en": "As Silw",
+      "name_ar": "الصلو",
+      "gov_en": "Taiz"
+    },
+    {
+      "name_en": "Ash Shamayatayn",
+      "name_ar": "الشمايتين",
+      "gov_en": "Taiz"
+    },
+    {
+      "name_en": "Al Waziyah",
+      "name_ar": "الوازعيه",
+      "gov_en": "Taiz"
+    },
+    {
+      "name_en": "Hayfan",
+      "name_ar": "حيفان",
+      "gov_en": "Taiz"
+    },
+    {
+      "name_en": "Al Mudhaffar",
+      "name_ar": "المظفر",
+      "gov_en": "Taiz"
+    },
+    {
+      "name_en": "Al Qahirah",
+      "name_ar": "القاهره",
+      "gov_en": "Taiz"
+    },
+    {
+      "name_en": "Salah",
+      "name_ar": "صاله",
+      "gov_en": "Taiz"
+    },
+    {
+      "name_en": "At Taiziyah",
+      "name_ar": "التعزيه",
+      "gov_en": "Taiz"
+    },
+    {
+      "name_en": "Al Maafer",
+      "name_ar": "المعافر",
+      "gov_en": "Taiz"
+    },
+    {
+      "name_en": "Al Mawasit",
+      "name_ar": "المواسط",
+      "gov_en": "Taiz"
+    },
+    {
+      "name_en": "Sami",
+      "name_ar": "سامع",
+      "gov_en": "Taiz"
+    },
+    {
+      "name_en": "Khab wa Ash Shaf",
+      "name_ar": "خب و الشعف",
+      "gov_en": "Al Jawf"
+    },
+    {
+      "name_en": "Al Humaydat",
+      "name_ar": "الحميدات",
+      "gov_en": "Al Jawf"
+    },
+    {
+      "name_en": "Al Matammah",
+      "name_ar": "المطمه",
+      "gov_en": "Al Jawf"
+    },
+    {
+      "name_en": "Az Zahir - Al Jawf",
+      "name_ar": "الزاهر",
+      "gov_en": "Al Jawf"
+    },
+    {
+      "name_en": "Al Hazm",
+      "name_ar": "الحزم",
+      "gov_en": "Al Jawf"
+    },
+    {
+      "name_en": "Al Mutun",
+      "name_ar": "المتون",
+      "gov_en": "Al Jawf"
+    },
+    {
+      "name_en": "Al Maslub",
+      "name_ar": "المصلوب",
+      "gov_en": "Al Jawf"
+    },
+    {
+      "name_en": "Al Ghayl",
+      "name_ar": "الغيل",
+      "gov_en": "Al Jawf"
+    },
+    {
+      "name_en": "Al Khalaq",
+      "name_ar": "الخلق",
+      "gov_en": "Al Jawf"
+    },
+    {
+      "name_en": "Barat Al Anan",
+      "name_ar": "برط العنان",
+      "gov_en": "Al Jawf"
+    },
+    {
+      "name_en": "Rajuzah",
+      "name_ar": "رجوزه",
+      "gov_en": "Al Jawf"
+    },
+    {
+      "name_en": "Kharab Al Marashi",
+      "name_ar": "خراب المراشى",
+      "gov_en": "Al Jawf"
+    },
+    {
+      "name_en": "Bakil Al Mir",
+      "name_ar": "بكيل المير",
+      "gov_en": "Hajjah"
+    },
+    {
+      "name_en": "Harad",
+      "name_ar": "حرض",
+      "gov_en": "Hajjah"
+    },
+    {
+      "name_en": "Midi",
+      "name_ar": "ميدي",
+      "gov_en": "Hajjah"
+    },
+    {
+      "name_en": "Abs",
+      "name_ar": "عبس",
+      "gov_en": "Hajjah"
+    },
+    {
+      "name_en": "Hayran",
+      "name_ar": "حيران",
+      "gov_en": "Hajjah"
+    },
+    {
+      "name_en": "Mustaba",
+      "name_ar": "مستباء",
+      "gov_en": "Hajjah"
+    },
+    {
+      "name_en": "Kushar",
+      "name_ar": "كشر",
+      "gov_en": "Hajjah"
+    },
+    {
+      "name_en": "Al Jamimah",
+      "name_ar": "الجميمه",
+      "gov_en": "Hajjah"
+    },
+    {
+      "name_en": "Kuhlan Ash Sharaf",
+      "name_ar": "كحلان الشرف",
+      "gov_en": "Hajjah"
+    },
+    {
+      "name_en": "Aflah Ash Sham",
+      "name_ar": "افلح الشام",
+      "gov_en": "Hajjah"
+    },
+    {
+      "name_en": "Khayran Al Muharraq",
+      "name_ar": "خيران المحرق",
+      "gov_en": "Hajjah"
+    },
+    {
+      "name_en": "Aslam",
+      "name_ar": "اسلم",
+      "gov_en": "Hajjah"
+    },
+    {
+      "name_en": "Qafl Shammar",
+      "name_ar": "قفل شمر",
+      "gov_en": "Hajjah"
+    },
+    {
+      "name_en": "Aflah Al Yaman",
+      "name_ar": "افلح اليمن",
+      "gov_en": "Hajjah"
+    },
+    {
+      "name_en": "Al Mahabishah",
+      "name_ar": "المحابشه",
+      "gov_en": "Hajjah"
+    },
+    {
+      "name_en": "Al Miftah",
+      "name_ar": "المفتاح",
+      "gov_en": "Hajjah"
+    },
+    {
+      "name_en": "Al Maghrabah",
+      "name_ar": "المغربه",
+      "gov_en": "Hajjah"
+    },
+    {
+      "name_en": "Kuhlan Afar",
+      "name_ar": "كحلان عفار",
+      "gov_en": "Hajjah"
+    },
+    {
+      "name_en": "Sharas",
+      "name_ar": "شرس",
+      "gov_en": "Hajjah"
+    },
+    {
+      "name_en": "Mabyan",
+      "name_ar": "مبين",
+      "gov_en": "Hajjah"
+    },
+    {
+      "name_en": "Ash Shahil",
+      "name_ar": "الشاهل",
+      "gov_en": "Hajjah"
+    },
+    {
+      "name_en": "Kuaydinah",
+      "name_ar": "كعيدنه",
+      "gov_en": "Hajjah"
+    },
+    {
+      "name_en": "Wadrah",
+      "name_ar": "وضره",
+      "gov_en": "Hajjah"
+    },
+    {
+      "name_en": "Bani Qays",
+      "name_ar": "بني قيس الطور",
+      "gov_en": "Hajjah"
+    },
+    {
+      "name_en": "Ash shaghadirah",
+      "name_ar": "الشغادره",
+      "gov_en": "Hajjah"
+    },
+    {
+      "name_en": "Najrah",
+      "name_ar": "نجره",
+      "gov_en": "Hajjah"
+    },
+    {
+      "name_en": "Bani Al Awam",
+      "name_ar": "بني العوام",
+      "gov_en": "Hajjah"
+    },
+    {
+      "name_en": "Hajjah City",
+      "name_ar": "مدينة حجه",
+      "gov_en": "Hajjah"
+    },
+    {
+      "name_en": "Hajjah",
+      "name_ar": "حجه",
+      "gov_en": "Hajjah"
+    },
+    {
+      "name_en": "Washhah",
+      "name_ar": "وشحه",
+      "gov_en": "Hajjah"
+    },
+    {
+      "name_en": "Qarah",
+      "name_ar": "قاره",
+      "gov_en": "Hajjah"
+    },
+    {
+      "name_en": "Az Zuhrah",
+      "name_ar": "الزهره",
+      "gov_en": "Al Hodeidah"
+    },
+    {
+      "name_en": "Alluhayah",
+      "name_ar": "اللحيه",
+      "gov_en": "Al Hodeidah"
+    },
+    {
+      "name_en": "Kamaran",
+      "name_ar": "كمران",
+      "gov_en": "Al Hodeidah"
+    },
+    {
+      "name_en": "As Salif",
+      "name_ar": "الصليف",
+      "gov_en": "Al Hodeidah"
+    },
+    {
+      "name_en": "Al Munirah",
+      "name_ar": "المنيره",
+      "gov_en": "Al Hodeidah"
+    },
+    {
+      "name_en": "Al Qanawis",
+      "name_ar": "القناوص",
+      "gov_en": "Al Hodeidah"
+    },
+    {
+      "name_en": "Az Zaydiah",
+      "name_ar": "الزيديه",
+      "gov_en": "Al Hodeidah"
+    },
+    {
+      "name_en": "Al Mighlaf",
+      "name_ar": "المغلاف",
+      "gov_en": "Al Hodeidah"
+    },
+    {
+      "name_en": "Ad Dohi",
+      "name_ar": "الضحى",
+      "gov_en": "Al Hodeidah"
+    },
+    {
+      "name_en": "Bajil",
+      "name_ar": "باجل",
+      "gov_en": "Al Hodeidah"
+    },
+    {
+      "name_en": "Al Hujjaylah",
+      "name_ar": "الحجيله",
+      "gov_en": "Al Hodeidah"
+    },
+    {
+      "name_en": "Bura",
+      "name_ar": "برع",
+      "gov_en": "Al Hodeidah"
+    },
+    {
+      "name_en": "Al Marawiah",
+      "name_ar": "المراوعه",
+      "gov_en": "Al Hodeidah"
+    },
+    {
+      "name_en": "Ad Durayhimi",
+      "name_ar": "الدريهمي",
+      "gov_en": "Al Hodeidah"
+    },
+    {
+      "name_en": "As Sukhnah",
+      "name_ar": "السخنه",
+      "gov_en": "Al Hodeidah"
+    },
+    {
+      "name_en": "Al Mansuriyah",
+      "name_ar": "المنصوريه",
+      "gov_en": "Al Hodeidah"
+    },
+    {
+      "name_en": "Bayt Al Faqih",
+      "name_ar": "بيت الفقيه",
+      "gov_en": "Al Hodeidah"
+    },
+    {
+      "name_en": "Jabal Ras",
+      "name_ar": "جبل راس",
+      "gov_en": "Al Hodeidah"
+    },
+    {
+      "name_en": "Hays",
+      "name_ar": "حيس",
+      "gov_en": "Al Hodeidah"
+    },
+    {
+      "name_en": "Al Khukhah",
+      "name_ar": "الخوخه",
+      "gov_en": "Al Hodeidah"
+    },
+    {
+      "name_en": "Al Hawak",
+      "name_ar": "الحوك",
+      "gov_en": "Al Hodeidah"
+    },
+    {
+      "name_en": "Al Mina",
+      "name_ar": "الميناء",
+      "gov_en": "Al Hodeidah"
+    },
+    {
+      "name_en": "Al Hali",
+      "name_ar": "الحالي",
+      "gov_en": "Al Hodeidah"
+    },
+    {
+      "name_en": "Zabid",
+      "name_ar": "زبيد",
+      "gov_en": "Al Hodeidah"
+    },
+    {
+      "name_en": "Al Jarrahi",
+      "name_ar": "الجراحي",
+      "gov_en": "Al Hodeidah"
+    },
+    {
+      "name_en": "At Tuhayta",
+      "name_ar": "التحيتا",
+      "gov_en": "Al Hodeidah"
+    },
+    {
+      "name_en": "Rumah",
+      "name_ar": "رماه",
+      "gov_en": "Hadramawt"
+    },
+    {
+      "name_en": "Thamud",
+      "name_ar": "ثمود",
+      "gov_en": "Hadramawt"
+    },
+    {
+      "name_en": "Al Qaff",
+      "name_ar": "القف",
+      "gov_en": "Hadramawt"
+    },
+    {
+      "name_en": "Zamakh wa Manwokh",
+      "name_ar": "زمخ ومنوخ",
+      "gov_en": "Hadramawt"
+    },
+    {
+      "name_en": "Hajar As Sayar",
+      "name_ar": "حجر الصيعر",
+      "gov_en": "Hadramawt"
+    },
+    {
+      "name_en": "Al Abr",
+      "name_ar": "العبر",
+      "gov_en": "Hadramawt"
+    },
+    {
+      "name_en": "Al Qatn",
+      "name_ar": "القطن",
+      "gov_en": "Hadramawt"
+    },
+    {
+      "name_en": "Shibam",
+      "name_ar": "شبام",
+      "gov_en": "Hadramawt"
+    },
+    {
+      "name_en": "Sah",
+      "name_ar": "ساه",
+      "gov_en": "Hadramawt"
+    },
+    {
+      "name_en": "Sayun",
+      "name_ar": "سيئون",
+      "gov_en": "Hadramawt"
+    },
+    {
+      "name_en": "Tarim",
+      "name_ar": "تريم",
+      "gov_en": "Hadramawt"
+    },
+    {
+      "name_en": "As Sawm",
+      "name_ar": "السوم",
+      "gov_en": "Hadramawt"
+    },
+    {
+      "name_en": "Ar Raydah wa Qussayar",
+      "name_ar": "الريدة وقصيعر",
+      "gov_en": "Hadramawt"
+    },
+    {
+      "name_en": "Ad Dis",
+      "name_ar": "الديس",
+      "gov_en": "Hadramawt"
+    },
+    {
+      "name_en": "Ash Shihr",
+      "name_ar": "الشحر",
+      "gov_en": "Hadramawt"
+    },
+    {
+      "name_en": "Ghayl bin Yamin",
+      "name_ar": "غيل بن يمين",
+      "gov_en": "Hadramawt"
+    },
+    {
+      "name_en": "Ghayl Bawazir",
+      "name_ar": "غيل باوزير",
+      "gov_en": "Hadramawt"
+    },
+    {
+      "name_en": "Dawan",
+      "name_ar": "دوعن",
+      "gov_en": "Hadramawt"
+    },
+    {
+      "name_en": "Wadi Al Ayn",
+      "name_ar": "وادي العين",
+      "gov_en": "Hadramawt"
+    },
+    {
+      "name_en": "Rakhyah",
+      "name_ar": "رخيه",
+      "gov_en": "Hadramawt"
+    },
+    {
+      "name_en": "Amd",
+      "name_ar": "عمد",
+      "gov_en": "Hadramawt"
+    },
+    {
+      "name_en": "Ad Dulayah",
+      "name_ar": "الضليعه",
+      "gov_en": "Hadramawt"
+    },
+    {
+      "name_en": "Yabuth",
+      "name_ar": "يبعث",
+      "gov_en": "Hadramawt"
+    },
+    {
+      "name_en": "Hajar",
+      "name_ar": "حجر",
+      "gov_en": "Hadramawt"
+    },
+    {
+      "name_en": "Brum Mayfah",
+      "name_ar": "بروم ميفع",
+      "gov_en": "Hadramawt"
+    },
+    {
+      "name_en": "Al Mukalla",
+      "name_ar": "المكلا",
+      "gov_en": "Hadramawt"
+    },
+    {
+      "name_en": "Al Mukalla City",
+      "name_ar": "مدينة المكلا",
+      "gov_en": "Hadramawt"
+    },
+    {
+      "name_en": "Haridah",
+      "name_ar": "حريضه",
+      "gov_en": "Hadramawt"
+    },
+    {
+      "name_en": "Al Hada",
+      "name_ar": "الحداء",
+      "gov_en": "Dhamar"
+    },
+    {
+      "name_en": "Jahran",
+      "name_ar": "جهران",
+      "gov_en": "Dhamar"
+    },
+    {
+      "name_en": "Jabal Ash sharq",
+      "name_ar": "جبل الشرق",
+      "gov_en": "Dhamar"
+    },
+    {
+      "name_en": "Maghrib Ans",
+      "name_ar": "مغرب عنس",
+      "gov_en": "Dhamar"
+    },
+    {
+      "name_en": "Otmah",
+      "name_ar": "عتمه",
+      "gov_en": "Dhamar"
+    },
+    {
+      "name_en": "Wusab Al Aali",
+      "name_ar": "وصاب العالي",
+      "gov_en": "Dhamar"
+    },
+    {
+      "name_en": "Wusab As Safil",
+      "name_ar": "وصاب السافل",
+      "gov_en": "Dhamar"
+    },
+    {
+      "name_en": "Dhamar City",
+      "name_ar": "مدينة ذمار",
+      "gov_en": "Dhamar"
+    },
+    {
+      "name_en": "Mayfaat Ans",
+      "name_ar": "ميفعة عنس",
+      "gov_en": "Dhamar"
+    },
+    {
+      "name_en": "Ans",
+      "name_ar": "عنس",
+      "gov_en": "Dhamar"
+    },
+    {
+      "name_en": "Dawran Anis",
+      "name_ar": "ضوران انس",
+      "gov_en": "Dhamar"
+    },
+    {
+      "name_en": "Al Manar",
+      "name_ar": "المنار",
+      "gov_en": "Dhamar"
+    },
+    {
+      "name_en": "Dahr",
+      "name_ar": "دهر",
+      "gov_en": "Shabwah"
+    },
+    {
+      "name_en": "At Talh",
+      "name_ar": "الطلح",
+      "gov_en": "Shabwah"
+    },
+    {
+      "name_en": "Jardan",
+      "name_ar": "جردان",
+      "gov_en": "Shabwah"
+    },
+    {
+      "name_en": "Armaa",
+      "name_ar": "عرماء",
+      "gov_en": "Shabwah"
+    },
+    {
+      "name_en": "Osaylan",
+      "name_ar": "عسيلان",
+      "gov_en": "Shabwah"
+    },
+    {
+      "name_en": "Ayn",
+      "name_ar": "عين",
+      "gov_en": "Shabwah"
+    },
+    {
+      "name_en": "Bayhan",
+      "name_ar": "بيحان",
+      "gov_en": "Shabwah"
+    },
+    {
+      "name_en": "Markhah Al Olya",
+      "name_ar": "مرخة العليا",
+      "gov_en": "Shabwah"
+    },
+    {
+      "name_en": "Markhah As Sufla",
+      "name_ar": "مرخة السفلى",
+      "gov_en": "Shabwah"
+    },
+    {
+      "name_en": "Nisab",
+      "name_ar": "نصاب",
+      "gov_en": "Shabwah"
+    },
+    {
+      "name_en": "Hatib",
+      "name_ar": "حطيب",
+      "gov_en": "Shabwah"
+    },
+    {
+      "name_en": "As Said",
+      "name_ar": "الصعيد",
+      "gov_en": "Shabwah"
+    },
+    {
+      "name_en": "Ataq",
+      "name_ar": "عتق",
+      "gov_en": "Shabwah"
+    },
+    {
+      "name_en": "Habban",
+      "name_ar": "حبان",
+      "gov_en": "Shabwah"
+    },
+    {
+      "name_en": "Ar Rawdah",
+      "name_ar": "الروضه",
+      "gov_en": "Shabwah"
+    },
+    {
+      "name_en": "Mayfaah",
+      "name_ar": "ميفعه",
+      "gov_en": "Shabwah"
+    },
+    {
+      "name_en": "Radum",
+      "name_ar": "رضوم",
+      "gov_en": "Shabwah"
+    },
+    {
+      "name_en": "Baqim",
+      "name_ar": "باقم",
+      "gov_en": "Sadah"
+    },
+    {
+      "name_en": "Qatabir",
+      "name_ar": "قطابر",
+      "gov_en": "Sadah"
+    },
+    {
+      "name_en": "Monabbih",
+      "name_ar": "منبه",
+      "gov_en": "Sadah"
+    },
+    {
+      "name_en": "Ghamr",
+      "name_ar": "غمر",
+      "gov_en": "Sadah"
+    },
+    {
+      "name_en": "Razih",
+      "name_ar": "رازح",
+      "gov_en": "Sadah"
+    },
+    {
+      "name_en": "Shadaa",
+      "name_ar": "شداء",
+      "gov_en": "Sadah"
+    },
+    {
+      "name_en": "Adh Dhahir",
+      "name_ar": "الظاهر",
+      "gov_en": "Sadah"
+    },
+    {
+      "name_en": "Haydan",
+      "name_ar": "حيدان",
+      "gov_en": "Sadah"
+    },
+    {
+      "name_en": "Saqin",
+      "name_ar": "ساقين",
+      "gov_en": "Sadah"
+    },
+    {
+      "name_en": "Majz",
+      "name_ar": "مجز",
+      "gov_en": "Sadah"
+    },
+    {
+      "name_en": "Sahar",
+      "name_ar": "سحار",
+      "gov_en": "Sadah"
+    },
+    {
+      "name_en": "As Safra",
+      "name_ar": "الصفراء",
+      "gov_en": "Sadah"
+    },
+    {
+      "name_en": "Al Hashwah",
+      "name_ar": "الحشوه",
+      "gov_en": "Sadah"
+    },
+    {
+      "name_en": "Kitaf wa Al Boqa",
+      "name_ar": "كتاف والبقع",
+      "gov_en": "Sadah"
+    },
+    {
+      "name_en": "Sadah",
+      "name_ar": "صعده",
+      "gov_en": "Sadah"
+    },
+    {
+      "name_en": "Hamdan",
+      "name_ar": "همدان",
+      "gov_en": "Sanaa"
+    },
+    {
+      "name_en": "Arhab",
+      "name_ar": "ارحب",
+      "gov_en": "Sanaa"
+    },
+    {
+      "name_en": "Nihm",
+      "name_ar": "نهم",
+      "gov_en": "Sanaa"
+    },
+    {
+      "name_en": "Bani Hushaysh",
+      "name_ar": "بني حشيش",
+      "gov_en": "Sanaa"
+    },
+    {
+      "name_en": "Sanhan wa Bani Bahlul",
+      "name_ar": "سنحان وبني بهلول",
+      "gov_en": "Sanaa"
+    },
+    {
+      "name_en": "Bilad Ar Rus",
+      "name_ar": "بلاد الروس",
+      "gov_en": "Sanaa"
+    },
+    {
+      "name_en": "Bani Matar",
+      "name_ar": "بني مطر",
+      "gov_en": "Sanaa"
+    },
+    {
+      "name_en": "Al Haymah Ad Dakhiliyah",
+      "name_ar": "الحيمة الداخليه",
+      "gov_en": "Sanaa"
+    },
+    {
+      "name_en": "Al Haymah Al Kharijiyah",
+      "name_ar": "الحيمة الخارجيه",
+      "gov_en": "Sanaa"
+    },
+    {
+      "name_en": "Manakhah",
+      "name_ar": "مناخه",
+      "gov_en": "Sanaa"
+    },
+    {
+      "name_en": "Safan",
+      "name_ar": "صعفان",
+      "gov_en": "Sanaa"
+    },
+    {
+      "name_en": "Khawlan",
+      "name_ar": "خولان",
+      "gov_en": "Sanaa"
+    },
+    {
+      "name_en": "At Tyal",
+      "name_ar": "الطيال",
+      "gov_en": "Sanaa"
+    },
+    {
+      "name_en": "Bani Dabyan",
+      "name_ar": "بني ضبيان",
+      "gov_en": "Sanaa"
+    },
+    {
+      "name_en": "Al Hissn",
+      "name_ar": "الحصن",
+      "gov_en": "Sanaa"
+    },
+    {
+      "name_en": "Jihanah",
+      "name_ar": "جحانه",
+      "gov_en": "Sanaa"
+    },
+    {
+      "name_en": "Dar Sad",
+      "name_ar": "دار سعد",
+      "gov_en": "Aden"
+    },
+    {
+      "name_en": "Ash Shaykh Othman",
+      "name_ar": "الشيخ عثمان",
+      "gov_en": "Aden"
+    },
+    {
+      "name_en": "Al Mansurah",
+      "name_ar": "المنصوره",
+      "gov_en": "Aden"
+    },
+    {
+      "name_en": "Al Burayqah",
+      "name_ar": "البريقه",
+      "gov_en": "Aden"
+    },
+    {
+      "name_en": "At Tawahi",
+      "name_ar": "التواهي",
+      "gov_en": "Aden"
+    },
+    {
+      "name_en": "Al Mualla",
+      "name_ar": "المعلا",
+      "gov_en": "Aden"
+    },
+    {
+      "name_en": "Kritar - Sirah",
+      "name_ar": "صيره",
+      "gov_en": "Aden"
+    },
+    {
+      "name_en": "Khur Maksar",
+      "name_ar": "خور مكسر",
+      "gov_en": "Aden"
+    },
+    {
+      "name_en": "Al Had",
+      "name_ar": "الحد",
+      "gov_en": "Lahj"
+    },
+    {
+      "name_en": "Yafi",
+      "name_ar": "يافع",
+      "gov_en": "Lahj"
+    },
+    {
+      "name_en": "Al Maflahi",
+      "name_ar": "المفلحي",
+      "gov_en": "Lahj"
+    },
+    {
+      "name_en": "Yahr",
+      "name_ar": "يهر",
+      "gov_en": "Lahj"
+    },
+    {
+      "name_en": "Habil Jabr",
+      "name_ar": "حبيل جبر",
+      "gov_en": "Lahj"
+    },
+    {
+      "name_en": "Halmin",
+      "name_ar": "حالمين",
+      "gov_en": "Lahj"
+    },
+    {
+      "name_en": "Radfan",
+      "name_ar": "ردفان",
+      "gov_en": "Lahj"
+    },
+    {
+      "name_en": "Al Malah",
+      "name_ar": "الملاح",
+      "gov_en": "Lahj"
+    },
+    {
+      "name_en": "Al Musaymir",
+      "name_ar": "المسيمير",
+      "gov_en": "Lahj"
+    },
+    {
+      "name_en": "Al Qubaytah",
+      "name_ar": "القبيطه",
+      "gov_en": "Lahj"
+    },
+    {
+      "name_en": "Tur Al Bahah",
+      "name_ar": "طور الباحه",
+      "gov_en": "Lahj"
+    },
+    {
+      "name_en": "Al Maqatirah",
+      "name_ar": "المقاطره",
+      "gov_en": "Lahj"
+    },
+    {
+      "name_en": "Al Madaribah Wa Al Aarah",
+      "name_ar": "المضاربة و العاره",
+      "gov_en": "Lahj"
+    },
+    {
+      "name_en": "Al Hawtah",
+      "name_ar": "الحوطه",
+      "gov_en": "Lahj"
+    },
+    {
+      "name_en": "Tuban",
+      "name_ar": "تبن",
+      "gov_en": "Lahj"
+    },
+    {
+      "name_en": "Majzar",
+      "name_ar": "مجزر",
+      "gov_en": "Marib"
+    },
+    {
+      "name_en": "Raghwan",
+      "name_ar": "رغوان",
+      "gov_en": "Marib"
+    },
+    {
+      "name_en": "Madghal Al Jidan",
+      "name_ar": "مدغل الجدعان",
+      "gov_en": "Marib"
+    },
+    {
+      "name_en": "Harib Al Qaramish",
+      "name_ar": "حريب القرامش",
+      "gov_en": "Marib"
+    },
+    {
+      "name_en": "Bidbadah",
+      "name_ar": "بدبده",
+      "gov_en": "Marib"
+    },
+    {
+      "name_en": "Sirwah",
+      "name_ar": "صرواح",
+      "gov_en": "Marib"
+    },
+    {
+      "name_en": "Al Jubah",
+      "name_ar": "الجوبه",
+      "gov_en": "Marib"
+    },
+    {
+      "name_en": "Rahabah",
+      "name_ar": "رحبه",
+      "gov_en": "Marib"
+    },
+    {
+      "name_en": "Harib",
+      "name_ar": "حريب",
+      "gov_en": "Marib"
+    },
+    {
+      "name_en": "Mahliyah",
+      "name_ar": "ماهليه",
+      "gov_en": "Marib"
+    },
+    {
+      "name_en": "Al Abdiyah",
+      "name_ar": "العبديه",
+      "gov_en": "Marib"
+    },
+    {
+      "name_en": "Marib City",
+      "name_ar": "مدينة مارب",
+      "gov_en": "Marib"
+    },
+    {
+      "name_en": "Marib",
+      "name_ar": "مارب",
+      "gov_en": "Marib"
+    },
+    {
+      "name_en": "Jabal Murad",
+      "name_ar": "جبل مراد",
+      "gov_en": "Marib"
+    },
+    {
+      "name_en": "Shibam Kawkaban",
+      "name_ar": "شبام كوكبان",
+      "gov_en": "Al Mahwit"
+    },
+    {
+      "name_en": "At Tawilah",
+      "name_ar": "الطويله",
+      "gov_en": "Al Mahwit"
+    },
+    {
+      "name_en": "Ar Rujum",
+      "name_ar": "الرجم",
+      "gov_en": "Al Mahwit"
+    },
+    {
+      "name_en": "Al Khabt",
+      "name_ar": "الخبت",
+      "gov_en": "Al Mahwit"
+    },
+    {
+      "name_en": "Melhan",
+      "name_ar": "ملحان",
+      "gov_en": "Al Mahwit"
+    },
+    {
+      "name_en": "Hufash",
+      "name_ar": "حفاش",
+      "gov_en": "Al Mahwit"
+    },
+    {
+      "name_en": "Bani Sad",
+      "name_ar": "بني سعد",
+      "gov_en": "Al Mahwit"
+    },
+    {
+      "name_en": "Al Mahwit City",
+      "name_ar": "مدينة المحويت",
+      "gov_en": "Al Mahwit"
+    },
+    {
+      "name_en": "Al Mahwit",
+      "name_ar": "المحويت",
+      "gov_en": "Al Mahwit"
+    },
+    {
+      "name_en": "Shahin",
+      "name_ar": "شحن",
+      "gov_en": "Al Maharah"
+    },
+    {
+      "name_en": "Hat",
+      "name_ar": "حات",
+      "gov_en": "Al Maharah"
+    },
+    {
+      "name_en": "Hawf",
+      "name_ar": "حوف",
+      "gov_en": "Al Maharah"
+    },
+    {
+      "name_en": "Al Ghaydhah",
+      "name_ar": "الغيظه",
+      "gov_en": "Al Maharah"
+    },
+    {
+      "name_en": "Manar",
+      "name_ar": "منعر",
+      "gov_en": "Al Maharah"
+    },
+    {
+      "name_en": "Al Masilah",
+      "name_ar": "المسيله",
+      "gov_en": "Al Maharah"
+    },
+    {
+      "name_en": "Sayhut",
+      "name_ar": "سيحوت",
+      "gov_en": "Al Maharah"
+    },
+    {
+      "name_en": "Qishn",
+      "name_ar": "قشن",
+      "gov_en": "Al Maharah"
+    },
+    {
+      "name_en": "Haswin",
+      "name_ar": "حصوين",
+      "gov_en": "Al Maharah"
+    },
+    {
+      "name_en": "Harf Sufyan",
+      "name_ar": "حرف سفيان",
+      "gov_en": "Amran"
+    },
+    {
+      "name_en": "Huth",
+      "name_ar": "حوث",
+      "gov_en": "Amran"
+    },
+    {
+      "name_en": "Al Ashah",
+      "name_ar": "العشه",
+      "gov_en": "Amran"
+    },
+    {
+      "name_en": "Qaflat Odhar",
+      "name_ar": "قفلة عذر",
+      "gov_en": "Amran"
+    },
+    {
+      "name_en": "Shaharah",
+      "name_ar": "شهاره",
+      "gov_en": "Amran"
+    },
+    {
+      "name_en": "Al Madan",
+      "name_ar": "المدان",
+      "gov_en": "Amran"
+    },
+    {
+      "name_en": "Suwayr",
+      "name_ar": "صوير",
+      "gov_en": "Amran"
+    },
+    {
+      "name_en": "Dhulaymat Habur",
+      "name_ar": "ظليمة حبور",
+      "gov_en": "Amran"
+    },
+    {
+      "name_en": "Dhibain",
+      "name_ar": "ذيبين",
+      "gov_en": "Amran"
+    },
+    {
+      "name_en": "Kharif",
+      "name_ar": "خارف",
+      "gov_en": "Amran"
+    },
+    {
+      "name_en": "Raydah",
+      "name_ar": "ريده",
+      "gov_en": "Amran"
+    },
+    {
+      "name_en": "Jabal Eyal Yazid",
+      "name_ar": "جبل عيال يزيد",
+      "gov_en": "Amran"
+    },
+    {
+      "name_en": "As Sudah",
+      "name_ar": "السوده",
+      "gov_en": "Amran"
+    },
+    {
+      "name_en": "As Sawd",
+      "name_ar": "السود",
+      "gov_en": "Amran"
+    },
+    {
+      "name_en": "Amran",
+      "name_ar": "عمران",
+      "gov_en": "Amran"
+    },
+    {
+      "name_en": "Maswar",
+      "name_ar": "مسور",
+      "gov_en": "Amran"
+    },
+    {
+      "name_en": "Thula",
+      "name_ar": "ثلاء",
+      "gov_en": "Amran"
+    },
+    {
+      "name_en": "Eyal Surayh",
+      "name_ar": "عيال سريح",
+      "gov_en": "Amran"
+    },
+    {
+      "name_en": "Khamir",
+      "name_ar": "خمر",
+      "gov_en": "Amran"
+    },
+    {
+      "name_en": "Bani Surim",
+      "name_ar": "بني صريم",
+      "gov_en": "Amran"
+    },
+    {
+      "name_en": "Juban",
+      "name_ar": "جبن",
+      "gov_en": "Ad Dali"
+    },
+    {
+      "name_en": "Damt",
+      "name_ar": "دمت",
+      "gov_en": "Ad Dali"
+    },
+    {
+      "name_en": "Qatabah",
+      "name_ar": "قعطبه",
+      "gov_en": "Ad Dali"
+    },
+    {
+      "name_en": "Ash Shuayb",
+      "name_ar": "الشعيب",
+      "gov_en": "Ad Dali"
+    },
+    {
+      "name_en": "Al Hasayn",
+      "name_ar": "الحصين",
+      "gov_en": "Ad Dali"
+    },
+    {
+      "name_en": "Ad Dali",
+      "name_ar": "الضالع",
+      "gov_en": "Ad Dali"
+    },
+    {
+      "name_en": "Jahaf",
+      "name_ar": "جحاف",
+      "gov_en": "Ad Dali"
+    },
+    {
+      "name_en": "Al Azariq",
+      "name_ar": "الازارق",
+      "gov_en": "Ad Dali"
+    },
+    {
+      "name_en": "Al Husha",
+      "name_ar": "الحشاء",
+      "gov_en": "Ad Dali"
+    },
+    {
+      "name_en": "Bilad Attaam",
+      "name_ar": "بلاد الطعام",
+      "gov_en": "Raymah"
+    },
+    {
+      "name_en": "As Salafiyyah",
+      "name_ar": "السلفيه",
+      "gov_en": "Raymah"
+    },
+    {
+      "name_en": "Al Jabin",
+      "name_ar": "الجبين",
+      "gov_en": "Raymah"
+    },
+    {
+      "name_en": "Mazhar",
+      "name_ar": "مزهر",
+      "gov_en": "Raymah"
+    },
+    {
+      "name_en": "Kusmah",
+      "name_ar": "كسمه",
+      "gov_en": "Raymah"
+    },
+    {
+      "name_en": "Al Jafariyyah",
+      "name_ar": "الجعفريه",
+      "gov_en": "Raymah"
+    },
+    {
+      "name_en": "Hadibu",
+      "name_ar": "حديبو",
+      "gov_en": "Socotra"
+    },
+    {
+      "name_en": "Qalansiyah wa Abd Al Kuri",
+      "name_ar": "قلنسية وعبد الكوري",
+      "gov_en": "Socotra"
+    }
+  ]
+}

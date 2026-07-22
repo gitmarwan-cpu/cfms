@@ -32,14 +32,17 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: true,
         field: 'full_name',
       },
-      gender: {
-        type: DataTypes.ENUM('male', 'female'),
+      // الجنس والفئة العمرية أصبحا يشيران إلى reference_list_items (قوائم gender/age_group)
+      // بدل ENUM ثابت، لتكون قابلة للإدارة من لوحة الإدارة دون تعديل الكود.
+      genderItemId: {
+        type: DataTypes.INTEGER,
         allowNull: true,
+        field: 'gender_item_id',
       },
-      ageGroup: {
-        type: DataTypes.ENUM('under_18', '18_30', '31_45', '46_60', 'above_60'),
+      ageGroupItemId: {
+        type: DataTypes.INTEGER,
         allowNull: true,
-        field: 'age_group',
+        field: 'age_group_item_id',
       },
       phone: {
         type: DataTypes.STRING(30),
@@ -64,18 +67,11 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING(150),
         allowNull: true,
       },
-      // تصنيف الشكوى/المقترح
-      category: {
-        type: DataTypes.ENUM(
-          'service_quality',
-          'staff_behavior',
-          'corruption_fraud',
-          'distribution_issue',
-          'protection_gbv',
-          'suggestion',
-          'other'
-        ),
+      // تصنيف الشكوى/المقترح - يشير إلى reference_list_items (قائمة complaint_category)
+      categoryItemId: {
+        type: DataTypes.INTEGER,
         allowNull: false,
+        field: 'category_item_id',
       },
       // شكوى حساسة تتطلب مسار سرّي خاص
       isSensitive: {
@@ -93,18 +89,11 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: true,
         field: 'desired_resolution',
       },
-      // قناة استلام الطلب
-      channel: {
-        type: DataTypes.ENUM(
-          'in_person',
-          'hotline',
-          'suggestion_box',
-          'email',
-          'field_visit',
-          'website'
-        ),
+      // قناة استلام الطلب - يشير إلى reference_list_items (قائمة channel)
+      channelItemId: {
+        type: DataTypes.INTEGER,
         allowNull: false,
-        defaultValue: 'website',
+        field: 'channel_item_id',
       },
       status: {
         type: DataTypes.ENUM('new', 'in_review', 'resolved', 'closed', 'rejected'),
@@ -143,6 +132,10 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: 'assignedToUserId',
       as: 'assignedTo',
     });
+    Complaint.belongsTo(models.ReferenceListItem, { foreignKey: 'genderItemId', as: 'genderItem' });
+    Complaint.belongsTo(models.ReferenceListItem, { foreignKey: 'ageGroupItemId', as: 'ageGroupItem' });
+    Complaint.belongsTo(models.ReferenceListItem, { foreignKey: 'categoryItemId', as: 'categoryItem' });
+    Complaint.belongsTo(models.ReferenceListItem, { foreignKey: 'channelItemId', as: 'channelItem' });
     Complaint.hasMany(models.ComplaintAttachment, {
       foreignKey: 'complaintId',
       as: 'attachments',

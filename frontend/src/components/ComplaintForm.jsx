@@ -2,33 +2,11 @@ import { useEffect, useState } from 'react';
 import LocationSelect from './LocationSelect';
 import { fetchGovernorates } from '../api/locationApi';
 import { submitComplaint } from '../api/complaintApi';
+import { fetchReferenceItems } from '../api/referenceDataApi';
 
-const CATEGORY_OPTIONS = [
-  { value: 'service_quality', label: 'جودة الخدمة' },
-  { value: 'staff_behavior', label: 'سلوك موظف' },
-  { value: 'corruption_fraud', label: 'فساد / احتيال' },
-  { value: 'distribution_issue', label: 'مشكلة في التوزيع' },
-  { value: 'protection_gbv', label: 'حماية / عنف قائم على النوع الاجتماعي (حساسة)' },
-  { value: 'suggestion', label: 'مقترح تحسين' },
-  { value: 'other', label: 'أخرى' },
-];
-
-const CHANNEL_OPTIONS = [
-  { value: 'website', label: 'الموقع الإلكتروني' },
-  { value: 'in_person', label: 'حضوري' },
-  { value: 'hotline', label: 'الخط الساخن' },
-  { value: 'suggestion_box', label: 'صندوق الاقتراحات' },
-  { value: 'email', label: 'البريد الإلكتروني' },
-  { value: 'field_visit', label: 'زيارة ميدانية' },
-];
-
-const AGE_GROUP_OPTIONS = [
-  { value: 'under_18', label: 'أقل من 18' },
-  { value: '18_30', label: '18 - 30' },
-  { value: '31_45', label: '31 - 45' },
-  { value: '46_60', label: '46 - 60' },
-  { value: 'above_60', label: 'أكثر من 60' },
-];
+// القوائم التالية (التصنيف، القناة، الجنس، الفئة العمرية) لم تعد ثوابت في الكود؛
+// تُجلب من reference-data API (قابلة للإدارة من لوحة الإدارة دون تعديل برمجي).
+// راجع useEffect أدناه والحالة referenceData.
 
 const initialState = {
   type: 'complaint',
@@ -51,6 +29,13 @@ const initialState = {
 
 export default function ComplaintForm({ onSuccess }) {
   const [governorates, setGovernorates] = useState([]);
+  const [referenceData, setReferenceData] = useState({
+    complaint_category: [],
+    channel: [],
+    gender: [],
+    age_group: [],
+  });
+  const [referenceDataLoading, setReferenceDataLoading] = useState(true);
   const [values, setValues] = useState(initialState);
   const [files, setFiles] = useState([]);
   const [errors, setErrors] = useState({});
@@ -61,6 +46,39 @@ export default function ComplaintForm({ onSuccess }) {
     fetchGovernorates()
       .then(setGovernorates)
       .catch(() => setGlobalError('تعذر تحميل قائمة المحافظات، الرجاء إعادة تحميل الصفحة'));
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    const listKeys = ['complaint_category', 'channel', 'gender', 'age_group'];
+
+    Promise.all(listKeys.map((key) => fetchReferenceItems(key)))
+      .then((results) => {
+        if (!isMounted) return;
+        const next = {};
+        listKeys.forEach((key, index) => {
+          next[key] = results[index];
+        });
+        setReferenceData(next);
+
+        // إن كانت قناة "website" (الافتراضية سابقاً) لا تزال مفعّلة، أبقها كقيمة
+        // ابتدائية؛ وإلا استخدم أول قناة مفعّلة قادمة من الخادم (is_default أو الأولى).
+        const channelDefault =
+          next.channel.find((c) => c.code === 'website' || c.isDefault) || next.channel[0];
+        if (channelDefault) {
+          setValues((prev) => (prev.channel ? prev : { ...prev, channel: channelDefault.code }));
+        }
+      })
+      .catch(() =>
+        setGlobalError((prev) => prev || 'تعذر تحميل القوائم المرجعية (التصنيفات/القنوات)، الرجاء إعادة تحميل الصفحة')
+      )
+      .finally(() => {
+        if (isMounted) setReferenceDataLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const setField = (name, value) => {
@@ -196,8 +214,11 @@ export default function ComplaintForm({ onSuccess }) {
             <label htmlFor="gender">الجنس</label>
             <select id="gender" value={values.gender} onChange={(e) => setField('gender', e.target.value)}>
               <option value="">-- غير محدد --</option>
-              <option value="male">ذكر</option>
-              <option value="female">أنثى</option>
+              {referenceData.gender.map((o) => (
+                <option key={o.code} value={o.code}>
+                  {o.labelAr}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -209,9 +230,9 @@ export default function ComplaintForm({ onSuccess }) {
               onChange={(e) => setField('ageGroup', e.target.value)}
             >
               <option value="">-- غير محدد --</option>
-              {AGE_GROUP_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
+              {referenceData.age_group.map((o) => (
+                <option key={o.code} value={o.code}>
+                  {o.labelAr}
                 </option>
               ))}
             </select>
@@ -249,12 +270,13 @@ export default function ComplaintForm({ onSuccess }) {
         <select
           id="category"
           value={values.category}
+          disabled={referenceDataLoading}
           onChange={(e) => setField('category', e.target.value)}
         >
-          <option value="">-- اختر التصنيف --</option>
-          {CATEGORY_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
+          <option value="">{referenceDataLoading ? 'جارٍ التحميل...' : '-- اختر التصنيف --'}</option>
+          {referenceData.complaint_category.map((o) => (
+            <option key={o.code} value={o.code}>
+              {o.labelAr}
             </option>
           ))}
         </select>
@@ -264,9 +286,9 @@ export default function ComplaintForm({ onSuccess }) {
       <div className="field">
         <label htmlFor="channel">قناة التقديم</label>
         <select id="channel" value={values.channel} onChange={(e) => setField('channel', e.target.value)}>
-          {CHANNEL_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
+          {referenceData.channel.map((o) => (
+            <option key={o.code} value={o.code}>
+              {o.labelAr}
             </option>
           ))}
         </select>

@@ -1,39 +1,39 @@
 'use strict';
 
 const { body, param, query } = require('express-validator');
+const referenceDataService = require('../services/referenceDataService');
 
-const CATEGORY_VALUES = [
-  'service_quality',
-  'staff_behavior',
-  'corruption_fraud',
-  'distribution_issue',
-  'protection_gbv',
-  'suggestion',
-  'other',
-];
-const CHANNEL_VALUES = [
-  'in_person',
-  'hotline',
-  'suggestion_box',
-  'email',
-  'field_visit',
-  'website',
-];
+// نوع الطلب (complaint/proposal) وحالة سير العمل (status) يبقيان ثابتين لأنهما
+// تمييز بنيوي أساسي في منطق النظام (وليسا "بيانات مرجعية" قابلة للتحرير من الإدارة)،
+// خلافاً للتصنيف/القناة/الجنس/الفئة العمرية التي تُدار الآن من reference_list_items.
+const TYPE_VALUES = ['complaint', 'proposal'];
 const STATUS_VALUES = ['new', 'in_review', 'resolved', 'closed', 'rejected'];
-const AGE_GROUP_VALUES = ['under_18', '18_30', '31_45', '46_60', 'above_60'];
+
+/**
+ * يبني custom validator للتحقق أن قيمة الحقل موجودة ومفعّلة ضمن قائمة مرجعية
+ * معيّنة (بدلاً من isIn(ثابتة)). يرمي خطأ 422 عبر referenceDataService عند الفشل.
+ */
+const isActiveReferenceCode = (listKey) => async (value) => {
+  await referenceDataService.resolveActiveItem(listKey, value);
+  return true;
+};
 
 const createComplaintValidation = [
-  body('type')
-    .isIn(['complaint', 'proposal'])
-    .withMessage('نوع الطلب يجب أن يكون شكوى أو مقترح'),
+  body('type').isIn(TYPE_VALUES).withMessage('نوع الطلب يجب أن يكون شكوى أو مقترح'),
   body('isAnonymous').optional().isBoolean().toBoolean(),
   body('fullName')
     .if(body('isAnonymous').equals('false'))
     .optional({ checkFalsy: true })
     .isLength({ min: 2, max: 150 })
     .withMessage('الاسم الكامل يجب أن يكون بين 2 و150 حرفاً'),
-  body('gender').optional({ checkFalsy: true }).isIn(['male', 'female']),
-  body('ageGroup').optional({ checkFalsy: true }).isIn(AGE_GROUP_VALUES),
+  body('gender')
+    .optional({ checkFalsy: true })
+    .custom(isActiveReferenceCode('gender'))
+    .withMessage('قيمة الجنس غير صالحة'),
+  body('ageGroup')
+    .optional({ checkFalsy: true })
+    .custom(isActiveReferenceCode('age_group'))
+    .withMessage('الفئة العمرية غير صالحة'),
   body('phone')
     .optional({ checkFalsy: true })
     .matches(/^[0-9+\- ]{6,20}$/)
@@ -50,7 +50,9 @@ const createComplaintValidation = [
     .isInt({ min: 1 })
     .withMessage('معرّف المديرية غير صالح'),
   body('village').optional({ checkFalsy: true }).isLength({ max: 150 }),
-  body('category').isIn(CATEGORY_VALUES).withMessage('تصنيف الشكوى غير صالح'),
+  body('category')
+    .custom(isActiveReferenceCode('complaint_category'))
+    .withMessage('تصنيف الشكوى غير صالح'),
   body('isSensitive').optional().isBoolean().toBoolean(),
   body('description')
     .trim()
@@ -59,7 +61,10 @@ const createComplaintValidation = [
     .isLength({ min: 10, max: 5000 })
     .withMessage('الوصف يجب أن يكون بين 10 و5000 حرف'),
   body('desiredResolution').optional({ checkFalsy: true }).isLength({ max: 2000 }),
-  body('channel').optional().isIn(CHANNEL_VALUES),
+  body('channel')
+    .optional({ checkFalsy: true })
+    .custom(isActiveReferenceCode('channel'))
+    .withMessage('قناة الاستلام غير صالحة'),
   body('consentGiven')
     .toBoolean()
     .equals('true')
@@ -70,7 +75,7 @@ const listComplaintsValidation = [
   query('status').optional().isIn(STATUS_VALUES),
   query('governorateId').optional().isInt({ min: 1 }),
   query('districtId').optional().isInt({ min: 1 }),
-  query('category').optional().isIn(CATEGORY_VALUES),
+  query('category').optional().custom(isActiveReferenceCode('complaint_category')),
   query('isSensitive').optional().isBoolean(),
   query('page').optional().isInt({ min: 1 }),
   query('limit').optional().isInt({ min: 1, max: 100 }),

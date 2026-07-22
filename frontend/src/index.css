@@ -59,6 +59,15 @@ body {
   flex-shrink: 0;
 }
 
+.app-header__logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #fff;
+  flex-shrink: 0;
+}
+
 .app-header__titles h1 {
   margin: 0;
   font-size: 18px;

@@ -12,9 +12,17 @@ const STATUS_VALUES = ['new', 'in_review', 'resolved', 'closed', 'rejected'];
 /**
  * يبني custom validator للتحقق أن قيمة الحقل موجودة ومفعّلة ضمن قائمة مرجعية
  * معيّنة (بدلاً من isIn(ثابتة)). يرمي خطأ 422 عبر referenceDataService عند الفشل.
+ *
+ * تنبيه أمني مهم: يجب تمرير req.organizationId صراحة (المتوفر بعد
+ * middlewares/tenant.js) وليس تركه undefined - لأن Sequelize يتجاهل
+ * شروط where بقيمة undefined، ما يعني أن عدم تمريره كان سيجعل التحقق
+ * يقبل أي قيمة من أي مؤسسة أخرى (أو حتى القائمة النظامية) دون تمييز.
  */
-const isActiveReferenceCode = (listKey) => async (value) => {
-  await referenceDataService.resolveActiveItem(listKey, value);
+const isActiveReferenceCode = (listKey) => async (value, { req }) => {
+  if (!req.organizationId) {
+    throw new Error('سياق المؤسسة غير محدد - خطأ داخلي في ترتيب الـ middleware');
+  }
+  await referenceDataService.resolveActiveItem(listKey, value, req.organizationId);
   return true;
 };
 
@@ -61,6 +69,7 @@ const createComplaintValidation = [
     .isLength({ min: 10, max: 5000 })
     .withMessage('الوصف يجب أن يكون بين 10 و5000 حرف'),
   body('desiredResolution').optional({ checkFalsy: true }).isLength({ max: 2000 }),
+  body('beneficiaryExternalId').optional({ checkFalsy: true }).isLength({ max: 100 }),
   body('channel')
     .optional({ checkFalsy: true })
     .custom(isActiveReferenceCode('channel'))
@@ -91,9 +100,20 @@ const updateStatusValidation = [
   body('note').optional({ checkFalsy: true }).isLength({ max: 1000 }),
 ];
 
+const trackComplaintValidation = [
+  body('referenceCode').trim().notEmpty().withMessage('الرقم المرجعي مطلوب'),
+  body('pin')
+    .trim()
+    .isLength({ min: 6, max: 6 })
+    .withMessage('رمز المتابعة يجب أن يكون 6 أرقام')
+    .isNumeric()
+    .withMessage('رمز المتابعة يجب أن يكون أرقاماً فقط'),
+];
+
 module.exports = {
   createComplaintValidation,
   listComplaintsValidation,
   complaintIdParamValidation,
   updateStatusValidation,
+  trackComplaintValidation,
 };

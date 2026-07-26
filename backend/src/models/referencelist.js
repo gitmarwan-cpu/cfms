@@ -12,7 +12,14 @@ module.exports = (sequelize, DataTypes) => {
       key: {
         type: DataTypes.STRING(60),
         allowNull: false,
-        unique: true,
+      },
+      // NULL = قائمة نظامية متاحة لكل المؤسسات (Template)؛ قيمة = نسخة
+      // خاصة بمؤسسة معينة (Override) لا تظهر لغيرها. الفريدة الفعلية هي
+      // (key, organization_id) على مستوى قاعدة البيانات، وليس key وحدها.
+      organizationId: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        field: 'organization_id',
       },
       nameAr: {
         type: DataTypes.STRING(150),
@@ -45,6 +52,7 @@ module.exports = (sequelize, DataTypes) => {
   );
 
   ReferenceList.associate = (models) => {
+    ReferenceList.belongsTo(models.Organization, { foreignKey: 'organizationId', as: 'organization' });
     ReferenceList.hasMany(models.ReferenceListItem, {
       foreignKey: 'referenceListId',
       as: 'items',

@@ -1,13 +1,12 @@
 'use strict';
 
-const { param, body } = require('express-validator');
-
-const orgIdParamValidation = [param('id').isInt({ min: 1 }).withMessage('معرّف المؤسسة غير صالح')];
+const { body } = require('express-validator');
 
 const HEX_COLOR = /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/;
 
+// ملاحظة: لا يوجد param('id') هنا عمداً - المؤسسة المستهدفة تُحدَّد حصراً
+// عبر resolveAuthenticatedTenant (req.organizationId)، وليس من رابط الطلب.
 const updateOrganizationValidation = [
-  ...orgIdParamValidation,
   body('legalName').optional().trim().isLength({ min: 2, max: 200 }),
   body('shortName').optional({ checkFalsy: true }).isLength({ max: 80 }),
   body('logoUrl').optional({ checkFalsy: true }).isURL().withMessage('رابط الشعار غير صالح'),
@@ -26,4 +25,4 @@ const updateOrganizationValidation = [
   body('isActive').optional().isBoolean().toBoolean(),
 ];
 
-module.exports = { orgIdParamValidation, updateOrganizationValidation };
+module.exports = { updateOrganizationValidation };

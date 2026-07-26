@@ -2,22 +2,11 @@
 
 const { param, body } = require('express-validator');
 
-const organizationIdParamValidation = [
-  param('organizationId').isInt({ min: 1 }).withMessage('معرّف المؤسسة غير صالح'),
-];
+const typeIdParamValidation = [param('typeId').isInt({ min: 1 }).withMessage('معرّف نوع الوحدة غير صالح')];
 
-const typeIdParamValidation = [
-  ...organizationIdParamValidation,
-  param('typeId').isInt({ min: 1 }).withMessage('معرّف نوع الوحدة غير صالح'),
-];
-
-const unitIdParamValidation = [
-  ...organizationIdParamValidation,
-  param('unitId').isInt({ min: 1 }).withMessage('معرّف الوحدة التنظيمية غير صالح'),
-];
+const unitIdParamValidation = [param('unitId').isInt({ min: 1 }).withMessage('معرّف الوحدة التنظيمية غير صالح')];
 
 const createTypeValidation = [
-  ...organizationIdParamValidation,
   body('code')
     .trim()
     .matches(/^[a-z0-9_]+$/)
@@ -29,7 +18,6 @@ const createTypeValidation = [
 ];
 
 const updateTypeValidation = [
-  ...typeIdParamValidation,
   body('nameAr').optional().trim().isLength({ min: 1, max: 100 }),
   body('nameEn').optional({ checkFalsy: true }).isLength({ max: 100 }),
   body('hierarchyLevel').optional().isInt({ min: 1 }),
@@ -38,7 +26,6 @@ const updateTypeValidation = [
 ];
 
 const createUnitValidation = [
-  ...organizationIdParamValidation,
   body('orgUnitTypeId').isInt({ min: 1 }).withMessage('نوع الوحدة التنظيمية مطلوب'),
   body('parentId').optional({ checkFalsy: true }).isInt({ min: 1 }),
   body('name').trim().notEmpty().withMessage('اسم الوحدة مطلوب').isLength({ max: 200 }),
@@ -49,7 +36,6 @@ const createUnitValidation = [
 ];
 
 const updateUnitValidation = [
-  ...unitIdParamValidation,
   body('orgUnitTypeId').optional().isInt({ min: 1 }),
   body('parentId').optional({ checkFalsy: true }).isInt({ min: 1 }),
   body('name').optional().trim().isLength({ min: 1, max: 200 }),
@@ -61,7 +47,6 @@ const updateUnitValidation = [
 ];
 
 module.exports = {
-  organizationIdParamValidation,
   typeIdParamValidation,
   unitIdParamValidation,
   createTypeValidation,

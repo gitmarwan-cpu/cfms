@@ -4,25 +4,45 @@ const { Organization, Governorate } = require('../models');
 const ApiError = require('../utils/ApiError');
 
 /**
- * النظام حالياً Multi-Organization-Ready وليس Multi-Tenant بعد (حسب النطاق
- * المتفق عليه)، لذا نتعامل مع أول مؤسسة مفعّلة كإعدادات المنصة الحالية.
- * عند الانتقال إلى Multi-Tenant مستقبلاً، تُحدَّد المؤسسة عبر النطاق (domain)
- * أو التوكن بدلاً من "أول سجل" دون الحاجة لتغيير هذه الواجهة (Service API).
+ * عام (بدون مصادقة): يُستخدم من نموذج تقديم الشكوى العام لجلب الهوية
+ * البصرية للمؤسسة عبر slug الظاهر في الرابط - راجع middlewares/tenant.js
+ * (resolvePublicTenant) الذي يحقنه في req.organization أصلاً؛ هذه الدالة
+ * موجودة للاستخدام المباشر إن احتاجتها خدمة أخرى.
  */
-const getActiveOrganization = async () => {
+const getBySlug = async (slug) => {
   const organization = await Organization.findOne({
-    where: { isActive: true },
-    order: [['id', 'ASC']],
+    where: { slug, isActive: true },
     include: [{ model: Governorate, as: 'governorate', attributes: ['id', 'nameAr', 'nameEn'] }],
   });
   if (!organization) {
-    throw new ApiError(404, 'لا توجد بيانات مؤسسة مُعرَّفة بعد');
+    throw new ApiError(404, 'المؤسسة غير موجودة');
   }
   return organization;
 };
 
-const updateOrganization = async (id, payload) => {
-  const organization = await Organization.findByPk(id);
+/**
+ * محمي: يعيد إعدادات مؤسسة المستخدم الحالي فقط (organizationId من سياق
+ * المصادقة، وليس أي معرّف يُرسله العميل).
+ */
+const getOwnOrganization = async (organizationId) => {
+  const organization = await Organization.findByPk(organizationId, {
+    include: [{ model: Governorate, as: 'governorate', attributes: ['id', 'nameAr', 'nameEn'] }],
+  });
+  if (!organization) {
+    throw new ApiError(404, 'المؤسسة غير موجودة');
+  }
+  return organization;
+};
+
+/**
+ * تنبيه أمني (تمت معالجته): كانت هذه الدالة سابقاً تقبل أي id يُرسله
+ * العميل عبر رابط الطلب (PUT /api/organization/:id) دون أي تحقق أنه
+ * يخص مؤسسة المستخدم الحالي - أي أن أي admin في أي مؤسسة كان يمكنه
+ * نظرياً تعديل إعدادات مؤسسة أخرى بتخمين الرقم. الآن organizationId
+ * يأتي حصراً من resolveAuthenticatedTenant (سياق العضوية الفعلي للمستخدم).
+ */
+const updateOrganization = async (organizationId, payload) => {
+  const organization = await Organization.findByPk(organizationId);
   if (!organization) {
     throw new ApiError(404, 'المؤسسة غير موجودة');
   }
@@ -63,4 +83,4 @@ const updateOrganization = async (id, payload) => {
   return organization;
 };
 
-module.exports = { getActiveOrganization, updateOrganization };
+module.exports = { getBySlug, getOwnOrganization, updateOrganization };

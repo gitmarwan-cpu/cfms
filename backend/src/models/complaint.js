@@ -15,6 +15,35 @@ module.exports = (sequelize, DataTypes) => {
         unique: true,
         field: 'reference_code',
       },
+      // إلزامي: كل شكوى تتبع مؤسسة محددة (عزل بيانات متعدد المؤسسات).
+      // لا يجوز الاستعلام عن complaints دون تصفية بهذا الحقل - راجع
+      // utils/tenantScope.js وcomplaintService.js.
+      organizationId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        field: 'organization_id',
+      },
+      // فصل معماري: مقدّم الشكوى ليس مستخدم نظام. NULL = شكوى مجهولة
+      // بالكامل بلا أي بيانات هوية على الإطلاق.
+      complainantId: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        field: 'complainant_id',
+      },
+      // PIN آمن (bcrypt hash فقط، لا يُخزَّن كنص صريح أبداً) يُستخدم مع
+      // referenceCode لمتابعة الشكوى دون تسجيل دخول - راجع utils/pin.js
+      trackingPinHash: {
+        type: DataTypes.STRING(255),
+        allowNull: true,
+        field: 'tracking_pin_hash',
+      },
+      // NULL = المستفيد قدّم الشكوى بنفسه عبر البوابة العامة؛ قيمة = موظف
+      // نظام أدخلها نيابة عنه (حالة حضورية/هاتفية عبر لوحة الإدارة).
+      createdByUserId: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        field: 'created_by_user_id',
+      },
       // نوع الطلب: شكوى أو مقترح
       type: {
         type: DataTypes.ENUM('complaint', 'proposal'),
@@ -26,23 +55,6 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         defaultValue: false,
         field: 'is_anonymous',
-      },
-      fullName: {
-        type: DataTypes.STRING(150),
-        allowNull: true,
-        field: 'full_name',
-      },
-      // الجنس والفئة العمرية أصبحا يشيران إلى reference_list_items (قوائم gender/age_group)
-      // بدل ENUM ثابت، لتكون قابلة للإدارة من لوحة الإدارة دون تعديل الكود.
-      genderItemId: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-        field: 'gender_item_id',
-      },
-      ageGroupItemId: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-        field: 'age_group_item_id',
       },
       phone: {
         type: DataTypes.STRING(30),
@@ -120,6 +132,18 @@ module.exports = (sequelize, DataTypes) => {
   );
 
   Complaint.associate = (models) => {
+    Complaint.belongsTo(models.Organization, {
+      foreignKey: 'organizationId',
+      as: 'organization',
+    });
+    Complaint.belongsTo(models.Complainant, {
+      foreignKey: 'complainantId',
+      as: 'complainant',
+    });
+    Complaint.belongsTo(models.User, {
+      foreignKey: 'createdByUserId',
+      as: 'createdBy',
+    });
     Complaint.belongsTo(models.Governorate, {
       foreignKey: 'governorateId',
       as: 'governorate',
@@ -132,8 +156,6 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: 'assignedToUserId',
       as: 'assignedTo',
     });
-    Complaint.belongsTo(models.ReferenceListItem, { foreignKey: 'genderItemId', as: 'genderItem' });
-    Complaint.belongsTo(models.ReferenceListItem, { foreignKey: 'ageGroupItemId', as: 'ageGroupItem' });
     Complaint.belongsTo(models.ReferenceListItem, { foreignKey: 'categoryItemId', as: 'categoryItem' });
     Complaint.belongsTo(models.ReferenceListItem, { foreignKey: 'channelItemId', as: 'channelItem' });
     Complaint.hasMany(models.ComplaintAttachment, {

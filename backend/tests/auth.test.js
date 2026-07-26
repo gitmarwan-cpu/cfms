@@ -1,20 +1,15 @@
 'use strict';
 
-require('./setup');
+const { createUserWithRole } = require('./setup');
 const request = require('supertest');
-const bcrypt = require('bcryptjs');
 const app = require('../src/app');
-const { User } = require('../src/models');
 
 describe('Auth API', () => {
   beforeAll(async () => {
-    const passwordHash = await bcrypt.hash('Password123', 10);
-    await User.create({
-      fullName: 'مستخدم تجريبي',
-      email: 'test.admin@cfms.local',
-      passwordHash,
-      role: 'admin',
-    });
+    await createUserWithRole(
+      { fullName: 'مستخدم تجريبي', email: 'test.admin@cfms.local', roleCode: 'admin' },
+      'Password123'
+    );
   });
 
   it('يسجل الدخول بنجاح ببيانات صحيحة ويرجع توكن JWT', async () => {

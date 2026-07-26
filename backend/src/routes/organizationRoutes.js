@@ -3,25 +3,26 @@
 const express = require('express');
 const organizationController = require('../controllers/organizationController');
 const validate = require('../middlewares/validate');
-const { authenticate, authorize } = require('../middlewares/auth');
+const { authenticate, authorizePermission } = require('../middlewares/auth');
+const { resolveAuthenticatedTenant } = require('../middlewares/tenant');
 const { updateOrganizationValidation } = require('../validations/organizationValidation');
 
 const router = express.Router();
 
-/**
- * GET /api/organization
- * عام: يوفر بيانات الهوية البصرية (الاسم، الشعار، الألوان) للواجهة العامة.
- */
-router.get('/', organizationController.getPublicSettings);
+// المسار العام (Slug-based) انتقل إلى: GET /api/public/:orgSlug/organization
+
+router.use(authenticate, resolveAuthenticatedTenant);
+
+router.get('/', authorizePermission('organization.view'), organizationController.getOwnSettings);
 
 /**
- * PUT /api/organization/:id
- * محمي (admin فقط): تحديث إعدادات المؤسسة من لوحة الإدارة.
+ * PUT /api/organization
+ * تنبيه أمني (تمت معالجته): لم يعد يقبل :id من الرابط - العميل لا يستطيع
+ * تحديد أي مؤسسة يعدّل؛ المؤسسة هي دائماً مؤسسة المستخدم الحالي حصراً.
  */
 router.put(
-  '/:id',
-  authenticate,
-  authorize('admin'),
+  '/',
+  authorizePermission('organization.manage'),
   validate(updateOrganizationValidation),
   organizationController.updateSettings
 );

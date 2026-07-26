@@ -3,9 +3,9 @@
 const express = require('express');
 const orgUnitController = require('../controllers/orgUnitController');
 const validate = require('../middlewares/validate');
-const { authenticate, authorize } = require('../middlewares/auth');
+const { authenticate, authorizePermission } = require('../middlewares/auth');
+const { resolveAuthenticatedTenant } = require('../middlewares/tenant');
 const {
-  organizationIdParamValidation,
   typeIdParamValidation,
   unitIdParamValidation,
   createTypeValidation,
@@ -14,22 +14,49 @@ const {
   updateUnitValidation,
 } = require('../validations/orgUnitValidation');
 
-const router = express.Router({ mergeParams: true });
+const router = express.Router();
 
-// كل مسارات الهيكل التنظيمي محمية بصلاحية admin فقط (لوحة الإدارة)
-router.use(authenticate, authorize('admin'));
+/**
+ * تنبيه أمني (تمت معالجته): كانت هذه المسارات سابقاً تأخذ organizationId
+ * من الرابط مباشرة (/:organizationId/units)، وهو ما يسمح نظرياً لأي مستخدم
+ * مصادَق عليه بتغيير الرقم في الرابط للوصول لهيكل مؤسسة أخرى بالكامل.
+ * الآن: المؤسسة المستهدفة تُحدَّد حصراً عبر resolveAuthenticatedTenant
+ * (يتحقق من عضوية المستخدم الفعلية عبر user_organizations)، وليس من الرابط.
+ */
+router.use(authenticate, resolveAuthenticatedTenant);
 
 // --- أنواع الوحدات (مستويات الهيكل القابلة للتخصيص) ---
-router.get('/:organizationId/unit-types', validate(organizationIdParamValidation), orgUnitController.listTypes);
-router.post('/:organizationId/unit-types', validate(createTypeValidation), orgUnitController.createType);
-router.put('/:organizationId/unit-types/:typeId', validate(updateTypeValidation), orgUnitController.updateType);
+router.get('/unit-types', authorizePermission('org_structure.view'), orgUnitController.listTypes);
+router.post(
+  '/unit-types',
+  authorizePermission('org_structure.manage'),
+  validate(createTypeValidation),
+  orgUnitController.createType
+);
+router.put(
+  '/unit-types/:typeId',
+  authorizePermission('org_structure.manage'),
+  validate([...typeIdParamValidation, ...updateTypeValidation]),
+  orgUnitController.updateType
+);
 
 // --- الوحدات التنظيمية الفعلية (الشجرة) ---
-router.get('/:organizationId/units', validate(organizationIdParamValidation), orgUnitController.listUnits);
-router.post('/:organizationId/units', validate(createUnitValidation), orgUnitController.createUnit);
-router.put('/:organizationId/units/:unitId', validate(updateUnitValidation), orgUnitController.updateUnit);
+router.get('/units', authorizePermission('org_structure.view'), orgUnitController.listUnits);
+router.post(
+  '/units',
+  authorizePermission('org_structure.manage'),
+  validate(createUnitValidation),
+  orgUnitController.createUnit
+);
+router.put(
+  '/units/:unitId',
+  authorizePermission('org_structure.manage'),
+  validate([...unitIdParamValidation, ...updateUnitValidation]),
+  orgUnitController.updateUnit
+);
 router.patch(
-  '/:organizationId/units/:unitId/deactivate',
+  '/units/:unitId/deactivate',
+  authorizePermission('org_structure.manage'),
   validate(unitIdParamValidation),
   orgUnitController.deactivateUnit
 );

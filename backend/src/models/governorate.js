@@ -26,6 +26,11 @@ module.exports = (sequelize, DataTypes) => {
         defaultValue: true,
         field: 'is_active',
       },
+      countryId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        field: 'country_id',
+      },
     },
     {
       tableName: 'governorates',
@@ -35,6 +40,7 @@ module.exports = (sequelize, DataTypes) => {
   );
 
   Governorate.associate = (models) => {
+    Governorate.belongsTo(models.Country, { foreignKey: 'countryId', as: 'country' });
     Governorate.hasMany(models.District, {
       foreignKey: 'governorateId',
       as: 'districts',

@@ -1,42 +1,38 @@
 'use strict';
 
-require('./setup');
+const { createUserWithRole, createOrganization, getSeedGovernorateId } = require('./setup');
 const request = require('supertest');
-const bcrypt = require('bcryptjs');
 const app = require('../src/app');
-const { User } = require('../src/models');
 
 describe('Reference Data API', () => {
   let adminToken;
+  let organization;
 
   beforeAll(async () => {
-    const passwordHash = await bcrypt.hash('Password123', 10);
-    const admin = await User.create({
-      fullName: 'مدير النظام',
-      email: 'ref.admin@cfms.local',
-      passwordHash,
-      role: 'admin',
-    });
+    organization = await createOrganization({ legalName: 'مؤسسة البيانات المرجعية', slug: 'test-org-refdata' });
 
-    const res = await request(app)
-      .post('/api/auth/login')
-      .send({ email: admin.email, password: 'Password123' });
+    const { user } = await createUserWithRole(
+      { fullName: 'مدير النظام', email: 'ref.admin@cfms.local', roleCode: 'admin', organizationId: organization.id },
+      'Password123'
+    );
+
+    const res = await request(app).post('/api/auth/login').send({ email: user.email, password: 'Password123' });
     adminToken = res.body.data.token;
   });
 
-  it('يعيد عناصر قائمة complaint_category المفعّلة بدون مصادقة', async () => {
-    const res = await request(app).get('/api/reference-data/complaint_category/items');
+  it('يعيد عناصر قائمة complaint_category المفعّلة بدون مصادقة عبر البوابة العامة', async () => {
+    const res = await request(app).get(`/api/public/${organization.slug}/reference-data/complaint_category/items`);
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.data.some((item) => item.code === 'service_quality')).toBe(true);
   });
 
-  it('يرفض الوصول لقائمة كل القوائم بدون توكن admin', async () => {
+  it('يرفض الوصول لقائمة كل القوائم الإدارية بدون توكن', async () => {
     const res = await request(app).get('/api/reference-data');
     expect(res.status).toBe(401);
   });
 
-  it('يسمح للـ admin بإضافة عنصر جديد إلى قائمة موجودة', async () => {
+  it('يسمح للـ admin بإضافة عنصر جديد إلى قائمة موجودة (يُنشئ نسخة خاصة بمؤسسته - Copy-on-Write)', async () => {
     const res = await request(app)
       .post('/api/reference-data/channel/items')
       .set('Authorization', `Bearer ${adminToken}`)
@@ -45,11 +41,11 @@ describe('Reference Data API', () => {
     expect(res.status).toBe(201);
     expect(res.body.data.code).toBe('whatsapp');
 
-    const publicRes = await request(app).get('/api/reference-data/channel/items');
+    const publicRes = await request(app).get(`/api/public/${organization.slug}/reference-data/channel/items`);
     expect(publicRes.body.data.some((item) => item.code === 'whatsapp')).toBe(true);
   });
 
-  it('يمنع تكرار نفس الرمز (code) ضمن نفس القائمة', async () => {
+  it('يمنع تكرار نفس الرمز (code) ضمن نسخة مؤسسته من نفس القائمة', async () => {
     const res = await request(app)
       .post('/api/reference-data/channel/items')
       .set('Authorization', `Bearer ${adminToken}`)
@@ -58,7 +54,7 @@ describe('Reference Data API', () => {
     expect(res.status).toBe(409);
   });
 
-  it('عند إلغاء تفعيل عنصر، يختفي من قائمة الاستهلاك العامة', async () => {
+  it('عند إلغاء تفعيل عنصر، يختفي من قائمة الاستهلاك العامة لنفس المؤسسة فقط', async () => {
     const createRes = await request(app)
       .post('/api/reference-data/channel/items')
       .set('Authorization', `Bearer ${adminToken}`)
@@ -70,16 +66,17 @@ describe('Reference Data API', () => {
       .patch(`/api/reference-data/channel/items/${itemId}/deactivate`)
       .set('Authorization', `Bearer ${adminToken}`);
 
-    const publicRes = await request(app).get('/api/reference-data/channel/items');
+    const publicRes = await request(app).get(`/api/public/${organization.slug}/reference-data/channel/items`);
     expect(publicRes.body.data.some((item) => item.code === 'temp_channel')).toBe(false);
   });
 
   it('يرفض إنشاء شكوى بتصنيف غير موجود ضمن reference_list_items', async () => {
+    const districtId = 1;
     const res = await request(app)
-      .post('/api/complaints')
+      .post(`/api/public/${organization.slug}/complaints`)
       .field('type', 'complaint')
-      .field('governorateId', '1')
-      .field('districtId', '2')
+      .field('governorateId', String(getSeedGovernorateId()))
+      .field('districtId', String(districtId))
       .field('category', 'not_a_real_category')
       .field('description', 'نص وصف كافٍ لاختبار رفض تصنيف غير موجود فعلياً')
       .field('consentGiven', 'true');

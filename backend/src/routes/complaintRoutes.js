@@ -4,7 +4,8 @@ const express = require('express');
 const complaintController = require('../controllers/complaintController');
 const validate = require('../middlewares/validate');
 const upload = require('../middlewares/upload');
-const { authenticate, authorize } = require('../middlewares/auth');
+const { authenticate, authorizePermission } = require('../middlewares/auth');
+const { resolveAuthenticatedTenant } = require('../middlewares/tenant');
 const {
   createComplaintValidation,
   listComplaintsValidation,
@@ -14,50 +15,42 @@ const {
 
 const router = express.Router();
 
+// المسار العام (تقديم/متابعة بلا مصادقة) انتقل إلى:
+// POST /api/public/:orgSlug/complaints
+// POST /api/public/:orgSlug/complaints/track
+
+router.use(authenticate, resolveAuthenticatedTenant);
+
 /**
  * POST /api/complaints
- * مسار عام (بدون مصادقة) لتقديم شكوى أو مقترح من قبل أي مستفيد،
- * يدعم إرفاق حتى 3 ملفات (صور/PDF).
+ * تسجيل شكوى نيابة عن مستفيد من قبل موظف (حالة حضورية/هاتفية) - يُسجَّل
+ * createdByUserId تلقائياً من الموظف المصادَق عليه، وليس أي قيمة من body.
  */
 router.post(
   '/',
+  authorizePermission('complaints.create'),
   upload.array('attachments', 3),
   validate(createComplaintValidation),
-  complaintController.createComplaint
+  complaintController.createStaffComplaint
 );
 
-/**
- * GET /api/complaints
- * مسار محمي (staff/admin فقط) لعرض قائمة الشكاوى مع فلاتر وترقيم صفحات
- */
 router.get(
   '/',
-  authenticate,
-  authorize('admin', 'staff'),
+  authorizePermission('complaints.view_all'),
   validate(listComplaintsValidation),
   complaintController.listComplaints
 );
 
-/**
- * GET /api/complaints/:id
- * مسار محمي لعرض تفاصيل شكوى واحدة
- */
 router.get(
   '/:id',
-  authenticate,
-  authorize('admin', 'staff'),
+  authorizePermission('complaints.view_all'),
   validate(complaintIdParamValidation),
   complaintController.getComplaint
 );
 
-/**
- * PATCH /api/complaints/:id/status
- * مسار محمي لتحديث حالة الشكوى (قيد المراجعة/تم الحل/مغلقة...)
- */
 router.patch(
   '/:id/status',
-  authenticate,
-  authorize('admin', 'staff'),
+  authorizePermission('complaints.assign'),
   validate(updateStatusValidation),
   complaintController.updateComplaintStatus
 );

@@ -1,54 +1,42 @@
 'use strict';
 
-require('./setup');
+const { createUserWithRole, createOrganization } = require('./setup');
 const request = require('supertest');
-const bcrypt = require('bcryptjs');
 const app = require('../src/app');
-const { User, Organization } = require('../src/models');
 
 describe('Organization Settings API', () => {
   let adminToken;
-  let organizationId;
+  let organization;
 
   beforeAll(async () => {
-    const org = await Organization.create({
-      legalName: 'مؤسسة تجريبية للاختبار',
-      shortName: 'TestOrg',
-      primaryColor: '#0e5f66',
-    });
-    organizationId = org.id;
+    organization = await createOrganization({ legalName: 'مؤسسة تجريبية للاختبار', slug: 'test-org-settings' });
+    organization.primaryColor = '#0e5f66';
+    await organization.save();
 
-    const passwordHash = await bcrypt.hash('Password123', 10);
-    const admin = await User.create({
-      fullName: 'مدير المؤسسة',
-      email: 'org.admin@cfms.local',
-      passwordHash,
-      role: 'admin',
-    });
+    const { user } = await createUserWithRole(
+      { fullName: 'مدير المؤسسة', email: 'org.admin@cfms.local', roleCode: 'admin', organizationId: organization.id },
+      'Password123'
+    );
 
-    const res = await request(app)
-      .post('/api/auth/login')
-      .send({ email: admin.email, password: 'Password123' });
+    const res = await request(app).post('/api/auth/login').send({ email: user.email, password: 'Password123' });
     adminToken = res.body.data.token;
   });
 
-  it('يعيد إعدادات المؤسسة العامة (الهوية البصرية) بدون مصادقة', async () => {
-    const res = await request(app).get('/api/organization');
+  it('يعيد إعدادات المؤسسة العامة (الهوية البصرية) عبر البوابة العامة بدون مصادقة', async () => {
+    const res = await request(app).get(`/api/public/${organization.slug}/organization`);
     expect(res.status).toBe(200);
     expect(res.body.data.legalName).toBe('مؤسسة تجريبية للاختبار');
     expect(res.body.data.primaryColor).toBe('#0e5f66');
   });
 
-  it('يرفض تحديث إعدادات المؤسسة بدون صلاحية admin', async () => {
-    const res = await request(app)
-      .put(`/api/organization/${organizationId}`)
-      .send({ primaryColor: '#111111' });
+  it('يرفض جلب إعدادات المؤسسة الإدارية بدون توكن', async () => {
+    const res = await request(app).get('/api/organization');
     expect(res.status).toBe(401);
   });
 
-  it('يسمح للـ admin بتحديث الهوية البصرية والألوان', async () => {
+  it('يسمح للـ admin بتحديث الهوية البصرية والألوان (بلا الحاجة لتمرير أي معرّف مؤسسة)', async () => {
     const res = await request(app)
-      .put(`/api/organization/${organizationId}`)
+      .put('/api/organization')
       .set('Authorization', `Bearer ${adminToken}`)
       .send({ primaryColor: '#123456', shortName: 'NewShort' });
 
@@ -59,7 +47,7 @@ describe('Organization Settings API', () => {
 
   it('يرفض تحديث الألوان بصيغة hex غير صالحة', async () => {
     const res = await request(app)
-      .put(`/api/organization/${organizationId}`)
+      .put('/api/organization')
       .set('Authorization', `Bearer ${adminToken}`)
       .send({ primaryColor: 'not-a-color' });
     expect(res.status).toBe(422);
@@ -68,31 +56,29 @@ describe('Organization Settings API', () => {
 
 describe('Organizational Structure API (flexible hierarchy)', () => {
   let adminToken;
-  let organizationId;
   let branchTypeId;
   let departmentTypeId;
 
   beforeAll(async () => {
-    const org = await Organization.create({ legalName: 'مؤسسة الهيكل التنظيمي' });
-    organizationId = org.id;
+    const organization = await createOrganization({ legalName: 'مؤسسة الهيكل التنظيمي', slug: 'test-org-structure' });
 
-    const passwordHash = await bcrypt.hash('Password123', 10);
-    const admin = await User.create({
-      fullName: 'مدير الهيكل',
-      email: 'structure.admin@cfms.local',
-      passwordHash,
-      role: 'admin',
-    });
+    const { user } = await createUserWithRole(
+      {
+        fullName: 'مدير الهيكل',
+        email: 'structure.admin@cfms.local',
+        roleCode: 'admin',
+        organizationId: organization.id,
+      },
+      'Password123'
+    );
 
-    const res = await request(app)
-      .post('/api/auth/login')
-      .send({ email: admin.email, password: 'Password123' });
+    const res = await request(app).post('/api/auth/login').send({ email: user.email, password: 'Password123' });
     adminToken = res.body.data.token;
   });
 
   it('ينشئ نوع وحدة تنظيمية من المستوى الأول (فرع/قطاع)', async () => {
     const res = await request(app)
-      .post(`/api/org-structure/${organizationId}/unit-types`)
+      .post('/api/org-structure/unit-types')
       .set('Authorization', `Bearer ${adminToken}`)
       .send({ code: 'branch_sector', nameAr: 'فرع / قطاع', hierarchyLevel: 1 });
 
@@ -102,7 +88,7 @@ describe('Organizational Structure API (flexible hierarchy)', () => {
 
   it('ينشئ نوع وحدة تنظيمية من المستوى الثاني (قسم) يشترط أباً من نوع الفرع', async () => {
     const res = await request(app)
-      .post(`/api/org-structure/${organizationId}/unit-types`)
+      .post('/api/org-structure/unit-types')
       .set('Authorization', `Bearer ${adminToken}`)
       .send({ code: 'department', nameAr: 'قسم', hierarchyLevel: 2, allowedParentTypeId: branchTypeId });
 
@@ -112,7 +98,7 @@ describe('Organizational Structure API (flexible hierarchy)', () => {
 
   it('ينشئ وحدة من نوع فرع مباشرة تحت المؤسسة', async () => {
     const res = await request(app)
-      .post(`/api/org-structure/${organizationId}/units`)
+      .post('/api/org-structure/units')
       .set('Authorization', `Bearer ${adminToken}`)
       .send({ orgUnitTypeId: branchTypeId, name: 'فرع صنعاء' });
 
@@ -121,7 +107,7 @@ describe('Organizational Structure API (flexible hierarchy)', () => {
 
   it('يرفض إنشاء وحدة قسم بدون تحديد وحدة أم من النوع المسموح', async () => {
     const res = await request(app)
-      .post(`/api/org-structure/${organizationId}/units`)
+      .post('/api/org-structure/units')
       .set('Authorization', `Bearer ${adminToken}`)
       .send({ orgUnitTypeId: departmentTypeId, name: 'قسم الشكاوى' });
 
@@ -130,13 +116,13 @@ describe('Organizational Structure API (flexible hierarchy)', () => {
 
   it('ينشئ وحدة قسم بنجاح عندما تكون تابعة لفرع', async () => {
     const branchRes = await request(app)
-      .post(`/api/org-structure/${organizationId}/units`)
+      .post('/api/org-structure/units')
       .set('Authorization', `Bearer ${adminToken}`)
       .send({ orgUnitTypeId: branchTypeId, name: 'فرع عدن' });
     const branchUnitId = branchRes.body.data.id;
 
     const res = await request(app)
-      .post(`/api/org-structure/${organizationId}/units`)
+      .post('/api/org-structure/units')
       .set('Authorization', `Bearer ${adminToken}`)
       .send({ orgUnitTypeId: departmentTypeId, name: 'قسم الشكاوى', parentId: branchUnitId });
 

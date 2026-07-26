@@ -10,13 +10,17 @@ const login = catchAsync(async (req, res) => {
 });
 
 const register = catchAsync(async (req, res) => {
-  const user = await authService.register(req.body);
+  const user = await authService.register(req.organizationId, req.body);
   const { passwordHash, ...userSafe } = user.toJSON();
   res.status(201).json({ success: true, message: 'تم إنشاء المستخدم بنجاح', data: userSafe });
 });
 
 const me = catchAsync(async (req, res) => {
-  res.status(200).json({ success: true, data: req.user });
+  const { passwordHash, ...userSafe } = req.user.toJSON();
+  res.status(200).json({
+    success: true,
+    data: { ...userSafe, roleCodes: req.user.roleCodes, permissions: req.user.permissions },
+  });
 });
 
 module.exports = { login, register, me };

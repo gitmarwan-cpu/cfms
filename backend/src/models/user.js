@@ -25,16 +25,24 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         field: 'password_hash',
       },
-      role: {
-        type: DataTypes.ENUM('admin', 'staff'),
-        allowNull: false,
-        defaultValue: 'staff',
-      },
       isActive: {
         type: DataTypes.BOOLEAN,
         allowNull: false,
         defaultValue: true,
         field: 'is_active',
+      },
+      orgUnitId: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        field: 'org_unit_id',
+      },
+      // مؤسسة المستخدم الافتراضية (إلزامية منطقياً لأي مستخدم جديد عدا
+      // المدير الأول في Bootstrap) - مؤشر سريع فوق user_organizations،
+      // لا يُلغي علاقة M:N الفعلية.
+      defaultOrganizationId: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        field: 'default_organization_id',
       },
     },
     {
@@ -61,6 +69,16 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: 'changedByUserId',
       as: 'statusChanges',
     });
+    User.belongsTo(models.OrgUnit, { foreignKey: 'orgUnitId', as: 'orgUnit' });
+    User.belongsTo(models.Organization, { foreignKey: 'defaultOrganizationId', as: 'defaultOrganization' });
+    User.hasMany(models.UserRole, { foreignKey: 'userId', as: 'userRoles' });
+    User.belongsToMany(models.Organization, {
+      through: models.UserOrganization,
+      foreignKey: 'userId',
+      otherKey: 'organizationId',
+      as: 'organizations',
+    });
+    User.hasMany(models.UserOrganization, { foreignKey: 'userId', as: 'organizationMemberships' });
   };
 
   return User;

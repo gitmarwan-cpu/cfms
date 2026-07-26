@@ -15,7 +15,11 @@ const registerValidation = [
     .withMessage('كلمة المرور يجب ألا تقل عن 8 أحرف')
     .matches(/\d/)
     .withMessage('يجب أن تحتوي كلمة المرور على رقم واحد على الأقل'),
-  body('role').optional().isIn(['admin', 'staff']),
+  // roleCode لم يعد مقيّداً بقائمة ثابتة (isIn) لأن الأدوار أصبحت بيانات
+  // قابلة للإدارة من لوحة الإدارة؛ التحقق من وجود الدور وتفعيله يتم في
+  // authService.register عبر الاستعلام الفعلي عن جدول roles.
+  body('roleCode').optional().isLength({ min: 2, max: 60 }),
+  body('orgUnitId').optional({ checkFalsy: true }).isInt({ min: 1 }),
 ];
 
 module.exports = { loginValidation, registerValidation };

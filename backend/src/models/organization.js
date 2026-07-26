@@ -11,6 +11,9 @@ module.exports = (sequelize, DataTypes) => {
       },
       legalName: { type: DataTypes.STRING(200), allowNull: false, field: 'legal_name' },
       shortName: { type: DataTypes.STRING(80), allowNull: true, field: 'short_name' },
+      // مُعرِّف علني قصير وفريد يُستخدم في رابط نموذج الشكوى العام لكل مؤسسة
+      // (تحديد المؤسسة المستهدفة لمستخدم غير مسجَّل دخوله إطلاقاً).
+      slug: { type: DataTypes.STRING(80), allowNull: false, unique: true },
       logoUrl: { type: DataTypes.STRING(500), allowNull: true, field: 'logo_url' },
       faviconUrl: { type: DataTypes.STRING(500), allowNull: true, field: 'favicon_url' },
       description: { type: DataTypes.TEXT, allowNull: true },
@@ -56,6 +59,12 @@ module.exports = (sequelize, DataTypes) => {
     Organization.belongsTo(models.Governorate, { foreignKey: 'governorateId', as: 'governorate' });
     Organization.hasMany(models.OrgUnitType, { foreignKey: 'organizationId', as: 'unitTypes' });
     Organization.hasMany(models.OrgUnit, { foreignKey: 'organizationId', as: 'units' });
+    Organization.belongsToMany(models.User, {
+      through: models.UserOrganization,
+      foreignKey: 'organizationId',
+      otherKey: 'userId',
+      as: 'members',
+    });
   };
 
   return Organization;

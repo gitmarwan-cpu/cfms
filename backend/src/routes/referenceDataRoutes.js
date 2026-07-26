@@ -3,7 +3,8 @@
 const express = require('express');
 const referenceDataController = require('../controllers/referenceDataController');
 const validate = require('../middlewares/validate');
-const { authenticate, authorize } = require('../middlewares/auth');
+const { authenticate, authorizePermission } = require('../middlewares/auth');
+const { resolveAuthenticatedTenant } = require('../middlewares/tenant');
 const {
   listKeyParamValidation,
   itemIdParamValidation,
@@ -13,46 +14,38 @@ const {
 
 const router = express.Router();
 
-/**
- * GET /api/reference-data/:key/items
- * مسار عام (بدون مصادقة) يُستخدم من نموذج تقديم الشكوى وأي واجهة عامة
- * لجلب القوائم المرجعية (التصنيفات، القنوات، الأعمار...) بدلاً من ثوابت الكود.
- */
-router.get('/:key/items', validate(listKeyParamValidation), referenceDataController.getPublicItems);
+// المسار العام (بدون مصادقة) لجلب عناصر قائمة معينة لنموذج تقديم الشكوى
+// انتقل إلى publicRoutes.js تحت /api/public/:orgSlug/reference-data/:key/items
+// لأنه يعتمد على تحديد المؤسسة عبر slug وليس عبر جلسة موظف مسجَّل دخوله.
 
-/**
- * كل ما يلي محمي بصلاحية admin فقط لإدارة البيانات المرجعية من لوحة الإدارة.
- */
-router.get('/', authenticate, authorize('admin'), referenceDataController.listAllLists);
+router.use(authenticate, resolveAuthenticatedTenant);
+
+router.get('/', authorizePermission('reference_data.view'), referenceDataController.listAllLists);
 
 router.get(
   '/:key/items/admin',
-  authenticate,
-  authorize('admin'),
+  authorizePermission('reference_data.view'),
   validate(listKeyParamValidation),
   referenceDataController.getAdminItems
 );
 
 router.post(
   '/:key/items',
-  authenticate,
-  authorize('admin'),
+  authorizePermission('reference_data.manage'),
   validate(createItemValidation),
   referenceDataController.createItem
 );
 
 router.put(
   '/:key/items/:itemId',
-  authenticate,
-  authorize('admin'),
+  authorizePermission('reference_data.manage'),
   validate(updateItemValidation),
   referenceDataController.updateItem
 );
 
 router.patch(
   '/:key/items/:itemId/deactivate',
-  authenticate,
-  authorize('admin'),
+  authorizePermission('reference_data.manage'),
   validate(itemIdParamValidation),
   referenceDataController.deactivateItem
 );

@@ -91,6 +91,15 @@ const LISTS = [
 
 module.exports = {
   up: async (queryInterface) => {
+    // حارس idempotency (نفس السبب الجذري الموثّق في seed-governorates-districts):
+    // sequelize-cli يُعيد تشغيل db:seed:all بلا تتبّع افتراضياً.
+    const [[{ count }]] = await queryInterface.sequelize.query(
+      `SELECT COUNT(*)::int FROM reference_lists WHERE organization_id IS NULL;`
+    );
+    if (count > 0) {
+      return;
+    }
+
     const now = new Date();
 
     for (const list of LISTS) {

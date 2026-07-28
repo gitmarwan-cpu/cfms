@@ -6,7 +6,7 @@ export default function ComplaintPage() {
   const [result, setResult] = useState(null);
 
   if (result) {
-    return <SuccessPage referenceCode={result.referenceCode} onReset={() => setResult(null)} />;
+    return <SuccessPage referenceCode={result.referenceCode} trackingPin={result.trackingPin} onReset={() => setResult(null)} />;
   }
 
   return (

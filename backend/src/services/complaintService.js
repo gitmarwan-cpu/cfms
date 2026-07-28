@@ -109,8 +109,6 @@ const createComplaint = async (organizationId, payload, files = [], createdByUse
         createdByUserId,
         type: payload.type,
         isAnonymous: !!payload.isAnonymous,
-        phone: payload.isAnonymous ? null : payload.phone,
-        email: payload.isAnonymous ? null : payload.email,
         governorateId: payload.governorateId,
         districtId: payload.districtId,
         village: payload.village || null,

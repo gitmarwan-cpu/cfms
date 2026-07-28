@@ -3,6 +3,7 @@ import LocationSelect from './LocationSelect';
 import { fetchGovernorates } from '../api/locationApi';
 import { submitComplaint } from '../api/complaintApi';
 import { fetchReferenceItems } from '../api/referenceDataApi';
+import { useOrganization } from '../context/OrganizationContext';
 
 // القوائم التالية (التصنيف، القناة، الجنس، الفئة العمرية) لم تعد ثوابت في الكود؛
 // تُجلب من reference-data API (قابلة للإدارة من لوحة الإدارة دون تعديل برمجي).
@@ -28,6 +29,7 @@ const initialState = {
 };
 
 export default function ComplaintForm({ onSuccess }) {
+  const { orgSlug, loading: orgLoading, error: orgError } = useOrganization() || {};
   const [governorates, setGovernorates] = useState([]);
   const [referenceData, setReferenceData] = useState({
     complaint_category: [],
@@ -49,10 +51,15 @@ export default function ComplaintForm({ onSuccess }) {
   }, []);
 
   useEffect(() => {
+    // لا تُحمَّل أي بيانات مرجعية قبل أن يُحسم orgSlug فعلياً من الرابط -
+    // منعاً لأي طلب بلا سياق مؤسسة صالح.
+    if (!orgSlug) return undefined;
+
     let isMounted = true;
+    setReferenceDataLoading(true);
     const listKeys = ['complaint_category', 'channel', 'gender', 'age_group'];
 
-    Promise.all(listKeys.map((key) => fetchReferenceItems(key)))
+    Promise.all(listKeys.map((key) => fetchReferenceItems(key, orgSlug)))
       .then((results) => {
         if (!isMounted) return;
         const next = {};
@@ -79,7 +86,7 @@ export default function ComplaintForm({ onSuccess }) {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [orgSlug]);
 
   const setField = (name, value) => {
     setValues((prev) => ({ ...prev, [name]: value }));
@@ -118,7 +125,7 @@ export default function ComplaintForm({ onSuccess }) {
     setSubmitting(true);
     try {
       const payload = { ...values };
-      const result = await submitComplaint(payload, files);
+      const result = await submitComplaint(orgSlug, payload, files);
       onSuccess(result);
     } catch (err) {
       if (err.details && err.details.length > 0) {
@@ -133,6 +140,18 @@ export default function ComplaintForm({ onSuccess }) {
       setSubmitting(false);
     }
   };
+
+  if (orgError) {
+    return (
+      <div className="alert alert-danger" role="alert">
+        {orgError}
+      </div>
+    );
+  }
+
+  if (orgLoading) {
+    return <p>جارٍ تحميل بيانات المؤسسة...</p>;
+  }
 
   return (
     <form className="form-grid" onSubmit={handleSubmit} noValidate>

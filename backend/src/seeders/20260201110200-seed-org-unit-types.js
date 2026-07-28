@@ -16,6 +16,15 @@ module.exports = {
     if (!orgRows.length) return;
     const organizationId = orgRows[0].id;
 
+    // حارس idempotency: تخطَّ إن كانت هذه المؤسسة تملك أنواع وحدات بالفعل
+    const [[{ count }]] = await queryInterface.sequelize.query(
+      `SELECT COUNT(*)::int FROM org_unit_types WHERE organization_id = :organizationId;`,
+      { replacements: { organizationId } }
+    );
+    if (count > 0) {
+      return;
+    }
+
     const [branchRow] = await queryInterface.sequelize.query(
       `INSERT INTO org_unit_types
         (organization_id, code, name_ar, name_en, hierarchy_level, allowed_parent_type_id, is_active, created_at, updated_at)

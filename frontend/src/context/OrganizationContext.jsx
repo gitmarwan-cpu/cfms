@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { fetchOrganizationSettings } from '../api/organizationApi';
 
 const OrganizationContext = createContext(null);
@@ -30,23 +31,40 @@ const applyBrandingCssVars = (organization) => {
   }
 };
 
+/**
+ * مصدر الحقيقة الوحيد لتحديد orgSlug داخل الواجهة: جزء من مسار الرابط
+ * (Route param)، مثال /:orgSlug و/:orgSlug/track. لا يوجد أي orgSlug
+ * افتراضي مكتوب في الكود - إن لم يكن موجوداً في الرابط، لا تُحمَّل أي
+ * بيانات مؤسسة، ويظهر ذلك بوضوح في الحالة (organization = null, error).
+ */
 export function OrganizationProvider({ children }) {
+  const { orgSlug } = useParams();
   const [organization, setOrganization] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
+    if (!orgSlug) {
+      setLoading(false);
+      setError('لم يتم تحديد رابط مؤسسة صالح');
+      return undefined;
+    }
+
     let isMounted = true;
-    fetchOrganizationSettings()
+    setLoading(true);
+    setError('');
+
+    fetchOrganizationSettings(orgSlug)
       .then((data) => {
         if (!isMounted) return;
         setOrganization(data);
         applyBrandingCssVars(data);
       })
       .catch(() => {
-        // فشل الجلب لا يجب أن يكسر نموذج تقديم الشكوى؛ تبقى الألوان الافتراضية
-        // من index.css سارية كـ fallback آمن.
-        if (isMounted) setError('تعذر تحميل إعدادات المؤسسة، تم استخدام الإعدادات الافتراضية');
+        // فشل الجلب لا يجب أن يكسر نموذج تقديم الشكوى بالكامل؛ تبقى الألوان
+        // الافتراضية من index.css سارية كـ fallback آمن، لكن لا بيانات مرجعية
+        // توهمية - المكوّنات المستهلكة يجب أن تتعامل مع organization = null.
+        if (isMounted) setError('تعذر تحميل إعدادات المؤسسة - تحقق من صحة رابط المؤسسة (orgSlug)');
       })
       .finally(() => {
         if (isMounted) setLoading(false);
@@ -55,10 +73,10 @@ export function OrganizationProvider({ children }) {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [orgSlug]);
 
   return (
-    <OrganizationContext.Provider value={{ organization, loading, error }}>
+    <OrganizationContext.Provider value={{ organization, orgSlug, loading, error }}>
       {children}
     </OrganizationContext.Provider>
   );

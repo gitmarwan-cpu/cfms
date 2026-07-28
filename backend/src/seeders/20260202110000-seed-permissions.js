@@ -84,7 +84,7 @@ module.exports = {
       `
       INSERT INTO role_permissions (role_id, permission_id, created_at)
       VALUES ${allMappings.join(',\n')}
-      ON CONFLICT ON CONSTRAINT role_permissions_unique DO NOTHING;
+      ON CONFLICT (role_id, permission_id) DO NOTHING;
       `,
       { replacements: { now } }
     );

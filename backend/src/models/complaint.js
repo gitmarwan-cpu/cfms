@@ -56,15 +56,8 @@ module.exports = (sequelize, DataTypes) => {
         defaultValue: false,
         field: 'is_anonymous',
       },
-      phone: {
-        type: DataTypes.STRING(30),
-        allowNull: true,
-      },
-      email: {
-        type: DataTypes.STRING(150),
-        allowNull: true,
-        validate: { isEmail: true },
-      },
+      // ملاحظة: لا يوجد phone/email هنا عمداً - نُقلا بالكامل إلى Complainant
+      // (فصل معماري: مقدّم الشكوى ليس عمود مباشر في جدول complaints).
       governorateId: {
         type: DataTypes.INTEGER,
         allowNull: false,

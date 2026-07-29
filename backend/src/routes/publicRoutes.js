@@ -13,6 +13,7 @@ const {
   trackComplaintValidation,
 } = require('../validations/complaintValidation');
 const { listKeyParamValidation } = require('../validations/referenceDataValidation');
+const { submitComplaintRateLimiter, trackComplaintRateLimiter } = require('../middlewares/rateLimiter');
 const catchAsync = require('../utils/catchAsync');
 
 /**
@@ -57,6 +58,7 @@ router.get(
 // --- تقديم شكوى/مقترح (بلا مصادقة) ---
 router.post(
   '/:orgSlug/complaints',
+  submitComplaintRateLimiter,
   upload.array('attachments', 3),
   validate(createComplaintValidation),
   complaintController.submitPublicComplaint
@@ -65,6 +67,7 @@ router.post(
 // --- متابعة شكوى عبر الرقم المرجعي + PIN (بلا تسجيل دخول) ---
 router.post(
   '/:orgSlug/complaints/track',
+  trackComplaintRateLimiter,
   validate(trackComplaintValidation),
   complaintController.trackPublicComplaint
 );

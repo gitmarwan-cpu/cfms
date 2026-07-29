@@ -42,6 +42,18 @@ const updateType = async (organizationId, typeId, payload) => {
     throw new ApiError(404, 'نوع الوحدة التنظيمية غير موجود');
   }
 
+  // تنبيه أمني (تمت معالجته): createType كان يتحقق أن allowedParentTypeId
+  // يخص نفس المؤسسة، لكن updateType لم يكن يفعل ذلك - يسمح بربط نوع
+  // وحدة بمعرّف "أب" من مؤسسة مختلفة تماماً دون رفض.
+  if (payload.allowedParentTypeId !== undefined && payload.allowedParentTypeId !== null) {
+    const parentType = await OrgUnitType.findOne({
+      where: { id: payload.allowedParentTypeId, organizationId },
+    });
+    if (!parentType) {
+      throw new ApiError(422, 'نوع الأصل المحدد غير موجود ضمن هذه المؤسسة');
+    }
+  }
+
   const fields = ['nameAr', 'nameEn', 'hierarchyLevel', 'allowedParentTypeId', 'isActive'];
   fields.forEach((field) => {
     if (payload[field] !== undefined) type[field] = payload[field];

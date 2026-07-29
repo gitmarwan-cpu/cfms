@@ -1,12 +1,27 @@
 'use strict';
 
-const { OrgUnit, OrgUnitType, User } = require('../models');
+const { OrgUnit, OrgUnitType, User, UserOrganization } = require('../models');
 const ApiError = require('../utils/ApiError');
 
 const buildIncludes = () => [
   { model: OrgUnitType, as: 'unitType', attributes: ['id', 'code', 'nameAr', 'nameEn', 'hierarchyLevel'] },
   { model: User, as: 'manager', attributes: ['id', 'fullName', 'email'] },
 ];
+
+/**
+ * تنبيه أمني (تمت معالجته): كان managerUserId يُقبل ويُخزَّن دون أي تحقق
+ * أنه ينتمي فعلاً لهذه المؤسسة - ما يسمح نظرياً بربط وحدة تنظيمية بمدير
+ * من مؤسسة مختلفة تماماً (خطأ تكامل بيانات يكسر افتراض العزل بين المؤسسات).
+ */
+const validateManagerBelongsToOrganization = async (managerUserId, organizationId) => {
+  if (!managerUserId) return;
+  const membership = await UserOrganization.findOne({
+    where: { userId: managerUserId, organizationId, isActive: true },
+  });
+  if (!membership) {
+    throw new ApiError(422, 'المستخدم المحدد كمدير للوحدة ليس عضواً في هذه المؤسسة');
+  }
+};
 
 /**
  * يتحقق أن نوع الوحدة الجديدة متوافق مع نوع الوحدة الأم حسب allowedParentTypeId
@@ -49,6 +64,7 @@ const listUnits = async (organizationId) => {
 
 const createUnit = async (organizationId, payload) => {
   await validateParentTypeCompatibility(payload.orgUnitTypeId, payload.parentId, organizationId);
+  await validateManagerBelongsToOrganization(payload.managerUserId, organizationId);
 
   return OrgUnit.create({
     organizationId,
@@ -81,6 +97,10 @@ const updateUnit = async (organizationId, unitId, payload) => {
 
   if (payload.orgUnitTypeId !== undefined || payload.parentId !== undefined) {
     await validateParentTypeCompatibility(nextOrgUnitTypeId, nextParentId, organizationId);
+  }
+
+  if (payload.managerUserId !== undefined) {
+    await validateManagerBelongsToOrganization(payload.managerUserId, organizationId);
   }
 
   const fields = [

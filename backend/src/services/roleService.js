@@ -44,10 +44,14 @@ const createRole = async (organizationId, { code, nameAr, nameEn, description, p
 
 const updateRole = async (organizationId, id, { nameAr, nameEn, description, isActive, permissionIds }) => {
   const role = await Role.findByPk(id);
-  if (!role) throw new ApiError(404, 'الدور غير موجود');
-  if (role.isSystem || role.organizationId !== organizationId) {
-    // منع تعديل الأدوار النظامية (admin/staff) أو أدوار مؤسسة أخرى
-    throw new ApiError(403, 'لا يمكن تعديل هذا الدور');
+  if (!role || (role.organizationId !== null && role.organizationId !== organizationId)) {
+    // دور من مؤسسة أخرى: 404 لإخفاء وجوده تماماً، بنفس نمط بقية الوحدات
+    // (complaints، org-units) - لا نؤكد للمُنفِّذ أن هذا المعرّف موجود أصلاً.
+    throw new ApiError(404, 'الدور غير موجود');
+  }
+  if (role.isSystem) {
+    // دور نظامي (admin/staff): موجود فعلاً وهذا معروف للجميع، لكن التعديل ممنوع
+    throw new ApiError(403, 'لا يمكن تعديل الأدوار النظامية (admin/staff)');
   }
 
   if (nameAr !== undefined) role.nameAr = nameAr;
@@ -65,9 +69,11 @@ const updateRole = async (organizationId, id, { nameAr, nameEn, description, isA
 
 const deleteRole = async (organizationId, id) => {
   const role = await Role.findByPk(id);
-  if (!role) throw new ApiError(404, 'الدور غير موجود');
-  if (role.isSystem || role.organizationId !== organizationId) {
-    throw new ApiError(403, 'لا يمكن حذف هذا الدور');
+  if (!role || (role.organizationId !== null && role.organizationId !== organizationId)) {
+    throw new ApiError(404, 'الدور غير موجود');
+  }
+  if (role.isSystem) {
+    throw new ApiError(403, 'لا يمكن حذف الأدوار النظامية (admin/staff)');
   }
 
   const assignmentsCount = await UserRole.count({ where: { roleId: id } });

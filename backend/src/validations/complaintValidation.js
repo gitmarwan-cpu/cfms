@@ -43,10 +43,26 @@ const createComplaintValidation = [
     .custom(isActiveReferenceCode('age_group'))
     .withMessage('الفئة العمرية غير صالحة'),
   body('phone')
+    // القاعدة المطلوبة: إلزامي فقط عند اختيار الإفصاح عن الهوية (isAnonymous=false)؛
+    // يبقى اختيارياً بالكامل في الطلب المجهول - لا يجوز أن يصبح إلزامياً عالمياً.
+    .if(body('isAnonymous').equals('false'))
+    .trim()
+    .notEmpty()
+    .withMessage('رقم الهاتف مطلوب عند اختيار الإفصاح عن الهوية')
+    .bail()
+    .matches(/^[0-9+\- ]{6,20}$/)
+    .withMessage('رقم الهاتف غير صالح'),
+  body('phone')
+    .if(body('isAnonymous').not().equals('false'))
     .optional({ checkFalsy: true })
     .matches(/^[0-9+\- ]{6,20}$/)
     .withMessage('رقم الهاتف غير صالح'),
   body('email').optional({ checkFalsy: true }).isEmail().withMessage('البريد الإلكتروني غير صالح'),
+  body('projectReferenceCode').optional({ checkFalsy: true }).trim().isLength({ max: 150 }),
+  body('isRelatedToStaff').optional().isBoolean().toBoolean(),
+  body('relatedStaffName').optional({ checkFalsy: true }).trim().isLength({ max: 150 }),
+  body('relatedStaffPosition').optional({ checkFalsy: true }).trim().isLength({ max: 150 }),
+  body('staffIncidentDetails').optional({ checkFalsy: true }).trim().isLength({ max: 3000 }),
   body('governorateId')
     .notEmpty()
     .withMessage('المحافظة مطلوبة')

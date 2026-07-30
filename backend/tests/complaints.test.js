@@ -23,6 +23,55 @@ describe('Complaints API (Public Portal)', () => {
     otherGovernorateDistrictId = abyanDistrict.id;
   });
 
+  it('يرفض إنشاء شكوى بهوية مُفصَح عنها بدون رقم هاتف (القاعدة المطلوبة)', async () => {
+    const res = await request(app)
+      .post(`/api/public/${organization.slug}/complaints`)
+      .field('type', 'complaint')
+      .field('isAnonymous', 'false')
+      .field('fullName', 'مستخدم بلا هاتف')
+      .field('governorateId', String(governorateId))
+      .field('districtId', String(districtId))
+      .field('category', 'service_quality')
+      .field('description', 'نص وصف كافٍ لاختبار رفض عدم إدخال رقم الهاتف عند الإفصاح عن الهوية')
+      .field('consentGiven', 'true');
+
+    expect(res.status).toBe(422);
+    expect(res.body.success).toBe(false);
+  });
+
+  it('يقبل شكوى مجهولة تماماً بدون رقم هاتف (لا يجوز أن يصبح الهاتف إلزامياً عالمياً)', async () => {
+    const res = await request(app)
+      .post(`/api/public/${organization.slug}/complaints`)
+      .field('type', 'complaint')
+      .field('isAnonymous', 'true')
+      .field('governorateId', String(governorateId))
+      .field('districtId', String(districtId))
+      .field('category', 'service_quality')
+      .field('description', 'نص وصف كافٍ لاختبار قبول شكوى مجهولة بلا رقم هاتف')
+      .field('consentGiven', 'true');
+
+    expect(res.status).toBe(201);
+  });
+
+  it('يقبل ويُخزّن مرجع المشروع وبيانات الموظف الحرة الاختيارية (بلا FK)', async () => {
+    const res = await request(app)
+      .post(`/api/public/${organization.slug}/complaints`)
+      .field('type', 'complaint')
+      .field('isAnonymous', 'true')
+      .field('governorateId', String(governorateId))
+      .field('districtId', String(districtId))
+      .field('category', 'service_quality')
+      .field('description', 'نص وصف كافٍ لاختبار حقول المشروع والموظف الاختيارية')
+      .field('projectReferenceCode', 'مشروع الاستجابة الطارئة - إب')
+      .field('isRelatedToStaff', 'true')
+      .field('relatedStaffName', 'أحمد علي')
+      .field('relatedStaffPosition', 'مسؤول توزيع')
+      .field('staffIncidentDetails', 'تفاصيل تجريبية للواقعة')
+      .field('consentGiven', 'true');
+
+    expect(res.status).toBe(201);
+  });
+
   it('ينشئ شكوى جديدة بنجاح عند إرسال بيانات صحيحة، ويُعيد رقماً مرجعياً + PIN متابعة', async () => {
     const res = await request(app)
       .post(`/api/public/${organization.slug}/complaints`)

@@ -24,6 +24,11 @@ const initialState = {
   isSensitive: false,
   description: '',
   desiredResolution: '',
+  projectReferenceCode: '',
+  isRelatedToStaff: false,
+  relatedStaffName: '',
+  relatedStaffPosition: '',
+  staffIncidentDetails: '',
   channel: 'website',
   consentGiven: false,
 };
@@ -102,6 +107,9 @@ export default function ComplaintForm({ onSuccess }) {
     const nextErrors = {};
     if (!values.isAnonymous && !values.fullName.trim()) {
       nextErrors.fullName = 'الاسم مطلوب ما لم تختر تقديم الطلب بشكل مجهول';
+    }
+    if (!values.isAnonymous && !values.phone.trim()) {
+      nextErrors.phone = 'رقم الهاتف مطلوب عند اختيار الإفصاح عن الهوية';
     }
     if (!values.governorateId) nextErrors.governorateId = 'المحافظة مطلوبة';
     if (!values.districtId) nextErrors.districtId = 'المديرية مطلوبة';
@@ -208,7 +216,9 @@ export default function ComplaintForm({ onSuccess }) {
           </div>
 
           <div className="field">
-            <label htmlFor="phone">رقم الهاتف</label>
+            <label htmlFor="phone">
+              رقم الهاتف <span className="required">*</span>
+            </label>
             <input
               id="phone"
               type="tel"
@@ -345,6 +355,60 @@ export default function ComplaintForm({ onSuccess }) {
           onChange={(e) => setField('desiredResolution', e.target.value)}
         />
       </div>
+
+      <div className="field field--span-2">
+        <label htmlFor="projectReferenceCode">اسم/مرجع المشروع المعني (اختياري)</label>
+        <input
+          id="projectReferenceCode"
+          type="text"
+          value={values.projectReferenceCode}
+          onChange={(e) => setField('projectReferenceCode', e.target.value)}
+          placeholder="مثال: مشروع الاستجابة الطارئة - إب"
+        />
+      </div>
+
+      <div className="field field--span-2 field--checkbox">
+        <label htmlFor="isRelatedToStaff">
+          <input
+            id="isRelatedToStaff"
+            type="checkbox"
+            checked={values.isRelatedToStaff}
+            onChange={(e) => setField('isRelatedToStaff', e.target.checked)}
+          />
+          هل تتعلق هذه الشكوى بموظف معين؟
+        </label>
+      </div>
+
+      {values.isRelatedToStaff && (
+        <>
+          <div className="field">
+            <label htmlFor="relatedStaffName">اسم الموظف المعني (اختياري)</label>
+            <input
+              id="relatedStaffName"
+              type="text"
+              value={values.relatedStaffName}
+              onChange={(e) => setField('relatedStaffName', e.target.value)}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="relatedStaffPosition">وظيفة/منصب الموظف (اختياري)</label>
+            <input
+              id="relatedStaffPosition"
+              type="text"
+              value={values.relatedStaffPosition}
+              onChange={(e) => setField('relatedStaffPosition', e.target.value)}
+            />
+          </div>
+          <div className="field field--span-2">
+            <label htmlFor="staffIncidentDetails">تفاصيل الواقعة المتعلقة بالموظف (اختياري)</label>
+            <textarea
+              id="staffIncidentDetails"
+              value={values.staffIncidentDetails}
+              onChange={(e) => setField('staffIncidentDetails', e.target.value)}
+            />
+          </div>
+        </>
+      )}
 
       <div className="field field--span-2">
         <label htmlFor="attachments">المرفقات (اختياري، حتى 3 ملفات: صور أو PDF)</label>

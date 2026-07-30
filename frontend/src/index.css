@@ -1,10 +1,14 @@
 :root {
-  --color-bg: #f3f6f6;
+  --color-bg: #f2f5f4;
   --color-surface: #ffffff;
   --color-primary: #0e5f66;
   --color-primary-dark: #0a464b;
   --color-primary-light: #e4f1f1;
-  --color-accent: #c77b3f;
+  /* لون "ختم" ذهبي-نحاسي - يُستخدم فقط للعناصر التي تحمل معنى "موثَّق/مُعتمَد"
+     (الرقم المرجعي، شارة النجاح)، وليس كلون واجهة عام */
+  --color-accent: #a9782e;
+  --color-accent-soft: #f3ead9;
+  --color-ink: #16241f;
   --color-text: #1c2b2c;
   --color-text-muted: #5b6b6c;
   --color-border: #d8e3e3;
@@ -15,6 +19,10 @@
   --radius-sm: 6px;
   --radius-md: 10px;
   --font-body: 'Tajawal', 'Segoe UI', sans-serif;
+  /* سيريف عربي مؤسسي/وثائقي - للعناوين الكبرى فقط، وليس كخط واجهة عام */
+  --font-display: 'Markazi Text', 'Tajawal', serif;
+  /* لتمييز الأرقام "الرسمية" (المرجع، PIN) بوزن مختلف عن نص النموذج العادي */
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
   --shadow-card: 0 1px 3px rgba(14, 95, 102, 0.08), 0 1px 2px rgba(14, 95, 102, 0.06);
 }
 
@@ -43,6 +51,7 @@ body {
   display: flex;
   align-items: center;
   gap: 14px;
+  border-bottom: 3px solid var(--color-accent);
 }
 
 .app-header__nav {
@@ -116,8 +125,10 @@ body {
 
 .app-header__titles h1 {
   margin: 0;
-  font-size: 18px;
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
 }
 
 .app-header__titles p {
@@ -151,7 +162,9 @@ body {
 
 .card__header h2 {
   margin: 0 0 4px;
-  font-size: 20px;
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 600;
   color: var(--color-primary-dark);
 }
 
@@ -189,6 +202,20 @@ body {
 
 .field--span-2 {
   grid-column: 1 / -1;
+}
+
+.field--checkbox label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.field--checkbox input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
 }
 
 .field label {
@@ -349,35 +376,92 @@ body {
   color: var(--color-danger);
 }
 
-.success-screen {
+.ticket {
   text-align: center;
-  padding: 40px 20px;
+  padding: 8px 8px 28px;
 }
 
-.success-screen__icon {
-  width: 64px;
-  height: 64px;
+.ticket__seal {
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
-  background: var(--color-success-bg);
-  color: var(--color-success);
+  border: 2px solid var(--color-accent);
+  color: var(--color-accent);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 30px;
-  margin: 0 auto 18px;
+  font-size: 26px;
+  font-weight: 700;
+  margin: 0 auto 16px;
 }
 
-.success-screen__code {
-  display: inline-block;
-  margin: 14px 0;
-  padding: 10px 18px;
+.ticket__title {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 600;
+  margin: 0 0 6px;
+  color: var(--color-ink);
+}
+
+.ticket__lede {
+  margin: 0 auto 20px;
+  max-width: 440px;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.ticket__perforation {
+  border-top: 2px dashed var(--color-border);
+  margin: 0 auto 20px;
+  max-width: 420px;
+}
+
+.ticket__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 420px;
+  margin: 0 auto 10px;
+  padding: 12px 18px;
   border-radius: var(--radius-sm);
   background: var(--color-primary-light);
-  color: var(--color-primary-dark);
+}
+
+.ticket__row--pin {
+  background: var(--color-accent-soft);
+}
+
+.ticket__label {
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.ticket__value {
+  font-family: var(--font-mono);
+  font-size: 18px;
   font-weight: 700;
-  letter-spacing: 0.5px;
-  font-size: 16px;
+  letter-spacing: 1px;
+  color: var(--color-primary-dark);
   direction: ltr;
+}
+
+.ticket__value--pin {
+  color: var(--color-accent);
+  font-size: 22px;
+  letter-spacing: 4px;
+}
+
+.ticket__warning {
+  max-width: 420px;
+  margin: 16px auto 0;
+  font-size: 13px;
+  color: var(--color-danger);
+}
+
+.ticket__actions {
+  text-align: center;
+  padding-top: 4px;
 }
 
 .app-footer {

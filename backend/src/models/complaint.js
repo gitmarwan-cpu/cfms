@@ -94,6 +94,35 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: true,
         field: 'desired_resolution',
       },
+      // نص حر بلا FK - راجع migration 20260209090000 لتفاصيل القرار
+      projectReferenceCode: {
+        type: DataTypes.STRING(150),
+        allowNull: true,
+        field: 'project_reference_code',
+      },
+      isRelatedToStaff: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+        field: 'is_related_to_staff',
+      },
+      // نص حر يكتبه مقدّم الطلب - لا يرتبط بجدول users؛ الربط الفعلي
+      // بموظف حقيقي يتم يدوياً لاحقاً من قبل الفريق الإداري
+      relatedStaffName: {
+        type: DataTypes.STRING(150),
+        allowNull: true,
+        field: 'related_staff_name',
+      },
+      relatedStaffPosition: {
+        type: DataTypes.STRING(150),
+        allowNull: true,
+        field: 'related_staff_position',
+      },
+      staffIncidentDetails: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+        field: 'staff_incident_details',
+      },
       // قناة استلام الطلب - يشير إلى reference_list_items (قائمة channel)
       channelItemId: {
         type: DataTypes.INTEGER,

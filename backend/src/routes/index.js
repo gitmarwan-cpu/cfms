@@ -8,6 +8,7 @@ const referenceDataRoutes = require('./referenceDataRoutes');
 const organizationRoutes = require('./organizationRoutes');
 const orgUnitRoutes = require('./orgUnitRoutes');
 const roleRoutes = require('./roleRoutes');
+const groupRoutes = require('./groupRoutes');
 const userRoutes = require('./userRoutes');
 const publicRoutes = require('./publicRoutes');
 
@@ -27,7 +28,9 @@ router.use('/organization', organizationRoutes);
 router.use('/org-structure', orgUnitRoutes);
 // إدارة الأدوار والصلاحيات (RBAC)
 router.use('/roles', roleRoutes);
-// إسناد/إلغاء الأدوار لمستخدم معيّن: /api/users/:userId/roles
+// إدارة المجموعات (Groups) - طبقة توزيع أدوار إضافية فوق user_roles المباشر
+router.use('/groups', groupRoutes);
+// إسناد/إلغاء الأدوار والمجموعات لمستخدم معيّن: /api/users/:userId/roles و /groups
 router.use('/users', userRoutes);
 
 module.exports = router;

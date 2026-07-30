@@ -16,6 +16,7 @@ const {
   Role,
   Permission,
   UserRole,
+  Group,
   User,
 } = require('../src/models');
 const bcrypt = require('bcryptjs');
@@ -123,6 +124,8 @@ beforeAll(async () => {
     'users.manage',
     'roles.view',
     'roles.manage',
+    'groups.view',
+    'groups.manage',
     'complaints.view_own',
     'complaints.view_all',
     'complaints.create',
@@ -141,6 +144,15 @@ beforeAll(async () => {
   );
 
   global.__rbacRoles = { adminRole, staffRole };
+
+  // مجموعة نظامية للاختبار (تطابق ما يزرعه seed-system-groups.js فعلياً)
+  const systemGroup = await Group.create({
+    code: 'complaint_officers',
+    nameAr: 'موظفو معالجة الشكاوى',
+    isSystem: true,
+    organizationId: null,
+  });
+  await systemGroup.setRoles([staffRole.id]);
 
   // مؤسسة افتراضية لمعظم الاختبارات الحالية (سلوك أحادي المؤسسة كما كان)
   global.__defaultOrg = await Organization.create({

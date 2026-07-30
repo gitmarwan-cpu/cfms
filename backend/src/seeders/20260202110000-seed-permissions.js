@@ -25,6 +25,8 @@ const PERMISSIONS = [
   { code: 'users.manage', module: 'users', description_ar: 'إدارة المستخدمين' },
   { code: 'roles.view', module: 'users', description_ar: 'عرض الأدوار والصلاحيات' },
   { code: 'roles.manage', module: 'users', description_ar: 'إدارة الأدوار والصلاحيات' },
+  { code: 'groups.view', module: 'users', description_ar: 'عرض المجموعات' },
+  { code: 'groups.manage', module: 'users', description_ar: 'إدارة المجموعات وأدوارها' },
   // complaints (تحضيرية للوحدة القادمة)
   { code: 'complaints.view_own', module: 'complaints', description_ar: 'عرض الشكاوى المسندة للمستخدم فقط' },
   { code: 'complaints.view_all', module: 'complaints', description_ar: 'عرض جميع الشكاوى' },

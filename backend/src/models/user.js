@@ -72,6 +72,7 @@ module.exports = (sequelize, DataTypes) => {
     User.belongsTo(models.OrgUnit, { foreignKey: 'orgUnitId', as: 'orgUnit' });
     User.belongsTo(models.Organization, { foreignKey: 'defaultOrganizationId', as: 'defaultOrganization' });
     User.hasMany(models.UserRole, { foreignKey: 'userId', as: 'userRoles' });
+    User.hasMany(models.UserGroup, { foreignKey: 'userId', as: 'userGroups' });
     User.belongsToMany(models.Organization, {
       through: models.UserOrganization,
       foreignKey: 'userId',

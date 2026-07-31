@@ -53,6 +53,52 @@ describe('Complaints API (Public Portal)', () => {
     expect(res.status).toBe(201);
   });
 
+  it('يقبل شكوى مع تحديد علاقة مقدّم الطلب بالمؤسسة (قيمة صحيحة من reference-data)', async () => {
+    const res = await request(app)
+      .post(`/api/public/${organization.slug}/complaints`)
+      .field('type', 'complaint')
+      .field('isAnonymous', 'false')
+      .field('fullName', 'مستفيد تجريبي')
+      .field('phone', '777000222')
+      .field('relationship', 'beneficiary')
+      .field('governorateId', String(governorateId))
+      .field('districtId', String(districtId))
+      .field('category', 'service_quality')
+      .field('description', 'نص وصف كافٍ لاختبار حقل علاقة مقدّم الطلب بالمؤسسة')
+      .field('consentGiven', 'true');
+
+    expect(res.status).toBe(201);
+  });
+
+  it('يرفض قيمة غير موجودة في قائمة complainant_relationship', async () => {
+    const res = await request(app)
+      .post(`/api/public/${organization.slug}/complaints`)
+      .field('type', 'complaint')
+      .field('isAnonymous', 'true')
+      .field('relationship', 'not_a_real_relationship')
+      .field('governorateId', String(governorateId))
+      .field('districtId', String(districtId))
+      .field('category', 'service_quality')
+      .field('description', 'نص وصف كافٍ لاختبار رفض قيمة علاقة غير صحيحة')
+      .field('consentGiven', 'true');
+
+    expect(res.status).toBe(422);
+  });
+
+  it('علاقة مقدّم الطلب بالمؤسسة تبقى اختيارية تماماً (لا تُطلَب أبداً)', async () => {
+    const res = await request(app)
+      .post(`/api/public/${organization.slug}/complaints`)
+      .field('type', 'complaint')
+      .field('isAnonymous', 'true')
+      .field('governorateId', String(governorateId))
+      .field('districtId', String(districtId))
+      .field('category', 'service_quality')
+      .field('description', 'نص وصف كافٍ لاختبار بقاء حقل العلاقة اختيارياً بلا أي قيمة')
+      .field('consentGiven', 'true');
+
+    expect(res.status).toBe(201);
+  });
+
   it('يقبل ويُخزّن مرجع المشروع وبيانات الموظف الحرة الاختيارية (بلا FK)', async () => {
     const res = await request(app)
       .post(`/api/public/${organization.slug}/complaints`)

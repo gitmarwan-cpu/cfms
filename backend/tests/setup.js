@@ -66,6 +66,20 @@ const REFERENCE_SEED = [
       { code: 'field_visit', labelAr: 'زيارة ميدانية' },
     ],
   },
+  {
+    key: 'complainant_relationship',
+    nameAr: 'علاقة مقدّم الطلب بالمؤسسة',
+    items: [
+      { code: 'beneficiary', labelAr: 'مستفيد', isDefault: true },
+      { code: 'community_member', labelAr: 'فرد من المجتمع' },
+      { code: 'visitor', labelAr: 'زائر' },
+      { code: 'employee', labelAr: 'موظف' },
+      { code: 'contractor', labelAr: 'مقاول' },
+      { code: 'service_provider', labelAr: 'مقدّم خدمة' },
+      { code: 'partner', labelAr: 'شريك' },
+      { code: 'other', labelAr: 'أخرى' },
+    ],
+  },
 ];
 
 let seedGovernorateId;

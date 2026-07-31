@@ -42,6 +42,10 @@ const createComplaintValidation = [
     .optional({ checkFalsy: true })
     .custom(isActiveReferenceCode('age_group'))
     .withMessage('الفئة العمرية غير صالحة'),
+  body('relationship')
+    .optional({ checkFalsy: true })
+    .custom(isActiveReferenceCode('complainant_relationship'))
+    .withMessage('علاقة مقدّم الطلب بالمؤسسة غير صالحة'),
   body('phone')
     // القاعدة المطلوبة: إلزامي فقط عند اختيار الإفصاح عن الهوية (isAnonymous=false)؛
     // يبقى اختيارياً بالكامل في الطلب المجهول - لا يجوز أن يصبح إلزامياً عالمياً.

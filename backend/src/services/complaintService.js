@@ -19,7 +19,15 @@ const locationService = require('./locationService');
 const referenceDataService = require('./referenceDataService');
 
 const buildIncludes = () => [
-  { model: Complainant, as: 'complainant' },
+  {
+    model: Complainant,
+    as: 'complainant',
+    include: [
+      { model: ReferenceListItem, as: 'genderItem', attributes: ['id', 'code', 'labelAr', 'labelEn'] },
+      { model: ReferenceListItem, as: 'ageGroupItem', attributes: ['id', 'code', 'labelAr', 'labelEn'] },
+      { model: ReferenceListItem, as: 'relationshipItem', attributes: ['id', 'code', 'labelAr', 'labelEn'] },
+    ],
+  },
   { model: Governorate, as: 'governorate', attributes: ['id', 'nameEn', 'nameAr'] },
   { model: District, as: 'district', attributes: ['id', 'nameEn', 'nameAr'] },
   { model: ComplaintAttachment, as: 'attachments' },
@@ -52,10 +60,13 @@ const createComplaint = async (organizationId, payload, files = [], createdByUse
   return sequelize.transaction(async (t) => {
     await locationService.validateGovernorateDistrictPair(payload.governorateId, payload.districtId);
 
-    const [genderItem, ageGroupItem, categoryItem, channelItem] = await Promise.all([
+    const [genderItem, ageGroupItem, relationshipItem, categoryItem, channelItem] = await Promise.all([
       payload.gender ? referenceDataService.resolveActiveItem('gender', payload.gender, organizationId) : null,
       payload.ageGroup
         ? referenceDataService.resolveActiveItem('age_group', payload.ageGroup, organizationId)
+        : null,
+      payload.relationship
+        ? referenceDataService.resolveActiveItem('complainant_relationship', payload.relationship, organizationId)
         : null,
       referenceDataService.resolveActiveItem('complaint_category', payload.category, organizationId),
       referenceDataService.resolveActiveItem('channel', payload.channel || 'website', organizationId),
@@ -63,8 +74,11 @@ const createComplaint = async (organizationId, payload, files = [], createdByUse
 
     // فصل معماري: لا سجل Complainant إطلاقاً إن كانت الشكوى مجهولة بالكامل
     // بلا أي بيانات هوية؛ وإلا يُنشأ سجل جديد مستقل تماماً عن جدول users.
+    // relationship مُدرَجة هنا أيضاً: مقدّم طلب قد يذكر "أنا مستفيد" دون
+    // ذكر اسمه/هاتفه - هذه المعلومة نفسها تستحق سجل Complainant لتُحفظ.
     let complainantId = null;
-    const hasIdentityData = !payload.isAnonymous && (payload.fullName || payload.phone || payload.email);
+    const hasIdentityData =
+      !payload.isAnonymous && (payload.fullName || payload.phone || payload.email || payload.relationship);
     if (hasIdentityData) {
       const complainant = await Complainant.create(
         {
@@ -74,6 +88,7 @@ const createComplaint = async (organizationId, payload, files = [], createdByUse
           email: payload.email || null,
           genderItemId: genderItem ? genderItem.id : null,
           ageGroupItemId: ageGroupItem ? ageGroupItem.id : null,
+          relationshipItemId: relationshipItem ? relationshipItem.id : null,
           beneficiaryExternalId: payload.beneficiaryExternalId || null,
         },
         { transaction: t }

@@ -11,6 +11,9 @@ module.exports = (sequelize, DataTypes) => {
       email: { type: DataTypes.STRING(150), allowNull: true, validate: { isEmail: true } },
       genderItemId: { type: DataTypes.INTEGER, allowNull: true, field: 'gender_item_id' },
       ageGroupItemId: { type: DataTypes.INTEGER, allowNull: true, field: 'age_group_item_id' },
+      // علاقة مقدّم الطلب بالمؤسسة (مستفيد/فرد من المجتمع/موظف/...) - راجع
+      // reference_lists بالمفتاح 'complainant_relationship'. اختياري دائماً.
+      relationshipItemId: { type: DataTypes.INTEGER, allowNull: true, field: 'relationship_item_id' },
       beneficiaryExternalId: { type: DataTypes.STRING(100), allowNull: true, field: 'beneficiary_external_id' },
     },
     {
@@ -24,6 +27,7 @@ module.exports = (sequelize, DataTypes) => {
     Complainant.belongsTo(models.Organization, { foreignKey: 'organizationId', as: 'organization' });
     Complainant.belongsTo(models.ReferenceListItem, { foreignKey: 'genderItemId', as: 'genderItem' });
     Complainant.belongsTo(models.ReferenceListItem, { foreignKey: 'ageGroupItemId', as: 'ageGroupItem' });
+    Complainant.belongsTo(models.ReferenceListItem, { foreignKey: 'relationshipItemId', as: 'relationshipItem' });
     Complainant.hasMany(models.Complaint, { foreignKey: 'complainantId', as: 'complaints' });
   };
 

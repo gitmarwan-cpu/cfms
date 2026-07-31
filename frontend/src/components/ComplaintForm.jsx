@@ -15,6 +15,7 @@ const initialState = {
   fullName: '',
   gender: '',
   ageGroup: '',
+  relationship: '',
   phone: '',
   email: '',
   governorateId: '',
@@ -41,6 +42,7 @@ export default function ComplaintForm({ onSuccess }) {
     channel: [],
     gender: [],
     age_group: [],
+    complainant_relationship: [],
   });
   const [referenceDataLoading, setReferenceDataLoading] = useState(true);
   const [values, setValues] = useState(initialState);
@@ -62,7 +64,7 @@ export default function ComplaintForm({ onSuccess }) {
 
     let isMounted = true;
     setReferenceDataLoading(true);
-    const listKeys = ['complaint_category', 'channel', 'gender', 'age_group'];
+    const listKeys = ['complaint_category', 'channel', 'gender', 'age_group', 'complainant_relationship'];
 
     Promise.all(listKeys.map((key) => fetchReferenceItems(key, orgSlug)))
       .then((results) => {
@@ -260,6 +262,22 @@ export default function ComplaintForm({ onSuccess }) {
             >
               <option value="">-- غير محدد --</option>
               {referenceData.age_group.map((o) => (
+                <option key={o.code} value={o.code}>
+                  {o.labelAr}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="field">
+            <label htmlFor="relationship">علاقتك بالمؤسسة</label>
+            <select
+              id="relationship"
+              value={values.relationship}
+              onChange={(e) => setField('relationship', e.target.value)}
+            >
+              <option value="">-- غير محدد --</option>
+              {referenceData.complainant_relationship.map((o) => (
                 <option key={o.code} value={o.code}>
                   {o.labelAr}
                 </option>

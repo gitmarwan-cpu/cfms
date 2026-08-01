@@ -27,3 +27,11 @@ Documentation conflicts found and resolved during this pass are noted inline
 in the relevant files (e.g. `frontend/docs/FRONTEND_DESIGN_SPEC.md` was a
 forward-looking draft that contradicted the actual implementation — it now
 carries an explicit reconciliation note rather than being deleted).
+
+
+Git Safety Rule
+
+Always work on the active development branch (e.g., main or the assigned feature branch).
+Never leave commits on a detached HEAD.
+Before creating a commit, verify the current branch using git branch --show-current.
+If HEAD is detached, stop and switch to the correct branch before committing.

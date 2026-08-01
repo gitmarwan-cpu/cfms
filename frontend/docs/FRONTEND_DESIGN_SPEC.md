@@ -1,8 +1,40 @@
 # SmartCFMS Frontend Design Specification
 
 Version: 1.0
-Status: Draft for architecture approval
-Date: 2026-07-21
+Status: **⚠️ Target Architecture / Future Direction — NOT the current implementation**
+Date: 2026-07-21 (original draft), status note added during documentation review
+
+---
+
+## ⚠️ Reconciliation Note (read this first)
+
+This document was written as a **forward-looking proposal** before/independent
+of the actual build. Significant parts of it **do not match the current code**
+and should not be read as a description of what exists today. Treat it as
+**target-state guidance for when the frontend grows into a full staff/admin
+panel** (Phase 3+ in [`../../docs/ROADMAP.md`](../../docs/ROADMAP.md)), not as
+current fact.
+
+**Current actual frontend** (verify against `frontend/src/` directly):
+- Flat structure: `src/{api,components,context,pages}` — **not** the
+  feature-based `app/`, `features/`, `shared/` structure described in §3.
+- State: plain `useState`/`useEffect` — **no** React Query / TanStack Query.
+- Validation: manual `express-validator`-style checks in components — **no**
+  Zod, **no** React Hook Form.
+- Locale: Arabic-only, RTL, hardcoded — **no** locale provider, **no**
+  `en.json`/`ar.json` resource files, **no** language switcher.
+- Theming: single light theme via CSS custom properties (org-driven colors
+  through `OrganizationContext`) — **no** dark mode.
+- Routing: `react-router-dom` with two routes (`/:orgSlug`, `/:orgSlug/track`)
+  — not the full route table in §12.4 (no `/dashboard`, `/admin`, `/login` yet
+  — there is no staff-facing UI at all yet, only the public complainant portal).
+
+Sections that remain **valid target guidance** regardless of the gap above:
+§4 (design principles), §17–19 (loading states, accessibility, i18n
+requirements), §21 (coding standards/naming). Read them as "aim for this when
+building the staff/admin experience," not "this exists."
+
+---
 
 ## 1. Purpose
 

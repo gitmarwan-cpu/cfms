@@ -35,3 +35,11 @@ Always work on the active development branch (e.g., main or the assigned feature
 Never leave commits on a detached HEAD.
 Before creating a commit, verify the current branch using git branch --show-current.
 If HEAD is detached, stop and switch to the correct branch before committing.
+
+Git Tagging Convention
+
+Milestone-based tags only — see docs/GIT_CONVENTIONS.md. Never assume a tag
+number/sequence exists; verify with `git tag --list "cfms-*"` first. Never
+create or push a tag for incomplete work (e.g. a "Part 1" of a larger
+milestone) — tag only when the described capability is actually complete
+and verified.

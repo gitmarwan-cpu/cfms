@@ -134,6 +134,13 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         defaultValue: 'new',
       },
+      // إضافة بحتة (Phase 1.5 Part 1): لا علاقة بـ status ولا يُملأ تلقائياً
+      // لأي شكوى موجودة - راجع migration 20260211090300 لتفاصيل القرار.
+      workflowStateId: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        field: 'workflow_state_id',
+      },
       consentGiven: {
         type: DataTypes.BOOLEAN,
         allowNull: false,
@@ -180,6 +187,8 @@ module.exports = (sequelize, DataTypes) => {
     });
     Complaint.belongsTo(models.ReferenceListItem, { foreignKey: 'categoryItemId', as: 'categoryItem' });
     Complaint.belongsTo(models.ReferenceListItem, { foreignKey: 'channelItemId', as: 'channelItem' });
+    // اختياري تماماً - لا يُستخدَم في أي منطق حالياً (Phase 1.5 Part 1: قاعدة بيانات فقط)
+    Complaint.belongsTo(models.WorkflowState, { foreignKey: 'workflowStateId', as: 'workflowState' });
     Complaint.hasMany(models.ComplaintAttachment, {
       foreignKey: 'complaintId',
       as: 'attachments',

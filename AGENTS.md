@@ -18,7 +18,8 @@ Treat token/context usage as a limited engineering resource:
 
 ## Tech Stack Context
 
-* Backend: Node.js, Express, TypeScript, Sequelize, PostgreSQL.
+* Backend: Node.js, Express, TypeScript, Prisma.
+* Database: PostgreSQL.
 * Frontend: React, TypeScript, Tailwind CSS.
 * Core: Multi-Tenant Enterprise Platform Foundation.
 * First Module: CFMS (Complaints & Suggestions Module).
@@ -36,7 +37,7 @@ Before making changes:
 7. Do not reread unrelated documentation or completed implementation unless necessary.
 8. Do not perform broad repository exploration when targeted inspection is sufficient.
 9. Run targeted tests relevant to the changed functionality.
-10. Verify the final implementation against the task requirements and applicable architecture/security rules.
+10. Verify the final implementation against the task requirements and applicable architecture and security rules.
 
 When the task is a continuation of previous work:
 
@@ -76,7 +77,7 @@ Do not investigate unrelated documentation/code discrepancies merely because the
 
 * `docs/DATABASE_CONVENTIONS.md`
 
-  * Read when the task affects migrations, seeders, models, database structure, or data integrity.
+  * Read when the task affects Prisma schema, migrations, seeders, database structure, or data integrity.
 
 * `docs/API_CONVENTIONS.md`
 
@@ -122,7 +123,9 @@ Do not investigate unrelated documentation/code discrepancies merely because the
 
 ## Architecture Rules
 
-* Follow the established CFMS architecture.
+* Follow the established platform architecture.
+* Prisma is the project ORM and the authoritative database access layer.
+* Do not introduce another ORM without explicit architectural approval.
 * Do not introduce architectural patterns without justification.
 * Do not duplicate core business logic across services or controllers.
 * Keep controllers thin.
@@ -153,32 +156,33 @@ If a security vulnerability affects the requested task or its execution path:
 
 If an unrelated security issue is discovered:
 
-* Do not silently ignore it.
-* Record/report it separately.
+* Report it separately.
 * Do not expand the current task unless the issue must be addressed for safe execution.
 
 ## Database Rules
 
 Follow `docs/DATABASE_CONVENTIONS.md` when database-related work is involved.
 
-* Migrations define database structure.
-* Seeders define initial/reference data.
+* Prisma schema defines the application database model.
+* Migrations define database structure changes.
+* Seeders define initial and reference data.
 * Do not rely on migrations to update rows that are created later by seeders.
 * Seeders must be idempotent.
 * Do not modify already-applied migrations unless explicitly required and safe.
 * Prefer a new migration for subsequent schema changes.
 * Verify migration and seeding order when relevant.
 * For significant database changes, verify a fresh database initialization when appropriate.
+* Do not bypass Prisma with a second data-access layer without explicit architectural justification.
 
 ## Git Safety and Conventions
 
 ### Git Safety Rule
 
-Always work on the active development branch (for example, `main` or the assigned feature branch).
+Always work on the active development branch, such as `main` or the assigned feature branch.
 
 Never leave commits on a detached HEAD.
 
-Before creating a commit, verify the current branch using:
+Before creating a commit, verify the current branch:
 
 ```bash
 git branch --show-current
@@ -201,6 +205,7 @@ Never create or push a tag for incomplete work. Tag only when the described capa
 ## Forbidden AI Actions
 
 * FORBIDDEN: Updating `package.json` or changing dependency versions without explicit developer approval.
-* FORBIDDEN: Hardcoding business logic for specific sectors (such as UN or NGO workflows) inside the platform Core.
+* FORBIDDEN: Introducing another ORM or replacing Prisma without explicit architectural approval.
+* FORBIDDEN: Hardcoding business logic for specific sectors, such as UN or NGO workflows, inside the platform Core.
 * FORBIDDEN: Expanding a task into unrelated refactoring without explicit justification.
 * FORBIDDEN: Reimplementing functionality that already exists without first verifying the current implementation.

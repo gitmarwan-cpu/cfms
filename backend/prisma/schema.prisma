@@ -1,0 +1,596 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Legacy/stale Prisma artifact from an earlier Prisma experiment, not an active application table.
+/// The current application uses Sequelize-managed snake_case tables such as `users` and `complaints`.
+/// Keep this table present in PostgreSQL for now, but exclude it from Prisma Client and do not delete,
+/// reset, or modify it during this migration stage.
+model AuditLog {
+  id        String   @id
+  action    String
+  details   String
+  createdAt DateTime @default(now())
+  userId    String
+  User      User     @relation(fields: [userId], references: [id])
+
+  @@ignore
+}
+
+/// Legacy/stale Prisma artifact from an earlier Prisma experiment, not the active CFMS complaints table.
+/// The active application table is `complaints`, mapped below from the Sequelize schema and migrations.
+/// Keep this table present in PostgreSQL for now, but exclude it from Prisma Client and do not delete,
+/// reset, or modify it during this migration stage.
+model Complaint {
+  id               String            @id
+  referenceNumber  String            @unique
+  type             String
+  relationship     String
+  submitterName    String?
+  phone            String
+  sector           String
+  projectName      String?
+  governorate      String
+  district         String
+  subject          String
+  details          String
+  proposedSolution String?
+  isConfidential   Boolean           @default(false)
+  status           ComplaintStatus   @default(OPEN)
+  priority         ComplaintPriority @default(MEDIUM)
+  attachments      String[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime
+  submittedById    String?
+  User             User?             @relation(fields: [submittedById], references: [id])
+
+  @@ignore
+}
+
+model SequelizeMeta {
+  name String @id @db.VarChar(255)
+}
+
+/// Legacy/stale Prisma artifact from an earlier Prisma experiment, not the active application users table.
+/// The active application table is `users`, mapped below from the Sequelize schema and migrations.
+/// Keep this table present in PostgreSQL for now, but exclude it from Prisma Client and do not delete,
+/// reset, or modify it during this migration stage.
+model User {
+  id        String      @id
+  name      String
+  email     String      @unique
+  password  String
+  role      Role        @default(USER)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime
+  AuditLog  AuditLog[]
+  Complaint Complaint[]
+
+  @@ignore
+}
+
+model complainants {
+  id                      Int           @id @default(autoincrement())
+  organization_id         Int
+  full_name               String?       @db.VarChar(150)
+  phone                   String?       @db.VarChar(30)
+  email                   String?       @db.VarChar(150)
+  gender_item_id          Int?
+  age_group_item_id       Int?
+  beneficiary_external_id String?       @db.VarChar(100)
+  created_at              DateTime      @db.Timestamptz(6)
+  updated_at              DateTime      @db.Timestamptz(6)
+  relationship_item_id    Int?
+  organizations           organizations @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  complaints              complaints[]
+
+  @@index([organization_id], map: "complainants_organization_id")
+  @@index([organization_id, phone], map: "complainants_organization_id_phone")
+}
+
+model complaint_attachments {
+  id               Int        @id @default(autoincrement())
+  complaint_id     Int
+  original_name    String     @db.VarChar(255)
+  stored_file_name String     @db.VarChar(255)
+  mime_type        String     @db.VarChar(100)
+  size_bytes       Int
+  created_at       DateTime   @db.Timestamptz(6)
+  updated_at       DateTime   @db.Timestamptz(6)
+  complaints       complaints @relation(fields: [complaint_id], references: [id], onDelete: Cascade)
+
+  @@index([complaint_id], map: "complaint_attachments_complaint_id")
+}
+
+model complaint_status_history {
+  id                 Int        @id @default(autoincrement())
+  complaint_id       Int
+  from_status        String?    @db.VarChar(20)
+  to_status          String     @db.VarChar(20)
+  note               String?
+  changed_by_user_id Int?
+  created_at         DateTime   @db.Timestamptz(6)
+  users              users?     @relation(fields: [changed_by_user_id], references: [id])
+  complaints         complaints @relation(fields: [complaint_id], references: [id], onDelete: Cascade)
+
+  @@index([complaint_id], map: "complaint_status_history_complaint_id")
+}
+
+model complaints {
+  id                                                                     Int                        @id @default(autoincrement())
+  reference_code                                                         String                     @unique @db.VarChar(20)
+  type                                                                   enum_complaints_type
+  is_anonymous                                                           Boolean                    @default(false)
+  governorate_id                                                         Int
+  district_id                                                            Int
+  village                                                                String?                    @db.VarChar(150)
+  is_sensitive                                                           Boolean                    @default(false)
+  description                                                            String
+  desired_resolution                                                     String?
+  status                                                                 enum_complaints_status     @default(new)
+  consent_given                                                          Boolean                    @default(false)
+  assigned_to_user_id                                                    Int?
+  created_at                                                             DateTime                   @db.Timestamptz(6)
+  updated_at                                                             DateTime                   @db.Timestamptz(6)
+  category_item_id                                                       Int
+  channel_item_id                                                        Int
+  organization_id                                                        Int
+  complainant_id                                                         Int?
+  tracking_pin_hash                                                      String?                    @db.VarChar(255)
+  created_by_user_id                                                     Int?
+  project_reference_code                                                 String?                    @db.VarChar(150)
+  is_related_to_staff                                                    Boolean                    @default(false)
+  related_staff_name                                                     String?                    @db.VarChar(150)
+  related_staff_position                                                 String?                    @db.VarChar(150)
+  staff_incident_details                                                 String?
+  workflow_state_id                                                      Int?
+  complaint_attachments                                                  complaint_attachments[]
+  complaint_status_history                                               complaint_status_history[]
+  users_complaints_assigned_to_user_idTousers                            users?                     @relation("complaints_assigned_to_user_idTousers", fields: [assigned_to_user_id], references: [id])
+  reference_list_items_complaints_category_item_idToreference_list_items reference_list_items       @relation("complaints_category_item_idToreference_list_items", fields: [category_item_id], references: [id])
+  reference_list_items_complaints_channel_item_idToreference_list_items  reference_list_items       @relation("complaints_channel_item_idToreference_list_items", fields: [channel_item_id], references: [id])
+  complainants                                                           complainants?              @relation(fields: [complainant_id], references: [id])
+  users_complaints_created_by_user_idTousers                             users?                     @relation("complaints_created_by_user_idTousers", fields: [created_by_user_id], references: [id])
+  districts                                                              districts                  @relation(fields: [district_id], references: [id])
+  governorates                                                           governorates               @relation(fields: [governorate_id], references: [id])
+  organizations                                                          organizations              @relation(fields: [organization_id], references: [id])
+  workflow_states                                                        workflow_states?           @relation(fields: [workflow_state_id], references: [id])
+
+  @@index([category_item_id], map: "complaints_category_item_id")
+  @@index([channel_item_id], map: "complaints_channel_item_id")
+  @@index([complainant_id], map: "complaints_complainant_id")
+  @@index([district_id], map: "complaints_district_id")
+  @@index([governorate_id], map: "complaints_governorate_id")
+  @@index([is_sensitive], map: "complaints_is_sensitive")
+  @@index([organization_id], map: "complaints_organization_id")
+  @@index([organization_id, created_at], map: "complaints_organization_id_created_at")
+  @@index([status], map: "complaints_status")
+  @@index([workflow_state_id], map: "complaints_workflow_state_id")
+}
+
+model countries {
+  id           Int            @id @default(autoincrement())
+  iso2         String         @unique @db.VarChar(2)
+  iso3         String?        @unique @db.VarChar(3)
+  name_ar      String         @db.VarChar(150)
+  name_en      String         @db.VarChar(150)
+  is_active    Boolean        @default(true)
+  created_at   DateTime       @db.Timestamptz(6)
+  updated_at   DateTime       @db.Timestamptz(6)
+  governorates governorates[]
+}
+
+model districts {
+  id             Int          @id @default(autoincrement())
+  name_en        String       @db.VarChar(150)
+  name_ar        String       @db.VarChar(150)
+  governorate_id Int
+  is_active      Boolean      @default(true)
+  created_at     DateTime     @db.Timestamptz(6)
+  updated_at     DateTime     @db.Timestamptz(6)
+  complaints     complaints[]
+  governorates   governorates @relation(fields: [governorate_id], references: [id])
+
+  @@unique([governorate_id, name_en], map: "districts_gov_name_en_unique")
+  @@index([governorate_id], map: "districts_governorate_id")
+}
+
+model governorates {
+  id            Int             @id @default(autoincrement())
+  name_en       String          @unique @db.VarChar(150)
+  name_ar       String          @db.VarChar(150)
+  is_active     Boolean         @default(true)
+  created_at    DateTime        @db.Timestamptz(6)
+  updated_at    DateTime        @db.Timestamptz(6)
+  country_id    Int
+  complaints    complaints[]
+  districts     districts[]
+  countries     countries       @relation(fields: [country_id], references: [id])
+  organizations organizations[]
+
+  @@index([country_id], map: "governorates_country_id")
+}
+
+model group_roles {
+  id         Int      @id @default(autoincrement())
+  group_id   Int
+  role_id    Int
+  created_at DateTime @db.Timestamptz(6)
+  groups     groups   @relation(fields: [group_id], references: [id], onDelete: Cascade)
+  roles      roles    @relation(fields: [role_id], references: [id], onDelete: Cascade)
+
+  @@unique([group_id, role_id], map: "group_roles_unique")
+}
+
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model groups {
+  id              Int            @id @default(autoincrement())
+  code            String         @db.VarChar(60)
+  organization_id Int?
+  name_ar         String         @db.VarChar(100)
+  name_en         String?        @db.VarChar(100)
+  description     String?
+  is_system       Boolean        @default(false)
+  is_active       Boolean        @default(true)
+  created_at      DateTime       @db.Timestamptz(6)
+  updated_at      DateTime       @db.Timestamptz(6)
+  group_roles     group_roles[]
+  organizations   organizations? @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  user_groups     user_groups[]
+
+  @@index([organization_id], map: "groups_organization_id")
+}
+
+model org_unit_types {
+  id                     Int              @id @default(autoincrement())
+  organization_id        Int
+  code                   String           @db.VarChar(60)
+  name_ar                String           @db.VarChar(100)
+  name_en                String?          @db.VarChar(100)
+  hierarchy_level        Int              @default(1)
+  allowed_parent_type_id Int?
+  is_active              Boolean          @default(true)
+  created_at             DateTime         @db.Timestamptz(6)
+  updated_at             DateTime         @db.Timestamptz(6)
+  org_unit_types         org_unit_types?  @relation("org_unit_typesToorg_unit_types", fields: [allowed_parent_type_id], references: [id])
+  other_org_unit_types   org_unit_types[] @relation("org_unit_typesToorg_unit_types")
+  organizations          organizations    @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  org_units              org_units[]
+
+  @@unique([organization_id, code], map: "org_unit_types_org_code_unique")
+}
+
+model org_units {
+  id                                     Int            @id @default(autoincrement())
+  organization_id                        Int
+  org_unit_type_id                       Int
+  parent_id                              Int?
+  name                                   String         @db.VarChar(200)
+  code                                   String?        @db.VarChar(60)
+  manager_user_id                        Int?
+  phone                                  String?        @db.VarChar(30)
+  email                                  String?        @db.VarChar(150)
+  address                                String?
+  latitude                               Decimal?       @db.Decimal(10, 7)
+  longitude                              Decimal?       @db.Decimal(10, 7)
+  is_active                              Boolean        @default(true)
+  created_at                             DateTime       @db.Timestamptz(6)
+  updated_at                             DateTime       @db.Timestamptz(6)
+  deleted_at                             DateTime?      @db.Timestamptz(6)
+  users_org_units_manager_user_idTousers users?         @relation("org_units_manager_user_idTousers", fields: [manager_user_id], references: [id])
+  org_unit_types                         org_unit_types @relation(fields: [org_unit_type_id], references: [id])
+  organizations                          organizations  @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  org_units                              org_units?     @relation("org_unitsToorg_units", fields: [parent_id], references: [id], onDelete: Restrict)
+  other_org_units                        org_units[]    @relation("org_unitsToorg_units")
+  user_roles                             user_roles[]
+  users_users_org_unit_idToorg_units     users[]        @relation("users_org_unit_idToorg_units")
+
+  @@index([org_unit_type_id], map: "org_units_org_unit_type_id")
+  @@index([organization_id], map: "org_units_organization_id")
+  @@index([parent_id], map: "org_units_parent_id")
+}
+
+model organizations {
+  id                          Int                                            @id @default(autoincrement())
+  legal_name                  String                                         @db.VarChar(200)
+  short_name                  String?                                        @db.VarChar(80)
+  logo_url                    String?                                        @db.VarChar(500)
+  favicon_url                 String?                                        @db.VarChar(500)
+  description                 String?
+  vision                      String?
+  mission                     String?
+  phone                       String?                                        @db.VarChar(30)
+  email                       String?                                        @db.VarChar(150)
+  website                     String?                                        @db.VarChar(255)
+  country                     String                                         @default("Yemen") @db.VarChar(100)
+  governorate_id              Int?
+  city                        String?                                        @db.VarChar(150)
+  address                     String?
+  latitude                    Decimal?                                       @db.Decimal(10, 7)
+  longitude                   Decimal?                                       @db.Decimal(10, 7)
+  default_language            String                                         @default("ar") @db.VarChar(10)
+  timezone                    String                                         @default("Asia/Aden") @db.VarChar(60)
+  date_format                 String                                         @default("DD/MM/YYYY") @db.VarChar(30)
+  primary_color               String                                         @default("#0e5f66") @db.VarChar(20)
+  secondary_color             String                                         @default("#0a464b") @db.VarChar(20)
+  accent_color                String                                         @default("#c77b3f") @db.VarChar(20)
+  anonymous_complaints_policy enum_organizations_anonymous_complaints_policy @default(allowed)
+  notification_settings       Json                                           @default("{}")
+  is_active                   Boolean                                        @default(true)
+  created_at                  DateTime                                       @db.Timestamptz(6)
+  updated_at                  DateTime                                       @db.Timestamptz(6)
+  slug                        String                                         @unique(map: "organizations_slug") @db.VarChar(80)
+  complainants                complainants[]
+  complaints                  complaints[]
+  groups                      groups[]
+  org_unit_types              org_unit_types[]
+  org_units                   org_units[]
+  governorates                governorates?                                  @relation(fields: [governorate_id], references: [id])
+  reference_lists             reference_lists[]
+  roles                       roles[]
+  user_groups                 user_groups[]
+  user_organizations          user_organizations[]
+  user_roles                  user_roles[]
+  users                       users[]
+  workflow_definitions        workflow_definitions[]
+}
+
+model permissions {
+  id               Int                @id @default(autoincrement())
+  code             String             @unique @db.VarChar(100)
+  module           String             @db.VarChar(60)
+  description_ar   String?            @db.VarChar(255)
+  created_at       DateTime           @db.Timestamptz(6)
+  updated_at       DateTime           @db.Timestamptz(6)
+  role_permissions role_permissions[]
+
+  @@index([module], map: "permissions_module")
+}
+
+model reference_list_items {
+  id                                                           Int             @id @default(autoincrement())
+  reference_list_id                                            Int
+  code                                                         String          @db.VarChar(60)
+  label_ar                                                     String          @db.VarChar(150)
+  label_en                                                     String?         @db.VarChar(150)
+  sort_order                                                   Int             @default(0)
+  is_active                                                    Boolean         @default(true)
+  is_default                                                   Boolean         @default(false)
+  meta                                                         Json?
+  created_at                                                   DateTime        @db.Timestamptz(6)
+  updated_at                                                   DateTime        @db.Timestamptz(6)
+  complaints_complaints_category_item_idToreference_list_items complaints[]    @relation("complaints_category_item_idToreference_list_items")
+  complaints_complaints_channel_item_idToreference_list_items  complaints[]    @relation("complaints_channel_item_idToreference_list_items")
+  reference_lists                                              reference_lists @relation(fields: [reference_list_id], references: [id])
+
+  @@unique([reference_list_id, code], map: "reference_list_items_list_code_unique")
+  @@index([reference_list_id, is_active], map: "reference_list_items_reference_list_id_is_active")
+}
+
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model reference_lists {
+  id                   Int                    @id @default(autoincrement())
+  key                  String                 @db.VarChar(60)
+  name_ar              String                 @db.VarChar(150)
+  name_en              String?                @db.VarChar(150)
+  description          String?
+  is_system            Boolean                @default(false)
+  created_at           DateTime               @db.Timestamptz(6)
+  updated_at           DateTime               @db.Timestamptz(6)
+  organization_id      Int?
+  reference_list_items reference_list_items[]
+  organizations        organizations?         @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+
+  @@index([organization_id], map: "reference_lists_organization_id")
+}
+
+model role_permissions {
+  id            Int         @id @default(autoincrement())
+  role_id       Int
+  permission_id Int
+  created_at    DateTime    @db.Timestamptz(6)
+  permissions   permissions @relation(fields: [permission_id], references: [id], onDelete: Cascade)
+  roles         roles       @relation(fields: [role_id], references: [id], onDelete: Cascade)
+
+  @@unique([role_id, permission_id], map: "role_permissions_unique")
+}
+
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model roles {
+  id               Int                @id @default(autoincrement())
+  code             String             @db.VarChar(60)
+  name_ar          String             @db.VarChar(100)
+  name_en          String?            @db.VarChar(100)
+  description      String?
+  is_system        Boolean            @default(false)
+  is_active        Boolean            @default(true)
+  created_at       DateTime           @db.Timestamptz(6)
+  updated_at       DateTime           @db.Timestamptz(6)
+  organization_id  Int?
+  group_roles      group_roles[]
+  role_permissions role_permissions[]
+  organizations    organizations?     @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  user_roles       user_roles[]
+
+  @@index([organization_id], map: "roles_organization_id")
+}
+
+model user_groups {
+  id              Int           @id @default(autoincrement())
+  user_id         Int
+  group_id        Int
+  organization_id Int
+  created_at      DateTime      @db.Timestamptz(6)
+  updated_at      DateTime      @db.Timestamptz(6)
+  groups          groups        @relation(fields: [group_id], references: [id], onDelete: Cascade)
+  organizations   organizations @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  users           users         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, group_id, organization_id], map: "user_groups_unique")
+  @@index([user_id], map: "user_groups_user_id")
+}
+
+model user_organizations {
+  id              Int           @id @default(autoincrement())
+  user_id         Int
+  organization_id Int
+  is_primary      Boolean       @default(false)
+  is_active       Boolean       @default(true)
+  created_at      DateTime      @db.Timestamptz(6)
+  updated_at      DateTime      @db.Timestamptz(6)
+  organizations   organizations @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  users           users         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, organization_id], map: "user_organizations_unique")
+}
+
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model user_roles {
+  id              Int           @id @default(autoincrement())
+  user_id         Int
+  role_id         Int
+  org_unit_id     Int?
+  created_at      DateTime      @db.Timestamptz(6)
+  updated_at      DateTime      @db.Timestamptz(6)
+  organization_id Int
+  org_units       org_units?    @relation(fields: [org_unit_id], references: [id], onDelete: Cascade)
+  organizations   organizations @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  roles           roles         @relation(fields: [role_id], references: [id], onDelete: Cascade)
+  users           users         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([organization_id], map: "user_roles_organization_id")
+  @@index([user_id], map: "user_roles_user_id")
+}
+
+model users {
+  id                                               Int                        @id @default(autoincrement())
+  full_name                                        String                     @db.VarChar(150)
+  email                                            String                     @unique @db.VarChar(150)
+  password_hash                                    String                     @db.VarChar(255)
+  is_active                                        Boolean                    @default(true)
+  created_at                                       DateTime                   @db.Timestamptz(6)
+  updated_at                                       DateTime                   @db.Timestamptz(6)
+  org_unit_id                                      Int?
+  default_organization_id                          Int?
+  complaint_status_history                         complaint_status_history[]
+  complaints_complaints_assigned_to_user_idTousers complaints[]               @relation("complaints_assigned_to_user_idTousers")
+  complaints_complaints_created_by_user_idTousers  complaints[]               @relation("complaints_created_by_user_idTousers")
+  org_units_org_units_manager_user_idTousers       org_units[]                @relation("org_units_manager_user_idTousers")
+  user_groups                                      user_groups[]
+  user_organizations                               user_organizations[]
+  user_roles                                       user_roles[]
+  organizations                                    organizations?             @relation(fields: [default_organization_id], references: [id])
+  org_units_users_org_unit_idToorg_units           org_units?                 @relation("users_org_unit_idToorg_units", fields: [org_unit_id], references: [id])
+
+  @@index([default_organization_id], map: "users_default_organization_id")
+}
+
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model workflow_definitions {
+  id                   Int                    @id @default(autoincrement())
+  code                 String                 @db.VarChar(60)
+  organization_id      Int?
+  name_ar              String                 @db.VarChar(100)
+  name_en              String?                @db.VarChar(100)
+  entity_type          String                 @db.VarChar(60)
+  is_active            Boolean                @default(true)
+  created_at           DateTime               @db.Timestamptz(6)
+  updated_at           DateTime               @db.Timestamptz(6)
+  organizations        organizations?         @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  workflow_states      workflow_states[]
+  workflow_transitions workflow_transitions[]
+
+  @@index([entity_type], map: "workflow_definitions_entity_type")
+  @@index([organization_id], map: "workflow_definitions_organization_id")
+}
+
+model workflow_states {
+  id                                                                       Int                    @id @default(autoincrement())
+  workflow_definition_id                                                   Int
+  code                                                                     String                 @db.VarChar(60)
+  name_ar                                                                  String                 @db.VarChar(100)
+  name_en                                                                  String?                @db.VarChar(100)
+  is_initial                                                               Boolean                @default(false)
+  is_final                                                                 Boolean                @default(false)
+  sort_order                                                               Int                    @default(0)
+  created_at                                                               DateTime               @db.Timestamptz(6)
+  updated_at                                                               DateTime               @db.Timestamptz(6)
+  complaints                                                               complaints[]
+  workflow_definitions                                                     workflow_definitions   @relation(fields: [workflow_definition_id], references: [id], onDelete: Cascade)
+  workflow_transitions_workflow_transitions_from_state_idToworkflow_states workflow_transitions[] @relation("workflow_transitions_from_state_idToworkflow_states")
+  workflow_transitions_workflow_transitions_to_state_idToworkflow_states   workflow_transitions[] @relation("workflow_transitions_to_state_idToworkflow_states")
+
+  @@unique([workflow_definition_id, code], map: "workflow_states_definition_code_unique")
+  @@index([workflow_definition_id], map: "workflow_states_workflow_definition_id")
+}
+
+model workflow_transitions {
+  id                                                                  Int                  @id @default(autoincrement())
+  workflow_definition_id                                              Int
+  from_state_id                                                       Int?
+  to_state_id                                                         Int
+  code                                                                String               @db.VarChar(60)
+  name_ar                                                             String               @db.VarChar(100)
+  name_en                                                             String?              @db.VarChar(100)
+  requires_permission                                                 String?              @db.VarChar(100)
+  created_at                                                          DateTime             @db.Timestamptz(6)
+  updated_at                                                          DateTime             @db.Timestamptz(6)
+  workflow_states_workflow_transitions_from_state_idToworkflow_states workflow_states?     @relation("workflow_transitions_from_state_idToworkflow_states", fields: [from_state_id], references: [id], onDelete: Cascade)
+  workflow_states_workflow_transitions_to_state_idToworkflow_states   workflow_states      @relation("workflow_transitions_to_state_idToworkflow_states", fields: [to_state_id], references: [id], onDelete: Cascade)
+  workflow_definitions                                                workflow_definitions @relation(fields: [workflow_definition_id], references: [id], onDelete: Cascade)
+
+  @@unique([workflow_definition_id, code], map: "workflow_transitions_definition_code_unique")
+  @@index([workflow_definition_id], map: "workflow_transitions_workflow_definition_id")
+}
+
+/// Legacy/stale enum used only by the ignored PascalCase `Complaint` artifact.
+/// Do not delete or modify it during this migration stage; plan cleanup only after a verified baseline.
+enum ComplaintPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+/// Legacy/stale enum used only by the ignored PascalCase `Complaint` artifact.
+/// Do not delete or modify it during this migration stage; plan cleanup only after a verified baseline.
+enum ComplaintStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  REJECTED
+}
+
+/// Legacy/stale enum used only by the ignored PascalCase `User` artifact.
+/// Do not delete or modify it during this migration stage; plan cleanup only after a verified baseline.
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  MANAGER
+  STAFF
+  USER
+}
+
+enum enum_complaints_status {
+  new
+  in_review
+  resolved
+  closed
+  rejected
+}
+
+enum enum_complaints_type {
+  complaint
+  proposal
+}
+
+enum enum_organizations_anonymous_complaints_policy {
+  allowed
+  not_allowed
+  optional
+}

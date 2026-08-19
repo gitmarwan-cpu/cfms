@@ -1,6 +1,6 @@
 'use strict';
 
-const { createUserWithRole, createOrganization } = require('./setup');
+const { createUserWithRole, createOrganization, prisma } = require('./setup');
 const request = require('supertest');
 const app = require('../src/app');
 
@@ -10,8 +10,10 @@ describe('Organization Settings API', () => {
 
   beforeAll(async () => {
     organization = await createOrganization({ legalName: 'مؤسسة تجريبية للاختبار', slug: 'test-org-settings' });
-    organization.primaryColor = '#0e5f66';
-    await organization.save();
+    await prisma.organizations.update({
+      where: { id: organization.id },
+      data: { primary_color: '#0e5f66' },
+    });
 
     const { user } = await createUserWithRole(
       { fullName: 'مدير المؤسسة', email: 'org.admin@cfms.local', roleCode: 'admin', organizationId: organization.id },

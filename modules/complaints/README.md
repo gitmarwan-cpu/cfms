@@ -80,6 +80,6 @@ Response إلى المستفيد: { id, referenceCode, trackingPin }
 | 2.1 Public/Anonymous submission, Attachments, Validation, Reference+PIN | ✅ منجز |
 | 2.1 Notification trigger | ⏳ غير مبني (راجع أعلاه) |
 | 2.2 Workflow Integration (Lifecycle/Timeline قابل للتخصيص) | ⏳ يعتمد على Workflow Engine (Phase 1.5) |
-| 2.3 Assignment بأقسام/فرق/تصعيد | ⏳ يوجد إسناد لموظف فردي فقط (`assignedToUserId`) |
+| 2.3 Assignment بأقسام/فرق/تصعيد | ✅ إسناد فردي + وحدة تنظيمية؛ التصعيد ضمن SLA لاحقاً |
 | 2.4 Dashboard | ⏳ غير مبني |
 | 2.5 Public Tracking | ✅ منجز |

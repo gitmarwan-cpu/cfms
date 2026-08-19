@@ -26,6 +26,14 @@
 - مسارات داخلية: هيدر اختياري `X-Organization-Id`. **لا يُقبل** `organizationId`
   في body/query أبداً.
 
+## Operational endpoints
+
+- `GET /api/audit-logs`: authenticated administrators only; returns audit events scoped to the active organization.
+- `GET /api/notifications`: authenticated users receive only their own notifications in the active organization.
+- `PATCH /api/notifications/:id/read`: marks one notification read only when it belongs to the authenticated user and active organization.
+- `PATCH /api/complaints/:id/assignment`: requires `complaints.assign`. Accepts optional `assigneeUserId` and/or `assigneeOrgUnitId` (nullable ints). Omitted/null values clear that side of the assignment; both null clears assignment. Assignees must be active tenant members; org units must be active, non-deleted, and belong to the active organization.
+- `GET /api/reports/complaints`: requires `complaints.view_all` and returns tenant-scoped status/category/assignment/sensitivity/monthly aggregates. Optional `from` and `to` filters use `YYYY-MM-DD`. Assigned counts include individual or org-unit ownership.
+
 ## Rate Limiting
 
 مُفعَّل حالياً على: `POST /auth/login`, `POST /public/:orgSlug/complaints`,

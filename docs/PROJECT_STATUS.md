@@ -1,24 +1,54 @@
 # Project Status Snapshot
 
-> لقطة حالة فعلية، وليست خطة. آخر تحديث عند commit `66deec9`. حدِّث هذا الملف
-> مع أي تغيير معماري (راجع `AGENTS.md`).
+## Current Status — Phase B Complete (2026-08-17)
 
-## الوحدات (Routes) الموجودة فعلياً
+Phase B (SLA & Escalation) is fully implemented, hardened, and verified on the backend:
 
-| Route | الغرض | حالة المصادقة |
+1. **SLA Architecture & Priority Support**:
+   - `sla_rules` model created with matching fields (`complaint_type`, `category_item_id`, `priority_item_id`, `is_sensitive`).
+   - Priority matching integrated into complaint submission and SLA rule resolution via `complaint_priority` reference list (`low`, `medium`, `high`, `urgent`).
+   - Rule specificity scoring algorithm ensures exact matches take precedence over generic fallback rules.
+
+2. **Automated Escalation & Idempotency**:
+   - `complaint_escalation_events` table tracks all manual and automated escalation steps.
+   - Background SLA evaluation worker (`backend/src/workers/slaWorker.ts`) integrated into server lifecycle.
+   - Idempotent escalation persistence (`escalation_level: { lt: toLevel }`) ensures zero duplicate escalation events or notifications during concurrent worker cycles or race conditions.
+
+3. **Backend Test & Quality Verification**:
+   - Complete Jest backend test suite passes with **18 test suites** and **116 tests** on isolated PostgreSQL test database `cfms_test`.
+   - `cfms_db` was inspected read-only and was **not** modified.
+   - Known Phase B limitations documented in [`docs/SLA.md`](./SLA.md) (24/7 UTC continuous hours calculation, in-process worker, production migration history reconciliation pending for `cfms_db`).
+
+## Units (Routes) Currently Active
+
+| Route | Purpose | Auth / Scope |
 |---|---|---|
-| `/api/auth` | تسجيل دخول، إنشاء مستخدمين (staff) | مختلط |
-| `/api/public/:orgSlug/...` | بوابة عامة: هوية بصرية، بيانات مرجعية، تقديم/متابعة شكوى | بلا مصادقة |
-| `/api/complaints` | إدارة الشكاوى (قائمة، تفاصيل، تحديث حالة، تسجيل يدوي) | مصادَق + Tenant |
-| `/api/organization` | إعدادات المؤسسة الخاصة بالمستخدم | مصادَق + Tenant |
-| `/api/org-structure` | الهيكل التنظيمي (أنواع الوحدات + الوحدات) | مصادَق + Tenant |
-| `/api/reference-data` | إدارة القوائم المرجعية | مصادَق + Tenant |
-| `/api/roles` | إدارة الأدوار والصلاحيات | مصادَق + Tenant |
-| `/api/groups` | إدارة المجموعات | مصادَق + Tenant |
-| `/api/users` | إسناد أدوار/مجموعات لمستخدم | مصادَق + Tenant |
-| `/api/locations` | محافظات/مديريات (بيانات جغرافية عامة، غير مملوكة لمؤسسة) | بلا مصادقة |
+| `/api/auth` | Login, staff creation | Mixed |
+| `/api/public/:orgSlug/...` | Public portal: branding, reference data, complaint submit/track | Public |
+| `/api/complaints` | Complaint lifecycle, assignment, status update, manual escalation | Authenticated + Tenant |
+| `/api/sla-rules` | SLA rule management (create, update, list, detail) | Authenticated + Tenant (`sla.manage`) |
+| `/api/reports` | Complaint summary report endpoint | Authenticated + Tenant |
+| `/api/organization` | Own organization configuration | Authenticated + Tenant |
+| `/api/org-structure` | Organizational structure (units + types) | Authenticated + Tenant |
+| `/api/reference-data` | Reference list & item management | Authenticated + Tenant |
+| `/api/roles` | Role & permission management | Authenticated + Tenant |
+| `/api/groups` | Group management | Authenticated + Tenant |
+| `/api/users` | User role/group assignment | Authenticated + Tenant |
+| `/api/locations` | Governorates & districts (geographic reference) | Public |
 
-## الجداول (Models) الموجودة فعلياً — 21 نموذج
+## Models Currently Implemented — 23 Models
+
+- **Multi-Tenant Foundation**: `Organization`, `OrgUnit`, `OrgUnitType`, `UserOrganization`.
+- **RBAC**: `Role`, `Permission`, `RolePermission`, `UserRole`, `Group`, `GroupRole`, `UserGroup`.
+- **Users & Complainants**: `User`, `Complainants`.
+- **Complaints & SLA**: `Complaints`, `ComplaintAttachment`, `ComplaintStatusHistory`, `SlaRule`, `ComplaintEscalationEvent`.
+- **Reference Data**: `ReferenceList`, `ReferenceListItem`.
+- **Geography**: `Country`, `Governorate`, `District`.
+- **Platform Infrastructure**: `AuditLog`, `Notification`.
+
+## Verification Status
+
+All 18 test suites pass cleanly against `cfms_test`. `npm run typecheck`, `npm run build`, and `git diff --check` all complete with zero errors.
 
 **تعدد المؤسسات**: `Organization`, `OrgUnit`, `OrgUnitType`, `UserOrganization`.
 **RBAC**: `Role`, `Permission`, `RolePermission`, `UserRole`, `Group`,
@@ -32,15 +62,15 @@
 
 33 migration، 9 ملفات اختبار (`auth`, `complaints`, `groups`, `locations`,
 `organization`, `referenceData`, `security`, `tenantIsolation` + `setup`).
-كل الاختبارات على SQLite في الذاكرة — راجع تحذير `docs/DATABASE_CONVENTIONS.md`
-بخصوص عدم كفاية هذا وحده للتحقق من الـ migrations الحقيقية.
+الاختبارات الحالية تعمل على PostgreSQL المعزول `cfms_test` عبر Prisma؛ أي إشارة
+لاحقة إلى SQLite تصف البنية التاريخية فقط.
 
 ## المراجعات المكتملة
 
 - ✅ مراجعة أمنية منهجية شاملة (tenant isolation, RBAC, rate limiting, رفع
   ملفات) — ثغرتان حقيقيتان مُصلحتان + 4 إصلاحات إضافية (Rate Limiting، امتداد
   الملفات، توحيد 404/403، تحقق ملكية `managerUserId`/`allowedParentTypeId`).
-- ✅ تحقق حي متكرر على Postgres حقيقي (وليس فقط sqlite) لكل تغيير مخطط منذ
+- ✅ تحقق حي متكرر على PostgreSQL حقيقي (وليس فقط بنية SQLite التاريخية) لكل تغيير مخطط منذ
   اكتشاف تناقض نموذج/migration حقيقي بهذه الطريقة تحديداً.
 
 ## الفجوات المعروفة (ليست أخطاء، نطاق لم يُبنَ بعد)

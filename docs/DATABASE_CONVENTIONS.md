@@ -1,5 +1,9 @@
 # Database Conventions
 
+## Current test-database rule
+
+The application and Jest tests use PostgreSQL. Jest must receive `CFMS_TEST_DATABASE_URL`; the test guard rejects missing or non-PostgreSQL URLs and verifies `current_database() = 'cfms_test'` before the allowlisted test reset. Tests must never derive their URL from the development `DATABASE_URL` or `DB_NAME=cfms_db` values. The SQLite/`sequelize.sync()` guidance below is historical and does not describe the current test harness.
+
 ## Migrations
 
 - تسمية: `YYYYMMDDHHmmss-verb-noun.js`.
@@ -26,11 +30,10 @@ if (count > 0) return;
 
 ## قبل اعتماد أي migration/seeder: تحقّق حقيقي، لا افتراض
 
-الاختبارات تستخدم **sqlite في الذاكرة عبر `sequelize.sync()`**، وليس الـ
-migrations الحقيقية — نجاح الاختبارات **لا يثبت** أن الـ migration ستعمل على
-Postgres حقيقي (اكتُشف تناقض حقيقي بين نموذج `Complaint` وmigration فعلية
-بهذه الطريقة تحديداً). **قبل اعتماد أي تغيير مخطط**: شغّل `db:migrate` و
-`db:seed:all` (مرتين متتاليتين للتأكد من idempotency) على Postgres فعلي محلي.
+الاختبارات الحالية تستخدم PostgreSQL المعزول `cfms_test` عبر Prisma، مع تحقق
+صريح من هوية قاعدة البيانات قبل إعادة ضبط جداول الاختبار. أما اختبارات
+المخطط وسلسلة Prisma فتستخدم `cfms_seed_validation` disposable فقط؛ ولا يجوز
+استخدام `cfms_db` لهذه العمليات.
 
 ## Tenant Ownership
 

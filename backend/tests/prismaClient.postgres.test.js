@@ -2,17 +2,22 @@
 
 require('dotenv').config();
 
+const { getRequiredTestDatabaseUrl } = require('../src/config/testDatabaseUrl');
+const { prepareTestDatabase, closeTestDatabase } = require('./testDatabase');
 const prisma = require('../src/prisma/client');
 
-const hasPostgresConfig =
-  !!process.env.DATABASE_URL || (!!process.env.DB_USER && process.env.DB_PASSWORD !== undefined && !!process.env.DB_NAME);
+getRequiredTestDatabaseUrl();
 
-(hasPostgresConfig ? describe : describe.skip)('Prisma PostgreSQL client', () => {
-  afterAll(async () => {
-    await prisma.$disconnect();
+describe('Prisma PostgreSQL client', () => {
+  beforeAll(async () => {
+    await prepareTestDatabase();
   });
 
-  test('connects to the current PostgreSQL schema and reads Sequelize-managed tables', async () => {
+  afterAll(async () => {
+    await closeTestDatabase();
+  });
+
+  test('connects to the current PostgreSQL schema and reads application tables', async () => {
     const [databaseRow] = await prisma.$queryRaw`SELECT current_database() AS database_name`;
     const [complaintsTableRow] = await prisma.$queryRaw`SELECT to_regclass('public.complaints')::text AS table_name`;
     const [usersTableRow] = await prisma.$queryRaw`SELECT to_regclass('public.users')::text AS table_name`;

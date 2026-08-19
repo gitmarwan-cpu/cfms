@@ -6,7 +6,7 @@
 `organizationId` كمعامل صريح من الـ controller (وليس من `req.body.organizationId`
 أو مشابه). هذه القاعدة تنطبق على **أي وحدة أعمال مستقبلية**، وليس فقط CFMS.
 
-## آلية التحديد (`middlewares/tenant.js`)
+## آلية التحديد (`middlewares/tenant.ts`)
 
 | Middleware | يُستخدم في | كيف يُحدَّد `organizationId` |
 |---|---|---|

@@ -1,24 +1,13 @@
 'use strict';
 
+require('dotenv').config({ path: '.env.test' });
+
 process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET = 'test_secret_key_for_jest_only';
 process.env.JWT_EXPIRES_IN = '1h';
 
-const {
-  sequelize,
-  Country,
-  Governorate,
-  District,
-  Organization,
-  UserOrganization,
-  ReferenceList,
-  ReferenceListItem,
-  Role,
-  Permission,
-  UserRole,
-  Group,
-  User,
-} = require('../src/models');
+const { prepareTestDatabase, closeTestDatabase } = require('./testDatabase');
+const prisma = require('../src/prisma/client');
 const bcrypt = require('bcryptjs');
 
 const REFERENCE_SEED = [
@@ -80,52 +69,98 @@ const REFERENCE_SEED = [
       { code: 'other', labelAr: 'أخرى' },
     ],
   },
+  {
+    key: 'complaint_priority',
+    nameAr: 'أولوية الشكوى',
+    items: [
+      { code: 'low', labelAr: 'منخفضة' },
+      { code: 'medium', labelAr: 'متوسطة', isDefault: true },
+      { code: 'high', labelAr: 'عالية' },
+      { code: 'urgent', labelAr: 'حرجة / عاجلة' },
+    ],
+  },
 ];
 
 let seedGovernorateId;
 let seedCountryId;
 
-beforeAll(async () => {
-  await sequelize.sync({ force: true });
+const timestamp = () => new Date();
 
-  // الدولة إلزامية الآن لأي محافظة (بعد إضافة countries) - راجع migrations/20260204*
-  const yemen = await Country.create({ iso2: 'YE', iso3: 'YEM', nameAr: 'اليمن', nameEn: 'Yemen' });
+beforeAll(async () => {
+  await prepareTestDatabase();
+
+  const yemen = await prisma.countries.create({
+    data: {
+      iso2: 'YE',
+      iso3: 'YEM',
+      name_ar: 'اليمن',
+      name_en: 'Yemen',
+      created_at: timestamp(),
+      updated_at: timestamp(),
+    },
+  });
   seedCountryId = yemen.id;
 
-  // بيانات أولية كافية للاختبارات: محافظتان ومديريات تابعة لهما
-  const ibb = await Governorate.create({ nameEn: 'Ibb', nameAr: 'إب', countryId: yemen.id });
-  const abyan = await Governorate.create({ nameEn: 'Abyan', nameAr: 'أبين', countryId: yemen.id });
+  const ibb = await prisma.governorates.create({
+    data: {
+      name_en: 'Ibb',
+      name_ar: 'إب',
+      country_id: yemen.id,
+      created_at: timestamp(),
+      updated_at: timestamp(),
+    },
+  });
+  const abyan = await prisma.governorates.create({
+    data: {
+      name_en: 'Abyan',
+      name_ar: 'أبين',
+      country_id: yemen.id,
+      created_at: timestamp(),
+      updated_at: timestamp(),
+    },
+  });
   seedGovernorateId = ibb.id;
 
-  await District.bulkCreate([
-    { nameEn: 'Al Qafr', nameAr: 'القفر', governorateId: ibb.id },
-    { nameEn: 'Yarim', nameAr: 'يريم', governorateId: ibb.id },
-    { nameEn: 'Ahwar', nameAr: 'أحور', governorateId: abyan.id },
-  ]);
+  await prisma.districts.createMany({
+    data: [
+      { name_en: 'Al Qafr', name_ar: 'القفر', governorate_id: ibb.id, created_at: timestamp(), updated_at: timestamp() },
+      { name_en: 'Yarim', name_ar: 'يريم', governorate_id: ibb.id, created_at: timestamp(), updated_at: timestamp() },
+      { name_en: 'Ahwar', name_ar: 'أحور', governorate_id: abyan.id, created_at: timestamp(), updated_at: timestamp() },
+    ],
+  });
 
-  // زرع البيانات المرجعية النظامية (organizationId = null = Template متاح لكل المؤسسات)
   for (const list of REFERENCE_SEED) {
-    const createdList = await ReferenceList.create({
-      key: list.key,
-      nameAr: list.nameAr,
-      isSystem: true,
-      organizationId: null,
+    const createdList = await prisma.reference_lists.create({
+      data: {
+        key: list.key,
+        name_ar: list.nameAr,
+        is_system: true,
+        organization_id: null,
+        created_at: timestamp(),
+        updated_at: timestamp(),
+      },
     });
-    await ReferenceListItem.bulkCreate(
-      list.items.map((item, index) => ({
-        referenceListId: createdList.id,
+
+    await prisma.reference_list_items.createMany({
+      data: list.items.map((item, index) => ({
+        reference_list_id: createdList.id,
         code: item.code,
-        labelAr: item.labelAr,
-        sortOrder: index + 1,
-        isActive: true,
-        isDefault: !!item.isDefault,
-      }))
-    );
+        label_ar: item.labelAr,
+        sort_order: index + 1,
+        is_active: true,
+        is_default: !!item.isDefault,
+        created_at: timestamp(),
+        updated_at: timestamp(),
+      })),
+    });
   }
 
-  // زرع أدوار وصلاحيات RBAC النظامية (organizationId = null = متاحة لكل المؤسسات)
-  const adminRole = await Role.create({ code: 'admin', nameAr: 'مدير النظام', isSystem: true, organizationId: null });
-  const staffRole = await Role.create({ code: 'staff', nameAr: 'موظف', isSystem: true, organizationId: null });
+  const adminRole = await prisma.roles.create({
+    data: { code: 'admin', name_ar: 'مدير النظام', is_system: true, organization_id: null, created_at: timestamp(), updated_at: timestamp() },
+  });
+  const staffRole = await prisma.roles.create({
+    data: { code: 'staff', name_ar: 'موظف', is_system: true, organization_id: null, created_at: timestamp(), updated_at: timestamp() },
+  });
 
   const permissionCodes = [
     'organization.view',
@@ -148,83 +183,168 @@ beforeAll(async () => {
     'complaints.close',
     'complaints.escalate',
   ];
-  const permissions = await Permission.bulkCreate(
-    permissionCodes.map((code) => ({ code, module: code.split('.')[0] })),
-    { returning: true }
-  );
-  await adminRole.setPermissions(permissions.map((p) => p.id));
-  await staffRole.setPermissions(
-    permissions.filter((p) => ['complaints.view_own'].includes(p.code)).map((p) => p.id)
-  );
+  await prisma.permissions.createMany({
+    data: permissionCodes.map((code) => ({
+      code,
+      module: code.split('.')[0],
+      created_at: timestamp(),
+      updated_at: timestamp(),
+    })),
+  });
+  const permissions = await prisma.permissions.findMany({ where: { code: { in: permissionCodes } } });
+  await prisma.role_permissions.createMany({
+    data: permissions.map((permission) => ({ role_id: adminRole.id, permission_id: permission.id, created_at: timestamp() })),
+  });
+  await prisma.role_permissions.create({
+    data: {
+      role_id: staffRole.id,
+      permission_id: permissions.find((permission) => permission.code === 'complaints.view_own').id,
+      created_at: timestamp(),
+    },
+  });
 
   global.__rbacRoles = { adminRole, staffRole };
 
-  // مجموعة نظامية للاختبار (تطابق ما يزرعه seed-system-groups.js فعلياً)
-  const systemGroup = await Group.create({
-    code: 'complaint_officers',
-    nameAr: 'موظفو معالجة الشكاوى',
-    isSystem: true,
-    organizationId: null,
+  const systemGroup = await prisma.groups.create({
+    data: {
+      code: 'complaint_officers',
+      name_ar: 'موظفو معالجة الشكاوى',
+      is_system: true,
+      organization_id: null,
+      created_at: timestamp(),
+      updated_at: timestamp(),
+    },
   });
-  await systemGroup.setRoles([staffRole.id]);
+  await prisma.group_roles.create({
+    data: { group_id: systemGroup.id, role_id: staffRole.id, created_at: timestamp() },
+  });
 
-  // مؤسسة افتراضية لمعظم الاختبارات الحالية (سلوك أحادي المؤسسة كما كان)
-  global.__defaultOrg = await Organization.create({
-    legalName: 'مؤسسة الاختبار',
-    shortName: 'Test Org',
-    slug: 'test-org',
-    country: 'Yemen',
-    governorateId: ibb.id,
-    defaultLanguage: 'ar',
-    timezone: 'Asia/Aden',
-    dateFormat: 'DD/MM/YYYY',
-    anonymousComplaintsPolicy: 'allowed',
+  global.__defaultOrg = await prisma.organizations.create({
+    data: {
+      legal_name: 'مؤسسة الاختبار',
+      short_name: 'Test Org',
+      slug: 'test-org',
+      country: 'Yemen',
+      governorate_id: ibb.id,
+      default_language: 'ar',
+      timezone: 'Asia/Aden',
+      date_format: 'DD/MM/YYYY',
+      anonymous_complaints_policy: 'allowed',
+      notification_settings: {},
+      created_at: timestamp(),
+      updated_at: timestamp(),
+    },
   });
+
+  const workflow = await prisma.workflow_definitions.create({
+    data: {
+      code: 'complaint_default',
+      name_ar: 'سير عمل الشكاوى الافتراضي',
+      name_en: 'Default Complaint Workflow',
+      entity_type: 'complaint',
+      organization_id: null,
+      is_active: true,
+      created_at: timestamp(),
+      updated_at: timestamp(),
+    },
+  });
+  const workflowStates = {};
+  for (const [code, nameAr, nameEn, isInitial, isFinal, sortOrder] of [
+    ['new', 'جديد', 'New', true, false, 1],
+    ['in_review', 'قيد المراجعة', 'In Review', false, false, 2],
+    ['resolved', 'تم الحل', 'Resolved', false, false, 3],
+    ['closed', 'مغلقة', 'Closed', false, true, 4],
+    ['rejected', 'مرفوضة', 'Rejected', false, true, 5],
+  ]) {
+    workflowStates[code] = await prisma.workflow_states.create({
+      data: {
+        workflow_definition_id: workflow.id,
+        code,
+        name_ar: nameAr,
+        name_en: nameEn,
+        is_initial: isInitial,
+        is_final: isFinal,
+        sort_order: sortOrder,
+        created_at: timestamp(),
+        updated_at: timestamp(),
+      },
+    });
+  }
+  for (const [code, from, to] of [
+    ['start_review', 'new', 'in_review'],
+    ['resolve', 'in_review', 'resolved'],
+    ['close', 'resolved', 'closed'],
+    ['reject_new', 'new', 'rejected'],
+    ['reject_in_review', 'in_review', 'rejected'],
+  ]) {
+    await prisma.workflow_transitions.create({
+      data: {
+        workflow_definition_id: workflow.id,
+        from_state_id: workflowStates[from].id,
+        to_state_id: workflowStates[to].id,
+        code,
+        name_ar: code,
+        name_en: code,
+        requires_permission: null,
+        created_at: timestamp(),
+        updated_at: timestamp(),
+      },
+    });
+  }
 });
 
-/**
- * ينشئ مؤسسة إضافية (لاختبارات العزل بين المؤسسات - Tenant Isolation Tests).
- */
-const createOrganization = async (overrides = {}) => {
-  return Organization.create({
-    legalName: overrides.legalName || `مؤسسة ${Date.now()}`,
-    shortName: overrides.shortName || 'Org',
+const createOrganization = async (overrides = {}) => prisma.organizations.create({
+  data: {
+    legal_name: overrides.legalName || `مؤسسة ${Date.now()}`,
+    short_name: overrides.shortName || 'Org',
     slug: overrides.slug || `org-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
     country: 'Yemen',
-    governorateId: seedGovernorateId,
-    defaultLanguage: 'ar',
+    governorate_id: seedGovernorateId,
+    default_language: 'ar',
     timezone: 'Asia/Aden',
-    dateFormat: 'DD/MM/YYYY',
-    anonymousComplaintsPolicy: 'allowed',
-  });
-};
+    date_format: 'DD/MM/YYYY',
+    anonymous_complaints_policy: 'allowed',
+    notification_settings: {},
+    created_at: timestamp(),
+    updated_at: timestamp(),
+  },
+});
 
-/**
- * ينشئ مستخدماً ضمن مؤسسة معينة (افتراضياً مؤسسة الاختبار العامة)، مع
- * عضوية فعلية (user_organizations) وتعيين دور مُسند صراحة ضمن نفس
- * المؤسسة (user_roles.organizationId إلزامي)، ويضبط defaultOrganizationId.
- */
 const createUserWithRole = async (
   { fullName, email, roleCode = 'staff', organizationId = null, orgUnitId = null },
   rawPassword = 'Password123'
 ) => {
   const targetOrgId = organizationId || global.__defaultOrg.id;
   const passwordHash = await bcrypt.hash(rawPassword, 10);
-  const user = await User.create({ fullName, email, passwordHash, orgUnitId, defaultOrganizationId: targetOrgId });
+  const user = await prisma.users.create({
+    data: {
+      full_name: fullName,
+      email,
+      password_hash: passwordHash,
+      org_unit_id: orgUnitId,
+      default_organization_id: targetOrgId,
+      created_at: timestamp(),
+      updated_at: timestamp(),
+    },
+  });
   const role = roleCode === 'admin' ? global.__rbacRoles.adminRole : global.__rbacRoles.staffRole;
 
-  await UserOrganization.create({ userId: user.id, organizationId: targetOrgId, isPrimary: true, isActive: true });
-  await UserRole.create({ userId: user.id, roleId: role.id, organizationId: targetOrgId, orgUnitId });
+  await prisma.user_organizations.create({
+    data: { user_id: user.id, organization_id: targetOrgId, is_primary: true, is_active: true, created_at: timestamp(), updated_at: timestamp() },
+  });
+  await prisma.user_roles.create({
+    data: { user_id: user.id, role_id: role.id, organization_id: targetOrgId, org_unit_id: orgUnitId, created_at: timestamp(), updated_at: timestamp() },
+  });
 
   return { user, rawPassword, organizationId: targetOrgId };
 };
 
 afterAll(async () => {
-  await sequelize.close();
+  await closeTestDatabase();
 });
 
 module.exports = {
-  sequelize,
+  prisma,
   createUserWithRole,
   createOrganization,
   getDefaultOrg: () => global.__defaultOrg,

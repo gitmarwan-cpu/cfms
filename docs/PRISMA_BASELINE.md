@@ -2,19 +2,21 @@
 
 ## Current State
 
-The current application still uses Sequelize as the active ORM. Prisma has been introduced only as a baseline schema/client layer for the existing PostgreSQL database. Do not remove Sequelize or migrate services until the baseline risks below are resolved and verified.
+The application runtime and Jest test infrastructure now use Prisma for the converted identity, RBAC, organization, location, reference-data, complaint, tenant, and middleware paths. Sequelize remains only in the legacy migration/seeder tooling; it is not selected by the application controllers, services, or tests.
 
-The active application tables are the Sequelize-managed snake_case tables, including `users`, `complaints`, `organizations`, `roles`, `groups`, `reference_lists`, and related bridge tables.
+The existing `cfms_db` is the current CFMS database and already contains application data. The test database is the separate `cfms_test` database. No old-production-to-new-production data copy is required for this phase: existing data was already in the target database, so no separate data migration was performed.
+
+The baseline SQL creates 24 active application tables. They are the Sequelize-managed snake_case tables, including `users`, `complaints`, `organizations`, `roles`, `groups`, `reference_lists`, and related bridge tables.
 
 ## Stale Prisma Artifacts
 
-The live PostgreSQL database also contains older PascalCase Prisma artifacts:
+The Prisma schema retains definitions for older PascalCase Prisma artifacts for compatibility with historical repository state. A read-only inspection of the current `cfms_db` found that these quoted PascalCase tables and `SequelizeMeta` are not currently present there:
 
 - Tables: `User`, `Complaint`, `AuditLog`
 - Enums: `Role`, `ComplaintStatus`, `ComplaintPriority`
-- Metadata table: `_prisma_migrations`
+- Metadata tables: `_prisma_migrations`, `SequelizeMeta`
 
-These objects are not referenced by the current Sequelize models, migrations, seeders, services, controllers, middleware, or tests. They are therefore excluded from Prisma Client with `@@ignore` in `backend/prisma/schema.prisma`.
+These objects are not referenced by the current Sequelize models, migrations, seeders, services, controllers, middleware, or tests. They remain excluded from Prisma Client with `@@ignore` in `backend/prisma/schema.prisma`; the ignored definitions must not be treated as evidence that the objects exist in every environment.
 
 Do not delete, reset, rename, or modify these stale objects during the current migration stage. Cleanup must be a later explicit database migration step after a verified Prisma baseline and backup.
 
@@ -47,9 +49,11 @@ The live database contains one Prisma migration history row:
 
 - `20260716002023_init`
 
-The repository does not contain a matching `backend/prisma/migrations/20260716002023_init` directory. This means the live Prisma migration history and the repository migration files are out of sync.
+The repository keeps `20260716002023_init` immutable in concept and keeps the nullable `complainants.relationship_item_id` change in the separate, ordered migration `20260812000000_add_complainant_relationship_item_id`. Both migrations apply cleanly to the approved disposable database `cfms_seed_validation`. The live `cfms_db` history still requires an explicit reconciliation decision because its recorded baseline checksum differs from the current repository file and it has no row for the follow-up migration.
 
-Do not run `prisma migrate`, `prisma migrate reset`, or `prisma db push` against this database until a deliberate baseline strategy is chosen. A future baseline should account for:
+The repository now contains the matching `backend/prisma/migrations/20260716002023_init` directory. The migration file was audited but was not applied to `cfms_db` during this migration work. The live history and repository still require an explicit, separately approved baseline/reconciliation decision before any Prisma migration command is run against the existing database.
+
+Do not run `prisma migrate dev`, `prisma migrate deploy`, `prisma migrate reset`, or `prisma db push` against this database until a deliberate baseline strategy is chosen. A future baseline should account for:
 
 - the existing Sequelize-created schema,
 - the stale PascalCase Prisma artifacts,

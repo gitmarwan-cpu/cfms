@@ -54,6 +54,8 @@ model Complaint {
 
 model SequelizeMeta {
   name String @id @db.VarChar(255)
+
+  @@ignore
 }
 
 /// Legacy/stale Prisma artifact from an earlier Prisma experiment, not the active application users table.
@@ -121,6 +123,90 @@ model complaint_status_history {
   @@index([complaint_id], map: "complaint_status_history_complaint_id")
 }
 
+/// Organization-scoped SLA matching rules. An expression unique index on the
+/// active match key is created in SQL and cannot be represented as @@unique.
+model sla_rules {
+  id                        Int                   @id @default(autoincrement())
+  organization_id           Int
+  name                      String                @db.VarChar(150)
+  complaint_type            enum_complaints_type?
+  category_item_id          Int?
+  priority_item_id          Int?
+  is_sensitive              Boolean?
+  first_response_hours      Int
+  resolution_hours          Int
+  escalation_interval_hours Int
+  max_escalation_level      Int                   @default(3)
+  is_active                 Boolean               @default(true)
+  created_at                DateTime              @db.Timestamptz(6)
+  updated_at                DateTime              @db.Timestamptz(6)
+  organizations             organizations         @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  reference_list_items_sla_rules_category_item_idToreference_list_items reference_list_items? @relation("sla_rules_category_item_idToreference_list_items", fields: [category_item_id], references: [id])
+  reference_list_items_sla_rules_priority_item_idToreference_list_items reference_list_items? @relation("sla_rules_priority_item_idToreference_list_items", fields: [priority_item_id], references: [id])
+  complaints                complaints[]
+  complaint_escalation_events complaint_escalation_events[]
+
+  @@index([organization_id], map: "sla_rules_organization_id")
+  @@index([organization_id, is_active], map: "sla_rules_organization_active")
+  @@index([priority_item_id], map: "sla_rules_priority_item_id")
+}
+
+model complaint_escalation_events {
+  id                   Int           @id @default(autoincrement())
+  organization_id      Int
+  complaint_id         Int
+  sla_rule_id          Int?
+  from_level           Int
+  to_level             Int
+  reason               String        @db.VarChar(60)
+  note                 String?
+  triggered_by_user_id Int?
+  created_at           DateTime      @db.Timestamptz(6)
+  organizations        organizations @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  complaints           complaints    @relation(fields: [complaint_id], references: [id], onDelete: Cascade)
+  sla_rules            sla_rules?    @relation(fields: [sla_rule_id], references: [id], onDelete: SetNull)
+  users                users?        @relation(fields: [triggered_by_user_id], references: [id], onDelete: SetNull)
+
+  @@index([complaint_id], map: "complaint_escalation_events_complaint_id")
+  @@index([organization_id, created_at], map: "complaint_escalation_events_organization_created_at")
+}
+
+model audit_logs {
+  id              Int           @id @default(autoincrement())
+  organization_id  Int?
+  actor_user_id    Int?
+  action           String        @db.VarChar(100)
+  entity_type      String        @db.VarChar(100)
+  entity_id        Int?
+  metadata         Json?
+  created_at       DateTime      @db.Timestamptz(6)
+  organizations    organizations? @relation(fields: [organization_id], references: [id], onDelete: SetNull)
+  users            users?        @relation(fields: [actor_user_id], references: [id], onDelete: SetNull)
+
+  @@index([organization_id, created_at], map: "audit_logs_organization_created_at")
+  @@index([entity_type, entity_id, created_at], map: "audit_logs_entity_created_at")
+  @@index([actor_user_id, created_at], map: "audit_logs_actor_created_at")
+}
+
+model notifications {
+  id              Int           @id @default(autoincrement())
+  organization_id  Int
+  user_id          Int
+  notification_type String       @db.VarChar(100)
+  title           String        @db.VarChar(200)
+  message         String
+  entity_type     String?       @db.VarChar(100)
+  entity_id       Int?
+  metadata        Json?
+  read_at         DateTime?     @db.Timestamptz(6)
+  created_at      DateTime      @db.Timestamptz(6)
+  organizations   organizations @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  users           users         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([organization_id, user_id, read_at, created_at], map: "notifications_user_inbox")
+  @@index([organization_id, entity_type, entity_id], map: "notifications_entity")
+}
+
 model complaints {
   id                                                                     Int                        @id @default(autoincrement())
   reference_code                                                         String                     @unique @db.VarChar(20)
@@ -135,10 +221,19 @@ model complaints {
   status                                                                 enum_complaints_status     @default(new)
   consent_given                                                          Boolean                    @default(false)
   assigned_to_user_id                                                    Int?
+  assigned_to_org_unit_id                                                Int?
+  sla_rule_id                                                            Int?
+  sla_due_at                                                             DateTime?                  @db.Timestamptz(6)
+  sla_first_response_due_at                                              DateTime?                  @db.Timestamptz(6)
+  sla_first_responded_at                                                 DateTime?                  @db.Timestamptz(6)
+  sla_status                                                             String                     @default("none") @db.VarChar(30)
+  escalation_level                                                       Int                        @default(0)
+  last_escalated_at                                                      DateTime?                  @db.Timestamptz(6)
   created_at                                                             DateTime                   @db.Timestamptz(6)
   updated_at                                                             DateTime                   @db.Timestamptz(6)
   category_item_id                                                       Int
   channel_item_id                                                        Int
+  priority_item_id                                                       Int?
   organization_id                                                        Int
   complainant_id                                                         Int?
   tracking_pin_hash                                                      String?                    @db.VarChar(255)
@@ -151,9 +246,13 @@ model complaints {
   workflow_state_id                                                      Int?
   complaint_attachments                                                  complaint_attachments[]
   complaint_status_history                                               complaint_status_history[]
+  complaint_escalation_events                                            complaint_escalation_events[]
+  sla_rules                                                              sla_rules?                 @relation(fields: [sla_rule_id], references: [id])
   users_complaints_assigned_to_user_idTousers                            users?                     @relation("complaints_assigned_to_user_idTousers", fields: [assigned_to_user_id], references: [id])
+  org_units_complaints_assigned_to_org_unit_idToorg_units                org_units?                 @relation("complaints_assigned_to_org_unit_idToorg_units", fields: [assigned_to_org_unit_id], references: [id])
   reference_list_items_complaints_category_item_idToreference_list_items reference_list_items       @relation("complaints_category_item_idToreference_list_items", fields: [category_item_id], references: [id])
   reference_list_items_complaints_channel_item_idToreference_list_items  reference_list_items       @relation("complaints_channel_item_idToreference_list_items", fields: [channel_item_id], references: [id])
+  reference_list_items_complaints_priority_item_idToreference_list_items reference_list_items?      @relation("complaints_priority_item_idToreference_list_items", fields: [priority_item_id], references: [id])
   complainants                                                           complainants?              @relation(fields: [complainant_id], references: [id])
   users_complaints_created_by_user_idTousers                             users?                     @relation("complaints_created_by_user_idTousers", fields: [created_by_user_id], references: [id])
   districts                                                              districts                  @relation(fields: [district_id], references: [id])
@@ -161,14 +260,19 @@ model complaints {
   organizations                                                          organizations              @relation(fields: [organization_id], references: [id])
   workflow_states                                                        workflow_states?           @relation(fields: [workflow_state_id], references: [id])
 
+  @@index([assigned_to_org_unit_id], map: "complaints_assigned_to_org_unit_id")
   @@index([category_item_id], map: "complaints_category_item_id")
   @@index([channel_item_id], map: "complaints_channel_item_id")
+  @@index([priority_item_id], map: "complaints_priority_item_id")
   @@index([complainant_id], map: "complaints_complainant_id")
   @@index([district_id], map: "complaints_district_id")
   @@index([governorate_id], map: "complaints_governorate_id")
   @@index([is_sensitive], map: "complaints_is_sensitive")
   @@index([organization_id], map: "complaints_organization_id")
   @@index([organization_id, created_at], map: "complaints_organization_id_created_at")
+  @@index([organization_id, sla_due_at], map: "complaints_organization_sla_due_at")
+  @@index([organization_id, sla_status], map: "complaints_organization_sla_status")
+  @@index([sla_rule_id], map: "complaints_sla_rule_id")
   @@index([status], map: "complaints_status")
   @@index([workflow_state_id], map: "complaints_workflow_state_id")
 }
@@ -287,6 +391,7 @@ model org_units {
   organizations                          organizations  @relation(fields: [organization_id], references: [id], onDelete: Cascade)
   org_units                              org_units?     @relation("org_unitsToorg_units", fields: [parent_id], references: [id], onDelete: Restrict)
   other_org_units                        org_units[]    @relation("org_unitsToorg_units")
+  complaints_complaints_assigned_to_org_unit_idToorg_units complaints[] @relation("complaints_assigned_to_org_unit_idToorg_units")
   user_roles                             user_roles[]
   users_users_org_unit_idToorg_units     users[]        @relation("users_org_unit_idToorg_units")
 
@@ -338,6 +443,10 @@ model organizations {
   user_roles                  user_roles[]
   users                       users[]
   workflow_definitions        workflow_definitions[]
+  audit_logs                  audit_logs[]
+  notifications               notifications[]
+  sla_rules                   sla_rules[]
+  complaint_escalation_events complaint_escalation_events[]
 }
 
 model permissions {
@@ -366,6 +475,9 @@ model reference_list_items {
   updated_at                                                   DateTime        @db.Timestamptz(6)
   complaints_complaints_category_item_idToreference_list_items complaints[]    @relation("complaints_category_item_idToreference_list_items")
   complaints_complaints_channel_item_idToreference_list_items  complaints[]    @relation("complaints_channel_item_idToreference_list_items")
+  complaints_complaints_priority_item_idToreference_list_items complaints[]    @relation("complaints_priority_item_idToreference_list_items")
+  sla_rules_sla_rules_category_item_idToreference_list_items   sla_rules[]     @relation("sla_rules_category_item_idToreference_list_items")
+  sla_rules_sla_rules_priority_item_idToreference_list_items   sla_rules[]     @relation("sla_rules_priority_item_idToreference_list_items")
   reference_lists                                              reference_lists @relation(fields: [reference_list_id], references: [id])
 
   @@unique([reference_list_id, code], map: "reference_list_items_list_code_unique")
@@ -484,6 +596,9 @@ model users {
   user_groups                                      user_groups[]
   user_organizations                               user_organizations[]
   user_roles                                       user_roles[]
+  audit_logs                                       audit_logs[]
+  notifications                                    notifications[]
+  complaint_escalation_events                      complaint_escalation_events[]
   organizations                                    organizations?             @relation(fields: [default_organization_id], references: [id])
   org_units_users_org_unit_idToorg_units           org_units?                 @relation("users_org_unit_idToorg_units", fields: [org_unit_id], references: [id])
 

@@ -1,5 +1,7 @@
 # CFMS Platform
 
+> Current runtime note: the backend application and Jest tests use TypeScript/Prisma with PostgreSQL. Jest runs against the isolated `cfms_test` database; legacy Sequelize references are retained only for historical migration/seeder tooling.
+
 منصة مؤسسية متعددة القطاعات (Multi-Tenant Enterprise Platform)، مبنية على أساس
 قابل لإعادة الاستخدام لأي عدد من الوحدات (Modules). **CFMS (نظام إدارة الشكاوى
 والمقترحات)** هو **الوحدة الأولى والأكثر نضجاً** المبنية فوق هذا الأساس — وليس
@@ -47,10 +49,9 @@ npm run dev                  # يعمل على المنفذ 4000
 cd backend && npm test
 ```
 
-تستخدم الاختبارات SQLite في الذاكرة (`sequelize.sync()`) لتبقى سريعة ومعزولة.
-**ملاحظة مهمة**: هذا لا يُغني عن التحقق من الـ migrations الفعلية على Postgres
-حقيقي قبل أي دمج يمس المخطط (راجع [`docs/DATABASE_CONVENTIONS.md`](./docs/DATABASE_CONVENTIONS.md)) —
-اكتُشف سابقاً تناقض حقيقي بين نموذج وmigration لم تكشفه الاختبارات لهذا السبب بالضبط.
+تستخدم الاختبارات PostgreSQL عبر قاعدة البيانات المعزولة `cfms_test`، مع حارس
+يتحقق من اسم قاعدة البيانات قبل أي تهيئة للاختبارات. لا تستخدم الاختبارات
+قاعدة التطوير/الإنتاج `cfms_db` (راجع [`docs/DATABASE_CONVENTIONS.md`](./docs/DATABASE_CONVENTIONS.md)).
 
 ### Frontend
 
@@ -67,7 +68,7 @@ npm run dev                 # http://localhost:5173
 
 ```
 cfms/
-  backend/     Express API + Sequelize (PostgreSQL) + JWT Auth + RBAC
+  backend/     Express API + TypeScript/Prisma (PostgreSQL) + JWT Auth + RBAC
   frontend/    React (Vite) - بوابة عامة متعددة المؤسسات + نموذج تقديم شكوى/مقترح
   docs/        توثيق معماري على مستوى المنصة (اقرأه قبل أي تعديل معماري)
   modules/     مواصفات كل وحدة عمل على حدة (الشكاوى، المؤسسات، المستخدمين...)

@@ -3,6 +3,7 @@
 const { createUserWithRole } = require('./setup');
 const request = require('supertest');
 const app = require('../src/app');
+const prisma = require('../src/prisma/client');
 
 describe('Auth API', () => {
   beforeAll(async () => {
@@ -21,6 +22,11 @@ describe('Auth API', () => {
     expect(res.body.data).toHaveProperty('token');
     expect(res.body.data.user.email).toBe('test.admin@cfms.local');
     expect(res.body.data.user).not.toHaveProperty('passwordHash');
+    const audit = await prisma.audit_logs.findFirst({
+      where: { actor_user_id: res.body.data.user.id, action: 'auth.login.succeeded' },
+      orderBy: { created_at: 'desc' },
+    });
+    expect(audit).toMatchObject({ entity_type: 'user', entity_id: res.body.data.user.id });
   });
 
   it('يرفض تسجيل الدخول بكلمة مرور خاطئة', async () => {

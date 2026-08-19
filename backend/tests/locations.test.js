@@ -1,9 +1,8 @@
 'use strict';
 
-require('./setup');
+const { getSeedGovernorates } = require('./prismaLocationSetup');
 const request = require('supertest');
-const app = require('../src/app');
-const { Governorate } = require('../src/models');
+const app = require('./prismaLocationApp');
 
 describe('Locations API', () => {
   it('GET /api/locations/governorates يرجع قائمة المحافظات مرتبة عربياً', async () => {
@@ -18,7 +17,7 @@ describe('Locations API', () => {
   });
 
   it('GET /api/locations/governorates/:id/districts يرجع فقط مديريات تلك المحافظة', async () => {
-    const ibb = await Governorate.findOne({ where: { nameEn: 'Ibb' } });
+    const { ibb } = getSeedGovernorates();
 
     const res = await request(app).get(`/api/locations/governorates/${ibb.id}/districts`);
 

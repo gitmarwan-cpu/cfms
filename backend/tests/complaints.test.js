@@ -1,9 +1,9 @@
 'use strict';
 
-const { createOrganization, getDefaultOrg } = require('./setup');
+require('./setup');
 const request = require('supertest');
 const app = require('../src/app');
-const { Governorate, District } = require('../src/models');
+const prisma = require('../src/prisma/client');
 
 describe('Complaints API (Public Portal)', () => {
   let governorateId;
@@ -12,11 +12,29 @@ describe('Complaints API (Public Portal)', () => {
   let organization;
 
   beforeAll(async () => {
-    organization = await createOrganization({ legalName: 'مؤسسة اختبار الشكاوى', slug: 'test-org-complaints' });
+    const ibb = await prisma.governorates.findUnique({ where: { name_en: 'Ibb' } });
+    const district = await prisma.districts.findFirst({ where: { name_en: 'Yarim' } });
+    const abyanDistrict = await prisma.districts.findFirst({ where: { name_en: 'Ahwar' } });
 
-    const ibb = await Governorate.findOne({ where: { nameEn: 'Ibb' } });
-    const district = await District.findOne({ where: { nameEn: 'Yarim' } });
-    const abyanDistrict = await District.findOne({ where: { nameEn: 'Ahwar' } });
+    organization = await prisma.organizations.create({
+      data: {
+        legal_name: 'مؤسسة اختبار الشكاوى',
+        slug: 'test-org-complaints',
+        country: 'Yemen',
+        governorate_id: ibb.id,
+        default_language: 'ar',
+        timezone: 'Asia/Aden',
+        date_format: 'DD/MM/YYYY',
+        primary_color: '#0e5f66',
+        secondary_color: '#0a464b',
+        accent_color: '#c77b3f',
+        anonymous_complaints_policy: 'allowed',
+        notification_settings: {},
+        is_active: true,
+        created_at: new Date(),
+        updated_at: new Date(),
+      },
+    });
 
     governorateId = ibb.id;
     districtId = district.id;

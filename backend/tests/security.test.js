@@ -3,11 +3,14 @@
 const { createUserWithRole, createOrganization } = require('./setup');
 const request = require('supertest');
 const app = require('../src/app');
+const prisma = require('../src/prisma/client');
+const notificationService = require('../src/services/notificationService.ts');
 
 describe('Security fixes verification', () => {
   let orgA;
   let orgB;
   let adminAToken;
+  let adminAUser;
   let orgBSystemRoleId;
   let orgBCustomRoleId;
   let orgBBranchTypeId;
@@ -20,6 +23,7 @@ describe('Security fixes verification', () => {
       { fullName: 'مدير أمن أ', email: 'sec.admin.a@cfms.local', roleCode: 'admin', organizationId: orgA.id },
       'Password123'
     );
+    adminAUser = adminA;
     const { user: adminB } = await createUserWithRole(
       { fullName: 'مدير أمن ب', email: 'sec.admin.b@cfms.local', roleCode: 'admin', organizationId: orgB.id },
       'Password123'
@@ -103,5 +107,61 @@ describe('Security fixes verification', () => {
       .send({ allowedParentTypeId: orgBBranchTypeId });
 
     expect(res.status).toBe(422);
+  });
+
+  it('يقصر سجل التدقيق على المدير وسياق المؤسسة الحالي', async () => {
+    const adminResponse = await request(app)
+      .get('/api/audit-logs')
+      .set('Authorization', `Bearer ${adminAToken}`);
+    expect(adminResponse.status).toBe(200);
+    expect(adminResponse.body).toMatchObject({ success: true, pagination: expect.any(Object) });
+
+    const reportResponse = await request(app)
+      .get('/api/reports/complaints')
+      .set('Authorization', `Bearer ${adminAToken}`);
+    expect(reportResponse.status).toBe(200);
+    expect(reportResponse.body.data).toMatchObject({ summary: expect.any(Object), byStatus: expect.any(Array) });
+
+    const { user: staffA } = await createUserWithRole(
+      { fullName: 'موظف سجل التدقيق', email: 'audit.staff.a@cfms.local', roleCode: 'staff', organizationId: orgA.id },
+      'Password123'
+    );
+    const staffLogin = await request(app).post('/api/auth/login').send({ email: staffA.email, password: 'Password123' });
+    const staffResponse = await request(app)
+      .get('/api/audit-logs')
+      .set('Authorization', `Bearer ${staffLogin.body.data.token}`);
+    expect(staffResponse.status).toBe(403);
+
+    const staffReportResponse = await request(app)
+      .get('/api/reports/complaints')
+      .set('Authorization', `Bearer ${staffLogin.body.data.token}`);
+    expect(staffReportResponse.status).toBe(403);
+  });
+
+  it('isolates user notifications and supports marking an organization notification as read', async () => {
+    await notificationService.createNotification(prisma, {
+      organizationId: orgA.id,
+      userId: adminAUser.id,
+      notificationType: 'test.notification',
+      title: 'Test notification',
+      message: 'Notification isolation test',
+    });
+
+    const unread = await request(app)
+      .get('/api/notifications?unreadOnly=true')
+      .set('Authorization', `Bearer ${adminAToken}`);
+    expect(unread.status).toBe(200);
+    const notification = unread.body.data.find((entry) => entry.type === 'test.notification');
+    expect(notification).toBeDefined();
+
+    const marked = await request(app)
+      .patch(`/api/notifications/${notification.id}/read`)
+      .set('Authorization', `Bearer ${adminAToken}`);
+    expect(marked.status).toBe(200);
+
+    const afterRead = await request(app)
+      .get('/api/notifications?unreadOnly=true')
+      .set('Authorization', `Bearer ${adminAToken}`);
+    expect(afterRead.body.data.some((entry) => entry.id === notification.id)).toBe(false);
   });
 });

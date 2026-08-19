@@ -1,9 +1,8 @@
 'use strict';
 
-const { createUserWithRole, createOrganization, getSeedGovernorateId } = require('./setup');
+const { createUserWithRole, createOrganization, getSeedGovernorateId, prisma } = require('./setup');
 const request = require('supertest');
 const app = require('../src/app');
-const { Governorate, District } = require('../src/models');
 
 /**
  * ============================================================
@@ -41,7 +40,7 @@ describe('Tenant Isolation', () => {
     adminBToken = loginB.body.data.token;
 
     governorateId = getSeedGovernorateId();
-    const district = await District.findOne({ where: { governorateId } });
+    const district = await prisma.districts.findFirst({ where: { governorate_id: governorateId } });
     districtId = district.id;
 
     // شكوى تخص مؤسسة "ب" حصراً، عبر بوابتها العامة
@@ -146,5 +145,42 @@ describe('Tenant Isolation', () => {
       .set('Authorization', `Bearer ${adminAToken}`);
 
     expect(resA.body.data.some((t) => t.code === 'org_b_branch')).toBe(false);
+  });
+
+  it('لا يستطيع مدير مؤسسة "أ" قراءة أو تعديل قواعد مهلة المعالجة أو تصعيد شكاوى مؤسسة "ب"', async () => {
+    const ruleB = await request(app)
+      .post('/api/sla-rules')
+      .set('Authorization', `Bearer ${adminBToken}`)
+      .send({
+        name: 'قاعدة مؤسسة ب',
+        firstResponseHours: 4,
+        resolutionHours: 12,
+        escalationIntervalHours: 6,
+      });
+    expect(ruleB.status).toBe(201);
+
+    const listA = await request(app).get('/api/sla-rules').set('Authorization', `Bearer ${adminAToken}`);
+    expect(listA.status).toBe(200);
+    expect(listA.body.data.some((rule) => rule.id === ruleB.body.data.id)).toBe(false);
+
+    const patchA = await request(app)
+      .patch(`/api/sla-rules/${ruleB.body.data.id}`)
+      .set('Authorization', `Bearer ${adminAToken}`)
+      .send({ name: 'محاولة تعديل' });
+    expect(patchA.status).toBe(404);
+
+    const escalateA = await request(app)
+      .post(`/api/complaints/${complaintIdInOrgB}/escalate`)
+      .set('Authorization', `Bearer ${adminAToken}`)
+      .send({ note: 'تصعيد عبر مؤسسة أخرى' });
+    expect(escalateA.status).toBe(404);
+
+    await prisma.complaints.update({
+      where: { id: complaintIdInOrgB },
+      data: { sla_due_at: new Date(Date.now() - 60 * 1000), sla_status: 'on_track' },
+    });
+    await request(app).post('/api/sla-rules/evaluate').set('Authorization', `Bearer ${adminAToken}`);
+    const complaintB = await prisma.complaints.findUnique({ where: { id: complaintIdInOrgB } });
+    expect(complaintB.escalation_level).toBe(0);
   });
 });

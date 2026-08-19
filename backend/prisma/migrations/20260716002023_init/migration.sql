@@ -4,7 +4,7 @@
 -- database and `backend/prisma/schema.prisma`.
 --
 -- This baseline:
---   * Creates the 23 active application tables (Sequelize-managed snake_case schema).
+--   * Creates the 24 active application tables (Sequelize-managed snake_case schema).
 --   * Creates the 3 active enums.
 --   * Preserves the 5 COALESCE expression indexes as raw SQL (Prisma cannot represent them).
 --   * Does NOT create stale Prisma artifacts (AuditLog, Complaint, User tables and

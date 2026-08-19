@@ -67,21 +67,19 @@
 
 راجع [`../docs/API_CONVENTIONS.md`](../docs/API_CONVENTIONS.md).
 
-### 1.8 Audit & Activity System ⏳ جزئي جداً
+### 1.8 Audit & Activity System ✅ منجز (سجلات تدقيق كاملة للشكاوى والإسناد والمصادقة)
 
-فقط `Complaint.createdByUserId` و`ComplaintStatusHistory` — لا نظام Audit عام
-عبر كل الجداول بعد.
+- ✅ `audit_logs` جدول تدقيق معزول لكل مؤسسة يدعم التتبع الدقيق لجميع العمليات وإعادة التعيين والتصعيد وتغييرات الحالة.
 
-## Phase 2 — Complaint Management Module (CFMS) 🔶 قيد التنفيذ
+## Phase 2 — Complaint Management Module (CFMS) 🔶 قيد التنفيذ (مكتمِل الهيكل والـ Backend)
 
 راجع [`../modules/complaints/README.md`](../modules/complaints/README.md)
 للتفاصيل الكاملة وحالة كل بند.
 
-- ✅ 2.1 Complaint Submission (عام، مجهول، مرفقات، PIN، ربط اختياري بمشروع/موظف كنص حر).
-- ⏳ 2.1 Notification trigger (WhatsApp/Email) — غير مبني (راجع Phase 3).
-- ⏳ 2.2 Complaint Workflow Integration (يعتمد على 1.5).
-- ⏳ 2.3 Complaint Assignment بأقسام/فرق (يوجد إسناد لموظف فردي فقط).
-- ⏳ 2.4 Dashboard — غير مبني.
+- ✅ 2.1 Complaint Submission (عام، مجهول، مرفقات، PIN، ربط اختياري بمشروع/موظف كنص حر، وأولوية).
+- ✅ 2.2 SLA & Escalation Management (قواعد اتفاقيات مستوى الخدمة، التصعيد الآلي، خادم الخلفية، وحساب المهلة الزمنية حسب الأولوية).
+- ✅ 2.3 Complaint Assignment بأقسام/فرق (إسناد فردي + وحدة تنظيمية اختيارية مع تحقق عضوية/نطاق المؤسسة ومسار تدقيق).
+- ✅ 2.4 Reporting Summary API (`GET /api/reports/complaints` تفصيلي مع الإحصائيات والأولويات والتوزيعات).
 - ✅ 2.5 Public Tracking (رقم مرجعي + PIN، عرض مبسَّط آمن).
 
 ## Phase 3 — Platform Extensions ⏳ مخطَّط
@@ -129,8 +127,8 @@ Reporting Engine.
 
 أي Phase/بند لا يُعتبر مكتملاً إلا إذا:
 
-- Database updated with migrations (ومُتحقَّق منها على Postgres حقيقي، ليس
-  فقط sqlite الاختبارات — راجع [`../docs/DATABASE_CONVENTIONS.md`](../docs/DATABASE_CONVENTIONS.md)).
+- Database updated with migrations and verified on real PostgreSQL, including the
+  disposable migration-validation database (see [`../docs/DATABASE_CONVENTIONS.md`](../docs/DATABASE_CONVENTIONS.md)).
 - API documented.
 - Tests passing.
 - Frontend integrated.

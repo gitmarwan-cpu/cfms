@@ -29,12 +29,12 @@
                   Users ──► UserGroups ──► Groups
 ```
 
-يُحسب كلاهما في `services/rbacService.js::getEffectivePermissions(userId)`
+يُحسب كلاهما في `services/rbacService.ts::getEffectivePermissions(userId)`
 ويُدمَجان في مصفوفة واحدة. كل صلاحية موسومة بـ `{ code, organizationId, orgUnitId }`.
 
 ## التحقق في الـ middleware
 
-`middlewares/auth.js::authorizePermission(code, resolveOrgUnitId?)`:
+`middlewares/auth.ts::authorizePermission(code, resolveOrgUnitId?)`:
 1. يتحقق أن الكود موجود ضمن صلاحيات المستخدم الفعلية.
 2. **إلزامي**: يتحقق أن `permission.organizationId === req.organizationId` — منع
    استخدام صلاحية اكتسبها المستخدم في مؤسسة "أ" على بيانات مؤسسة "ب" لمجرد

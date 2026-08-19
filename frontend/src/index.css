@@ -638,6 +638,22 @@ body {
   overflow-y: auto;
 }
 
+/* Enterprise administration primitives */
+.admin-page-header { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:24px; }
+.admin-page-title { margin-bottom:4px; }
+.admin-page-description,.admin-muted { color:var(--color-text-muted); font-size:.9rem; margin:0; }
+.admin-page-actions,.admin-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.admin-table-card { max-width:none; }
+.admin-table-wrap { overflow-x:auto; }
+.admin-state { padding:42px 20px; text-align:center; background:var(--color-surface); border:1px dashed var(--color-border); border-radius:var(--radius-md); color:var(--color-text-muted); }
+.admin-state--error { color:var(--color-danger); border-color:var(--color-danger); }
+.admin-skeleton { display:grid; gap:12px; padding:20px; background:#fff; border-radius:var(--radius-md); }
+.admin-skeleton span { height:42px; border-radius:8px; background:linear-gradient(90deg,#edf3f3,#f9fbfb,#edf3f3); background-size:200% 100%; animation:admin-shimmer 1.3s infinite; }
+@keyframes admin-shimmer { to { background-position:-200% 0; } }
+.admin-status-pill { border-radius:999px; background:#edf1f1; color:var(--color-text-muted); padding:4px 9px; font-size:.78rem; white-space:nowrap; }.admin-status-pill.is-success{background:var(--color-success-bg);color:var(--color-success)}
+.admin-text-button { border:0; background:transparent; color:var(--color-primary); font:inherit; cursor:pointer; padding:7px; }.admin-text-button.danger,.admin-btn-danger{color:#fff;background:var(--color-danger);}
+.admin-dialog-backdrop { position:fixed; inset:0; z-index:100; display:grid; place-items:center; background:rgba(15,35,36,.5); padding:16px; }.admin-dialog { width:min(760px,100%); max-height:calc(100vh - 32px); overflow:auto; background:#fff; border-radius:var(--radius-md); box-shadow:0 20px 55px rgba(0,0,0,.25); }.admin-dialog>header { display:flex; justify-content:space-between; align-items:center; padding:18px 20px; border-bottom:1px solid var(--color-border); }.admin-dialog h2{font-size:1.15rem;margin:0}.admin-icon-button{border:0;background:transparent;font:inherit;font-size:1.8rem;cursor:pointer}.admin-dialog__form{padding:20px}.admin-dialog__form footer,.admin-confirm footer,.admin-form-footer{display:flex;justify-content:flex-start;gap:10px;margin-top:22px}.admin-confirm{padding:20px}.admin-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.admin-field--full{grid-column:1/-1}.admin-check{display:flex;align-items:flex-start;gap:8px;font-size:.9rem;cursor:pointer}.admin-check small{display:block;color:var(--color-text-muted);margin-top:3px}.admin-check-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.admin-dialog fieldset{border:1px solid var(--color-border);border-radius:var(--radius-sm);padding:12px}.admin-dialog legend{font-size:.9rem;padding-inline:4px}.admin-settings-form{max-width:none;padding:24px}.admin-success{padding:12px 14px;border-radius:var(--radius-sm);background:var(--color-success-bg);color:var(--color-success);margin-bottom:16px}.admin-filter-bar{max-width:none;padding:16px 20px;margin-bottom:16px}.admin-filter-bar .field{max-width:320px}.admin-tree{max-width:none;padding:8px}.admin-tree-row{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:14px;border-bottom:1px solid var(--color-border)}.admin-tree-row small,.admin-notification-row small{display:block;color:var(--color-text-muted);margin-top:4px}.admin-notification-list{max-width:none}.admin-notification-row{width:100%;text-align:start;display:flex;justify-content:space-between;gap:16px;padding:16px 20px;border:0;border-bottom:1px solid var(--color-border);background:#fff;font:inherit;cursor:pointer}.admin-notification-row.is-unread{background:var(--color-primary-light)}.admin-notification-row time{font-size:.78rem;color:var(--color-text-muted);white-space:nowrap}.admin-header__context{font-size:.8rem;color:var(--color-text-muted);margin-inline-end:12px}
+
 /* ── Admin Page Elements ── */
 
 .admin-page-title {
@@ -851,7 +867,7 @@ body {
 .notification-badge {
   position: absolute;
   top: 0;
-  left: 0;
+  inset-inline-start: 0;
   background: var(--color-danger);
   color: white;
   border-radius: 9999px;
@@ -865,7 +881,7 @@ body {
 .notification-dropdown {
   position: absolute;
   top: 100%;
-  left: 0;
+  inset-inline-start: 0;
   width: 320px;
   background: white;
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
@@ -991,4 +1007,20 @@ body {
   .admin-detail-fields {
     grid-template-columns: 1fr;
   }
+
+  .admin-page-header,
+  .admin-tree-row,
+  .admin-notification-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-page-actions { width: 100%; }
+  .admin-page-actions .btn { flex: 1; }
+  .admin-form-grid,
+  .admin-check-grid { grid-template-columns: 1fr; }
+  .admin-dialog-backdrop { padding: 8px; align-items: end; }
+  .admin-dialog { max-height: calc(100vh - 16px); border-radius: 12px 12px 0 0; }
+  .admin-header__context { display: none; }
+  .notification-dropdown { width: min(320px, calc(100vw - 32px)); }
 }

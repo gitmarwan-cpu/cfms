@@ -10,6 +10,14 @@ import LoginPage from './pages/admin/LoginPage';
 import DashboardPage from './pages/admin/DashboardPage';
 import ComplaintListPage from './pages/admin/ComplaintListPage';
 import ComplaintDetailPage from './pages/admin/ComplaintDetailPage';
+import RolesPage from './pages/admin/RolesPage';
+import GroupsPage from './pages/admin/GroupsPage';
+import OrganizationPage from './pages/admin/OrganizationPage';
+import OrgStructurePage from './pages/admin/OrgStructurePage';
+import ReferenceDataPage from './pages/admin/ReferenceDataPage';
+import SlaPage from './pages/admin/SlaPage';
+import AuditLogPage from './pages/admin/AuditLogPage';
+import NotificationsPage from './pages/admin/NotificationsPage';
 
 function AppHeader() {
   const { organization, orgSlug } = useOrganization() || {};
@@ -109,6 +117,14 @@ export default function App() {
           <Route index element={<DashboardPage />} />
           <Route path="complaints" element={<ComplaintListPage />} />
           <Route path="complaints/:id" element={<ComplaintDetailPage />} />
+          <Route path="notifications" element={<NotificationsPage />} />
+          <Route path="organization" element={<OrganizationPage />} />
+          <Route path="roles" element={<RolesPage />} />
+          <Route path="groups" element={<GroupsPage />} />
+          <Route path="org-structure" element={<OrgStructurePage />} />
+          <Route path="reference-data" element={<ReferenceDataPage />} />
+          <Route path="sla" element={<SlaPage />} />
+          <Route path="audit" element={<AuditLogPage />} />
         </Route>
       </Route>
       <Route

@@ -3,7 +3,8 @@ import { useAuth } from '../../context/AuthContext';
 import NotificationCenter from './NotificationCenter';
 import { useState } from 'react';
 
-const NAV_ITEMS = [
+type NavItem = { path: string; label: string; icon: string; exact: boolean; permission?: string; adminOnly?: boolean };
+const NAV_ITEMS: NavItem[] = [
   {
     path: '/admin',
     label: 'الرئيسية',
@@ -16,6 +17,14 @@ const NAV_ITEMS = [
     icon: '📥',
     exact: false,
   },
+  { path: '/admin/notifications', label: 'الإشعارات', icon: '🔔', exact: false },
+  { path: '/admin/organization', label: 'المؤسسة', icon: '🏢', exact: false, permission: 'organization.view' },
+  { path: '/admin/roles', label: 'الأدوار والصلاحيات', icon: '🛡️', exact: false, permission: 'roles.view' },
+  { path: '/admin/groups', label: 'المجموعات والفرق', icon: '👥', exact: false, permission: 'groups.view' },
+  { path: '/admin/org-structure', label: 'الهيكل التنظيمي', icon: '▦', exact: false, permission: 'org_structure.view' },
+  { path: '/admin/reference-data', label: 'البيانات المرجعية', icon: '☷', exact: false, permission: 'reference_data.view' },
+  { path: '/admin/sla', label: 'SLA', icon: '⏱', exact: false, permission: 'organization.view' },
+  { path: '/admin/audit', label: 'سجل التدقيق', icon: '◷', exact: false, adminOnly: true },
 ];
 
 export default function AdminLayout() {
@@ -31,6 +40,12 @@ export default function AdminLayout() {
 
   const isActive = (path: string, exact: boolean) =>
     exact ? location.pathname === path : location.pathname.startsWith(path);
+  const canSee = (item: NavItem) => {
+    if (item.adminOnly) return user?.roleCodes.includes('admin') || false;
+    if (!item.permission) return true;
+    return user?.permissions?.some((permission) => permission.code === item.permission) || false;
+  };
+  const currentItem = NAV_ITEMS.find((item) => isActive(item.path, item.exact));
 
   return (
     <div className="admin-layout">
@@ -52,7 +67,7 @@ export default function AdminLayout() {
 
         <nav className="admin-sidebar__nav">
           <ul>
-            {NAV_ITEMS.map((item) => (
+            {NAV_ITEMS.filter(canSee).map((item) => (
               <li key={item.path}>
                 <Link
                   to={item.path}
@@ -94,7 +109,12 @@ export default function AdminLayout() {
           >
             ☰
           </button>
+          <div className="admin-header__breadcrumb" aria-label="مسار الصفحة">
+            <span>لوحة التحكم</span>
+            {currentItem && <><span aria-hidden="true">/</span><strong>{currentItem.label}</strong></>}
+          </div>
           <div className="admin-header__actions">
+            <span className="admin-header__context">المؤسسة #{user?.defaultOrganizationId ?? '—'}</span>
             <NotificationCenter />
           </div>
         </header>

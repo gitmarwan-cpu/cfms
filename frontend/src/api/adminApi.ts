@@ -6,7 +6,11 @@ export interface ReferenceItem {
   id: number;
   code: string;
   labelAr: string;
-  labelEn: string;
+  labelEn: string | null;
+  referenceListId?: number;
+  sortOrder?: number;
+  isActive?: boolean;
+  isDefault?: boolean;
 }
 
 export interface LocationRef {
@@ -351,6 +355,7 @@ export interface Group {
   nameEn: string | null;
   description: string | null;
   isActive: boolean;
+  roles?: Pick<Role, 'id' | 'code' | 'nameAr' | 'nameEn'>[];
 }
 
 // ── Org Structure API ────────────────────────────────────────────────
@@ -363,4 +368,53 @@ export const fetchOrgUnits = async (): Promise<OrgUnit[]> => {
 export const fetchGroups = async (): Promise<Group[]> => {
   const res = await axiosClient.get<{ success: boolean; data: Group[] }>('/groups');
   return res.data.data;
+};
+
+// ── Administration APIs (contracts mirrored from backend/src/routes) ──
+
+export interface Permission { id: number; code: string; nameAr: string; descriptionAr?: string | null; module?: string | null; }
+export interface Role {
+  id: number; code: string; organizationId: number | null; nameAr: string; nameEn: string | null;
+  description: string | null; isSystem: boolean; isActive: boolean; permissions: Permission[];
+}
+export interface ReferenceList { id: number; key: string; nameAr: string; nameEn: string | null; items?: ReferenceItem[]; }
+export interface OrganizationSettings {
+  id: number; legalName: string; shortName: string | null; logoUrl: string | null; faviconUrl: string | null;
+  description: string | null; vision: string | null; mission: string | null; phone: string | null; email: string | null;
+  website: string | null; country: string | null; governorateId: number | null; city: string | null; address: string | null;
+  defaultLanguage: 'ar' | 'en'; timezone: string | null; primaryColor: string | null; secondaryColor: string | null;
+  accentColor: string | null; anonymousComplaintsPolicy: 'allowed' | 'not_allowed' | 'optional';
+}
+export interface OrgUnitType { id: number; code: string; nameAr: string; nameEn: string | null; hierarchyLevel: number; isActive: boolean; allowedParentTypeId: number | null; }
+export interface SlaRule { id: number; name: string; complaintType: 'complaint' | 'proposal' | null; categoryItemId: number | null; priorityItemId: number | null; isSensitive: boolean | null; firstResponseHours: number; resolutionHours: number; escalationIntervalHours: number; maxEscalationLevel: number; isActive: boolean; }
+export interface AuditLog { id: number; actor: UserRef | null; action: string; entityType: string; entityId: number | null; metadata: unknown; createdAt: string; }
+
+const unwrap = async <T>(request: Promise<{ data: { data: T } }>): Promise<T> => (await request).data.data;
+export const fetchRoles = () => unwrap<Role[]>(axiosClient.get('/roles'));
+export const fetchPermissions = () => unwrap<Permission[]>(axiosClient.get('/roles/permissions'));
+export const createRole = (payload: Pick<Role, 'code' | 'nameAr' | 'nameEn' | 'description'> & { permissionIds: number[] }) => unwrap<Role>(axiosClient.post('/roles', payload));
+export const updateRole = (id: number, payload: Partial<Pick<Role, 'nameAr' | 'nameEn' | 'description' | 'isActive'>> & { permissionIds?: number[] }) => unwrap<Role>(axiosClient.put(`/roles/${id}`, payload));
+export const deleteRole = (id: number) => axiosClient.delete(`/roles/${id}`);
+export const createGroup = (payload: Pick<Group, 'code' | 'nameAr' | 'nameEn' | 'description'> & { roleIds: number[] }) => unwrap<Group>(axiosClient.post('/groups', payload));
+export const fetchGroup = (id: number) => unwrap<Group>(axiosClient.get(`/groups/${id}`));
+export const updateGroup = (id: number, payload: Partial<Pick<Group, 'nameAr' | 'nameEn' | 'description' | 'isActive'>> & { roleIds?: number[] }) => unwrap<Group>(axiosClient.put(`/groups/${id}`, payload));
+export const deleteGroup = (id: number) => axiosClient.delete(`/groups/${id}`);
+export const fetchOrganization = () => unwrap<OrganizationSettings>(axiosClient.get('/organization'));
+export const updateOrganization = (payload: Partial<OrganizationSettings>) => unwrap<OrganizationSettings>(axiosClient.put('/organization', payload));
+export const fetchOrgUnitTypes = () => unwrap<OrgUnitType[]>(axiosClient.get('/org-structure/unit-types'));
+export const createOrgUnit = (payload: Record<string, unknown>) => unwrap<OrgUnit>(axiosClient.post('/org-structure/units', payload));
+export const updateOrgUnit = (id: number, payload: Record<string, unknown>) => unwrap<OrgUnit>(axiosClient.put(`/org-structure/units/${id}`, payload));
+export const deactivateOrgUnit = (id: number) => axiosClient.patch(`/org-structure/units/${id}/deactivate`);
+export const fetchReferenceLists = () => unwrap<ReferenceList[]>(axiosClient.get('/reference-data'));
+export const fetchAdminReferenceItems = (key: string) => unwrap<ReferenceItem[]>(axiosClient.get(`/reference-data/${key}/items/admin`));
+export const createReferenceItem = (key: string, payload: Record<string, unknown>) => unwrap<ReferenceItem>(axiosClient.post(`/reference-data/${key}/items`, payload));
+export const updateReferenceItem = (key: string, id: number, payload: Record<string, unknown>) => unwrap<ReferenceItem>(axiosClient.put(`/reference-data/${key}/items/${id}`, payload));
+export const deactivateReferenceItem = (key: string, id: number) => axiosClient.patch(`/reference-data/${key}/items/${id}/deactivate`);
+export const fetchSlaRules = () => unwrap<SlaRule[]>(axiosClient.get('/sla-rules'));
+export const createSlaRule = (payload: Record<string, unknown>) => unwrap<SlaRule>(axiosClient.post('/sla-rules', payload));
+export const updateSlaRule = (id: number, payload: Record<string, unknown>) => unwrap<SlaRule>(axiosClient.patch(`/sla-rules/${id}`, payload));
+export const evaluateSla = () => unwrap<{ evaluated: number; overdue: number; escalated: number }>(axiosClient.post('/sla-rules/evaluate'));
+export const fetchAuditLogs = async (params: { page?: number; limit?: number; entityType?: string; entityId?: string } = {}) => {
+  const response = await axiosClient.get<{ data: AuditLog[]; pagination: PaginationInfo }>('/audit-logs', { params });
+  return response.data;
 };

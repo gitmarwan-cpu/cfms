@@ -11,7 +11,6 @@ import DashboardPage from './pages/admin/DashboardPage';
 import ComplaintListPage from './pages/admin/ComplaintListPage';
 import ComplaintDetailPage from './pages/admin/ComplaintDetailPage';
 import RolesPage from './pages/admin/RolesPage';
-import UsersPage from './pages/admin/UsersPage';
 import GroupsPage from './pages/admin/GroupsPage';
 import OrganizationPage from './pages/admin/OrganizationPage';
 import OrgStructurePage from './pages/admin/OrgStructurePage';
@@ -121,7 +120,6 @@ export default function App() {
           <Route path="notifications" element={<NotificationsPage />} />
           <Route path="organization" element={<OrganizationPage />} />
           <Route path="roles" element={<RolesPage />} />
-          <Route path="users" element={<UsersPage />} />
           <Route path="groups" element={<GroupsPage />} />
           <Route path="org-structure" element={<OrgStructurePage />} />
           <Route path="reference-data" element={<ReferenceDataPage />} />

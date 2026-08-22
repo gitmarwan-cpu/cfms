@@ -1,189 +1,262 @@
-Platform Architecture
-Overview
-CFMS is an enterprise Complaints & Feedback Management Platform designed to be secure, reliable, maintainable, and extensible.
-The platform follows a modular layered architecture:
-Frontend
-   ↓
-API / Routes
-   ↓
-Middleware
-   ↓
-Controllers
-   ↓
-Services
-   ↓
-Prisma
-   ↓
-PostgreSQL
-Technology Stack
-•	Backend: Node.js, Express, TypeScript, Prisma 
-•	Database: PostgreSQL 
-•	Frontend: React, TypeScript, Vite 
-•	UI: Tailwind CSS, shadcn/ui, Radix UI 
-•	Validation: Zod 
-•	Testing: Jest 
-Prisma is the authoritative ORM for active runtime code. Existing Sequelize artifacts may remain where they are historical or required for migration compatibility.
-Organizational Architecture
-CFMS uses a single hierarchical organizations model.
-Organizational structures such as Organization, Country Office, Branch, Sector, Department, Office, and Team are represented as organizational nodes rather than separate database tables.
-organizations
-├── id
-├── name
-├── parent_id
-├── parent_path
-└── org_unit_type_id
-          ↓
-    org_unit_types
-The hierarchy supports:
-•	Parent/child relationships 
-•	Multiple root organizations 
-•	Configurable organizational unit types 
-•	Organizational membership 
-•	Organizational context 
-The backend must maintain hierarchy integrity and prevent invalid or cyclic relationships.
-Existing org_units structures must be inspected before any migration, consolidation, or removal.
-Users and Organizations
-Users have a default organization through:
-users.organization_id
-A user may also belong to multiple organizations through:
-user_organizations
-This allows one user account to operate across multiple organizational contexts.
-Organizational membership determines context; it does not by itself determine permissions.
-Authorization
-CFMS uses Role-Based Access Control (RBAC):
-User
-  ↓
-Role
-  ↓
-Permission
-Organizational context and authorization are separate concerns.
-The existing RBAC implementation must be reused and preserved unless a clear architectural requirement requires change.
-Groups are not part of the target authorization model.
-Security
-Security is enforced server-side.
-The frontend must never be trusted to determine:
-•	User identity 
-•	Organizational access 
-•	Permissions 
-•	Organizational scope 
-•	Resource ownership 
-Protected operations must validate authentication, authorization, organizational context, and applicable business rules.
-Public endpoints must validate their organizational context on the server.
-Core Platform and Business Modules
-CFMS is divided into Core Platform capabilities and Business Modules.
-Core Platform
-Provides shared capabilities such as:
-•	Organizations 
-•	Users 
-•	Authentication 
-•	RBAC 
-•	Reference Data 
-•	Audit 
-•	Notifications 
-•	File Management 
-Business Modules
-Provide domain-specific functionality such as:
-•	Complaints & Feedback 
-•	Workflow 
-•	Dashboard/Reporting Engine
-•	SLA 
-•	Escalation 
-•	Assignment 
-•	Reporting 
-Business modules should reuse Core Platform services rather than duplicate foundational functionality.
-Application Layers
-Routes
-Define API endpoints and compose middleware.
-Middleware
-Handles cross-cutting concerns such as authentication, authorization, validation, and organizational context.
-Controllers
-Handle HTTP requests and responses and delegate business logic to services.
-Services
-Contain business rules, application logic, authorization-related checks, organizational rules, and transactional operations.
-Prisma
-Provides type-safe database access and transaction management.
-PostgreSQL
-Provides persistent storage and relational data integrity.
-Business logic should not be duplicated between controllers and frontend code.
-Data Architecture
-PostgreSQL is the authoritative database.
-Database integrity should be protected through appropriate:
-•	Foreign keys 
-•	Unique constraints 
-•	Indexes 
-•	Database constraints 
-•	Transactions 
-Database operations that must succeed or fail together should use transactions.
-API Architecture
-APIs should be:
-•	Consistent 
-•	Validated 
-•	Authenticated where required 
-•	Authorized server-side 
-•	Properly scoped 
-•	Explicit in their error handling 
-Input validation should occur at the API boundary using Zod or equivalent validation.
-API contracts should remain stable and backward-compatible where practical.
-Frontend Architecture
-The frontend uses React and TypeScript with Vite, Tailwind CSS, shadcn/ui, Radix UI, and React Router.
-The frontend should be:
-•	Responsive 
-•	Accessible 
-•	Consistent 
-•	Component-based 
-•	Reusable 
-•	Suitable for desktop and mobile 
-The frontend provides the user experience and must never be treated as a security boundary.
-Reliability and Maintainability
-The architecture prioritizes:
-•	Strong typing 
-•	Clear separation of responsibilities 
-•	Centralized business logic 
-•	Transactional operations 
-•	Consistent error handling 
-•	Structured logging 
-•	Auditability 
-•	Automated testing 
-•	Safe database migrations 
-•	Backward compatibility 
-•	Low coupling between modules 
-Existing functionality must not be removed or redesigned without first verifying its actual usage and dependencies.
-Testing
-Testing should cover:
-•	Business logic 
-•	Services 
-•	APIs 
-•	Database interactions 
-•	Authorization 
-•	Organizational access 
-•	Critical user workflows 
-Tests must use isolated environments and must never operate against production data.
-Architecture Evolution
-Significant architectural changes should follow:
-Inspect
-  ↓
-Understand
-  ↓
-Define Target
-  ↓
-Plan
-  ↓
-Implement
-  ↓
-Test
-  ↓
-Verify
-  ↓
-Document
-Applied migrations and production data must not be modified to hide inconsistencies.
-Destructive database operations require explicit authorization.
-Architectural Principle
-Organizations define structure.
-Membership defines organizational context.
-Roles and permissions define authority.
-Services enforce business rules.
-Prisma provides data access.
-Business modules provide domain functionality.
-The frontend provides user experience, not security.
-CFMS architecture must remain secure, reliable, maintainable, testable, and extensible as the platform evolves.
+# Platform Architecture
 
+> يصف هذا الملف البنية المعمارية الحالية للمنصة والقواعد الأساسية التي يجب
+> الحفاظ عليها عند تطويرها.
+>
+> يجب تحديثه عند إجراء تغيير معماري فعلي.
+>
+> حالة التنفيذ التفصيلية توجد في `PROJECT_STATUS.md`، بينما الخطط المستقبلية
+> توجد في `ROADMAP.md`.
+
+## ما هي المنصة
+
+المنصة عبارة عن **Enterprise Platform** مبنية على نمط:
+
+**Core Platform + Business Modules**
+
+يوفر الـ Core الخدمات والبنية المشتركة التي تعتمد عليها وحدات الأعمال، مثل:
+
+* المؤسسات والفروع والوحدات التنظيمية.
+* المستخدمين والأدوار والصلاحيات.
+* العزل بين المؤسسات.
+* البيانات المرجعية.
+* الخدمات والبنية المشتركة.
+
+**CFMS** هي أول Business Module مبنية فوق الـ Core، وهي مسؤولة عن إدارة
+الشكاوى والملاحظات.
+
+يمكن إضافة وحدات أعمال أخرى مستقبلاً، مثل HR أو إدارة المشاريع أو المنح،
+دون إعادة تصميم الخدمات الأساسية المشتركة.
+
+المنصة عامة وليست مرتبطة بقطاع واحد. أي قدرات متخصصة بقطاع معين يجب أن تكون
+قابلة للتخصيص أو التفعيل، وألا تتحول إلى افتراضات ثابتة داخل Core.
+
+## Core Stack
+
+* **Backend:** Node.js, Express, TypeScript.
+* **ORM:** Prisma.
+* **Database:** PostgreSQL (`cfms_db`).
+* **Validation:** Zod.
+* **Frontend:** React, TypeScript, Vite, Tailwind CSS, Zustand, React Router.
+
+## Multi-Tenant Architecture
+
+تستخدم المنصة قاعدة بيانات مشتركة:
+
+**Shared Database + Organization-Scoped Data**
+
+يتم تحديد نطاق البيانات التابعة للمؤسسة باستخدام `organization_id` في الجداول
+التي تملكها المؤسسة.
+
+يوفر ذلك عزلاً منطقياً بين المؤسسات، مع إمكانية الانتقال مستقبلاً إلى عزل
+فيزيائي أقوى عند الحاجة دون تغيير النموذج المفاهيمي الأساسي.
+
+التفاصيل التنفيذية والأمنية للعزل موجودة في:
+
+`docs/TENANT_ISOLATION.md`
+
+## Application Layers
+
+```text
+Route
+  → Middleware
+  → Controller
+  → Service
+  → Prisma
+  → PostgreSQL
+```
+
+### Routes
+
+مسؤولة عن تعريف endpoints وربطها بالـ middleware والـ controllers.
+
+### Middleware
+
+مسؤولة عن المصادقة، تحديد السياق، والتحقق من المتطلبات المشتركة قبل الوصول
+إلى منطق الأعمال.
+
+### Controllers
+
+مسؤولة عن تحويل HTTP requests/responses واستدعاء الخدمات.
+
+لا يجب وضع منطق الأعمال الأساسي داخل Controllers.
+
+### Services
+
+تحتوي على منطق الأعمال والتحقق من القواعد التشغيلية، بما في ذلك التحقق من
+الملكية والعزل عندما يكون ذلك مطلوباً.
+
+### Prisma
+
+Prisma هي طبقة الوصول إلى قاعدة البيانات والـ ORM المعتمد في المنصة.
+
+يجب أن تمر عمليات الوصول إلى البيانات من خلال طبقة Prisma المعتمدة، مع الحفاظ
+على منطق الأعمال داخل Services وعدم نقله إلى طبقة الوصول إلى البيانات.
+
+## Tenant Isolation
+
+### القاعدة الأساسية
+
+السياق الفعلي للمؤسسة يجب أن يأتي من سياق الخادم الموثوق، وليس من بيانات
+يرسلها العميل لتحديد المؤسسة.
+
+`req.organizationId` هو السياق المعتمد للمؤسسة داخل الطلب بعد التحقق منه.
+
+لا يجوز استخدام `organizationId` القادم مباشرة من:
+
+* request body
+* query parameters
+* route parameters
+
+كمصدر مستقل للعزل أو الصلاحية.
+
+كل عملية organization-scoped يجب أن تتحقق من أنها تنفذ ضمن المؤسسة الصحيحة.
+
+التفاصيل الكاملة موجودة في:
+
+`docs/TENANT_ISOLATION.md`
+
+## RBAC
+
+تدعم المنصة مسارين لإسناد الصلاحيات:
+
+```text
+User → Role
+```
+
+و:
+
+```text
+User → Group → Role
+```
+
+ويُستخدم نموذج **Template + Override** للسماح بأدوار وصلاحيات مشتركة مع
+إمكانية تخصيصها على مستوى المؤسسة.
+
+التفاصيل الكاملة لقواعد RBAC موجودة في:
+
+`docs/RBAC.md`
+
+## Reference Data
+
+القوائم القابلة للتخصيص لا يجب أن تُبنى كـ hardcoded constants داخل الواجهة
+أو منطق الأعمال.
+
+تُدار البيانات المرجعية من خلال البنية المشتركة:
+
+```text
+reference_lists
+        ↓
+reference_list_items
+```
+
+وتسمح هذه البنية بتخصيص القيم بحسب احتياجات المؤسسة ضمن القواعد المعمارية
+المعتمدة.
+
+التفاصيل موجودة في:
+
+`docs/REFERENCE_DATA.md`
+
+## User and Complainant Separation
+
+يمثل `User` موظفاً أو مستخدم نظام لديه حساب وصلاحيات.
+
+أما `Complainant` فيمثل مقدّم طلب أو شكوى خارجي ولا يحتاج إلى حساب نظام.
+
+يجب الحفاظ على الفصل بين الكيانين.
+
+هذا التصميم يسمح باستخدام نفس المبدأ في وحدات مستقبلية تستقبل مدخلات من جمهور
+خارجي، مثل:
+
+* طلبات الخدمة.
+* الاستفسارات.
+* تذاكر الدعم.
+* الشكاوى والملاحظات.
+
+## Public Portal
+
+تستخدم البوابة العامة مساراً موحداً يعتمد على المؤسسة:
+
+```text
+/api/public/:orgSlug/...
+```
+
+يحدد `orgSlug` المؤسسة المستهدفة للبوابة العامة، بينما يجب أن تظل حماية
+البيانات والتحقق من السياق مسؤولية الخادم.
+
+لا يجوز الاعتماد على الواجهة الأمامية لتحقيق عزل المؤسسات.
+
+## Shared Platform vs Business Modules
+
+يجب الحفاظ على الفصل بين Core Platform ووحدات الأعمال.
+
+### Core Platform
+
+يحتوي على الخدمات المشتركة التي يمكن أن تستخدمها أكثر من وحدة، مثل:
+
+* Organizations.
+* Users.
+* Roles and Permissions.
+* Tenant Isolation.
+* Reference Data.
+* Shared infrastructure.
+* Shared security capabilities.
+
+### Business Modules
+
+تحتوي على منطق الأعمال الخاص بمجال محدد.
+
+حالياً:
+
+```text
+CFMS
+└── Complaints & Suggestions
+```
+
+أي منطق خاص بمجال أعمال معين لا يجب إدخاله في Core إلا إذا ثبت أنه خدمة
+مشتركة فعلاً بين أكثر من وحدة.
+
+## AI Readiness
+
+المنصة لا تحتوي حالياً على قدرات AI منفذة.
+
+لكن البيانات المنظمة والفصل بين الكيانات وسجل تاريخ حالات الشكاوى تسمح بإضافة
+خدمات AI مستقبلاً، مثل:
+
+* التصنيف التلقائي.
+* اكتشاف التكرار.
+* التلخيص.
+
+هذه إمكانيات مستقبلية وليست جزءاً من التنفيذ الحالي.
+
+## Architectural Boundaries
+
+عند إضافة أو تعديل أي مكون:
+
+* لا تكرر منطق الأعمال الموجود مسبقاً.
+* لا تنقل منطقاً خاصاً بوحدة أعمال إلى Core دون مبرر معماري.
+* لا تعتمد على Frontend لتحقيق الأمن أو عزل المؤسسات.
+* لا تغير بنية قاعدة البيانات دون تحديث الوثائق المعمارية ذات الصلة.
+* لا تضف abstraction أو architecture pattern لمجرد زيادة المرونة المستقبلية.
+* استخدم Prisma باعتبارها طبقة ORM والوصول إلى البيانات المعتمدة.
+* فضّل أبسط تصميم يحقق المتطلبات الحالية ويحافظ على قابلية التوسع المطلوبة.
+
+## Current Scope
+
+المكونات التالية ليست جزءاً من التنفيذ الكامل الحالي، وقد تكون مخططة أو جزئية:
+
+* Workflow Engine قابل للتخصيص.
+* Notification Engine.
+* Dashboard/Reporting Engine.
+* Assignment متقدم للأقسام والفرق.
+* Group inheritance.
+* Refresh Tokens.
+* Audit Trail عام كامل.
+
+حالة كل مكون وتفاصيل التنفيذ الحالية موجودة في:
+
+`docs/PROJECT_STATUS.md`
+
+أما المكونات المستقبلية وخطة التطوير فتوجد في:
+
+`docs/ROADMAP.md`

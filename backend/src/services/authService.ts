@@ -105,13 +105,8 @@ export const login = async (email: string, password: string) => {
   return { token, user: { ...mapUser(user), roleCodes } };
 };
 
-export const register = async (
-  organizationId: string | number,
-  payload: RegisterPayload,
-  actorUserId?: string | number | null
-): Promise<UserResponse> => {
+export const register = async (organizationId: string | number, payload: RegisterPayload): Promise<UserResponse> => {
   const parsedOrganizationId = toSafeInteger(organizationId);
-  const parsedActorUserId = toSafeInteger(actorUserId);
   const parsedOrgUnitId = toSafeInteger(payload.orgUnitId);
   if (parsedOrganizationId === null) throw new ApiError(400, 'المؤسسة غير موجودة');
 
@@ -166,15 +161,6 @@ export const register = async (
           created_at: now,
           updated_at: now,
         },
-      });
-
-      await recordAuditEvent(tx, {
-        organizationId: parsedOrganizationId,
-        actorUserId: parsedActorUserId,
-        action: 'user.created',
-        entityType: 'user',
-        entityId: createdUser.id,
-        metadata: { email: payload.email, roleCode: payload.roleCode || 'staff' },
       });
 
       return createdUser;

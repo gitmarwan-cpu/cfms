@@ -1,14 +1,12 @@
 import prisma from '../prisma/client';
 import ApiError from '../utils/ApiError';
-import { recordAuditEvent } from './auditService';
 
 export type OrganizationId = string | number;
 export type UserId = string | number;
 export type RoleId = string | number;
 export type UserRoleId = string | number;
 
-const toSafeInteger = (value: string | number | null | undefined): number | null => {
-  if (value === null || value === undefined) return null;
+const toSafeInteger = (value: string | number): number | null => {
   if (typeof value === 'number') return Number.isSafeInteger(value) && value > 0 ? value : null;
   if (!/^[1-9]\d*$/.test(value)) return null;
   const parsed = Number(value);
@@ -68,8 +66,7 @@ export const listUserRoles = async (organizationId: OrganizationId, userId: User
 
 export const assignRole = async (
   organizationId: OrganizationId,
-  payload: { userId: UserId; roleId: RoleId; orgUnitId?: string | number | null },
-  actorUserId?: string | number | null
+  payload: { userId: UserId; roleId: RoleId; orgUnitId?: string | number | null }
 ) => {
   const parsedOrganizationId = toSafeInteger(organizationId);
   const parsedUserId = toSafeInteger(payload.userId);
@@ -121,28 +118,16 @@ export const assignRole = async (
     },
     select: USER_ROLE_SELECT,
   });
-  await recordAuditEvent(prisma, {
-    organizationId: parsedOrganizationId,
-    actorUserId: toSafeInteger(actorUserId),
-    action: 'user.role_assigned',
-    entityType: 'user',
-    entityId: parsedUserId,
-    metadata: { roleId: parsedRoleId, orgUnitId: parsedOrgUnitId },
-  });
   return mapUserRole(created);
 };
 
-export const revokeRole = async (
-  organizationId: OrganizationId,
-  userRoleId: UserRoleId,
-  actorUserId?: string | number | null
-): Promise<void> => {
+export const revokeRole = async (organizationId: OrganizationId, userRoleId: UserRoleId): Promise<void> => {
   const parsedOrganizationId = toSafeInteger(organizationId);
   const parsedUserRoleId = toSafeInteger(userRoleId);
   const userRole = parsedOrganizationId && parsedUserRoleId
     ? await prisma.user_roles.findFirst({
         where: { id: parsedUserRoleId, organization_id: parsedOrganizationId },
-        select: { id: true, role_id: true, user_id: true },
+        select: { id: true, role_id: true },
       })
     : null;
   if (!userRole) throw new ApiError(404, 'تعيين الدور غير موجود ضمن مؤسستك');
@@ -156,13 +141,5 @@ export const revokeRole = async (
   }
 
   await prisma.user_roles.delete({ where: { id: parsedUserRoleId as number } });
-  await recordAuditEvent(prisma, {
-    organizationId: parsedOrganizationId,
-    actorUserId: toSafeInteger(actorUserId),
-    action: 'user.role_revoked',
-    entityType: 'user',
-    entityId: userRole.user_id,
-    metadata: { roleId: userRole.role_id },
-  });
 };
 

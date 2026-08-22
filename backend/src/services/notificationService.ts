@@ -1,7 +1,6 @@
 import { Prisma } from '@prisma/client';
 import prisma from '../prisma/client';
 import ApiError from '../utils/ApiError';
-import { getEffectivePermissions } from './rbacService';
 
 type NotificationClient = typeof prisma | Prisma.TransactionClient;
 
@@ -43,48 +42,6 @@ export const createNotification = async (client: NotificationClient, event: Noti
       created_at: new Date(),
     },
   });
-};
-
-export const getComplaintIntakeRecipients = async (organizationId: number): Promise<number[]> => {
-  const members = await prisma.user_organizations.findMany({
-    where: { organization_id: organizationId, is_active: true },
-    select: { user_id: true, users: { select: { is_active: true } } },
-  });
-  const activeUserIds = members
-    .filter((membership) => membership.users.is_active)
-    .map((membership) => membership.user_id);
-
-  const recipients: number[] = [];
-  for (const userId of activeUserIds) {
-    const permissions = await getEffectivePermissions(userId);
-    const canViewAll = permissions.some(
-      (permission) =>
-        permission.code === 'complaints.view_all' && permission.organizationId === organizationId
-    );
-    if (canViewAll) recipients.push(userId);
-  }
-  return recipients;
-};
-
-export const notifyComplaintIntake = async (
-  client: NotificationClient,
-  organizationId: number,
-  recipientIds: number[],
-  complaintId: number,
-  referenceCode: string
-): Promise<void> => {
-  for (const userId of recipientIds) {
-    await createNotification(client, {
-      organizationId,
-      userId,
-      notificationType: 'complaint.created',
-      title: 'شكوى / مقترح جديد',
-      message: `تم استلام طلب جديد برقم ${referenceCode}`,
-      entityType: 'complaint',
-      entityId: complaintId,
-      metadata: { referenceCode },
-    });
-  }
 };
 
 export const listNotifications = async (userId: number, organizationId: number, filters: NotificationFilters = {}) => {

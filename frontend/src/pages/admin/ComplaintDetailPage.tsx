@@ -14,7 +14,6 @@ import {
   type SlaStatus,
 } from '../../api/adminApi';
 import type { ApiClientError } from '../../api/axiosClient';
-import { getHierarchyPath } from '../../utils/orgHierarchy';
 
 const STATUS_LABELS: Record<ComplaintStatus, string> = {
   new: 'جديد',
@@ -393,10 +392,10 @@ export default function ComplaintDetailPage() {
                   >
                     <option value="">— لا يوجد —</option>
                     {orgUnits.filter((u) => u.isActive).map((unit) => (
-                      <option key={unit.id} value={unit.id}>{getHierarchyPath(unit.id, orgUnits) || unit.name}</option>
+                      <option key={unit.id} value={unit.id}>{unit.name}</option>
                     ))}
                     {groups.filter((g) => g.isActive).map((group) => (
-                      <option key={`g-${group.id}`} value={group.id}>
+                      <option key={`g-${group.id}`} value="">
                         {group.nameAr} (فريق)
                       </option>
                     ))}

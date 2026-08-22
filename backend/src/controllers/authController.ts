@@ -11,7 +11,7 @@ const login = catchAsync(async (req: AppRequest, res: AppResponse) => {
 });
 
 const register = catchAsync(async (req: AppRequest, res: AppResponse) => {
-  const user = await authService.register(req.organizationId, req.body, req.user?.id);
+  const user = await authService.register(req.organizationId, req.body);
   const userData = typeof user.toJSON === 'function' ? user.toJSON() : user;
   const { passwordHash, password_hash, ...userSafe } = userData;
   res.status(201).json({ success: true, message: 'تم إنشاء المستخدم بنجاح', data: userSafe });

@@ -48,7 +48,6 @@ const listComplaintsValidation = [
   query('category').optional().custom(isActiveReferenceCode('complaint_category')),
   query('priority').optional().custom(isActiveReferenceCode('complaint_priority')),
   query('isSensitive').optional().isBoolean(),
-  query('search').optional({ checkFalsy: true }).trim().isLength({ max: 150 }).withMessage('نص البحث طويل جداً'),
   query('page').optional().isInt({ min: 1 }),
   query('limit').optional().isInt({ min: 1, max: 100 }),
 ];

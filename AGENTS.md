@@ -20,7 +20,7 @@ Treat token/context usage as a limited engineering resource:
 
 * Backend: Node.js, Express, TypeScript, Prisma.
 * Database: PostgreSQL.
-* Frontend: React, TypeScript, Tailwind CSS.
+* Frontend: React, TypeScript, Vite, Tailwind CSS, shadcn/ui, Radix UI. Full standards and migration rules: `frontend/docs/FRONTEND_STACK.md` (read it before any frontend task).
 * Core: Multi-Tenant Enterprise Platform Foundation.
 * First Module: CFMS (Complaints & Suggestions Module).
 
@@ -69,7 +69,7 @@ Do not investigate unrelated documentation/code discrepancies merely because the
 
 * `docs/RBAC.md`
 
-  * Read when the task affects roles, permissions, authorization, or access control.
+  * Read when the task affects roles, permissions, groups, authorization, or access control.
 
 * `docs/TENANT_ISOLATION.md`
 
@@ -79,6 +79,10 @@ Do not investigate unrelated documentation/code discrepancies merely because the
 
   * Read when the task affects Prisma schema, migrations, seeders, database structure, or data integrity.
 
+* `docs/PRISMA_BASELINE.md`
+
+  * Read before running or writing any `prisma migrate` command, or any task involving schema baseline/reset/history.
+
 * `docs/API_CONVENTIONS.md`
 
   * Read when the task affects API endpoints, controllers, validation, responses, or error handling.
@@ -86,6 +90,22 @@ Do not investigate unrelated documentation/code discrepancies merely because the
 * `docs/REFERENCE_DATA.md`
 
   * Read when the task affects reference-data architecture.
+
+* `docs/SLA.md`
+
+  * Read when the task affects SLA rules, escalation logic, or complaint deadline calculation.
+
+* `docs/HUMANITARIAN_CAPABILITIES.md`
+
+  * Read when the task involves sector-specific capabilities (e.g. Protection/PSEA, humanitarian workflows) to confirm they must remain configurable and not hardcoded in Core.
+
+* `docs/GIT_CONVENTIONS.md`
+
+  * Read when the task involves tagging a milestone or release.
+
+* `frontend/docs/FRONTEND_STACK.md`
+
+  * Read before any frontend task: new component, new page, or modification of an existing page/component.
 
 * `docs/ROADMAP.md`
 
@@ -112,6 +132,14 @@ Do not investigate unrelated documentation/code discrepancies merely because the
 * If the task is small and well-defined, keep documentation inspection proportionate to the task.
 * Do not expand a task merely to reconcile unrelated documentation issues.
 
+### Documentation change discipline
+
+When a task modifies, replaces, or deletes a documentation file:
+
+* Search the repository for other files that link to or reference it (`README.md`, `AGENTS.md`, other files under `docs/` and `modules/`).
+* Update or remove those references in the same change. Do not leave a dangling link.
+* Do not delete a documentation file solely because it appears outdated — verify nothing depends on it first, and confirm removal is warranted rather than a required update.
+
 ## README
 
 `README.md` is a project overview and navigation document.
@@ -134,6 +162,7 @@ Do not investigate unrelated documentation/code discrepancies merely because the
 * Do not change database architecture without updating the relevant documentation.
 * Do not weaken architectural boundaries simply to make a test pass.
 * Preserve established module boundaries and shared-platform responsibilities.
+* Roles, groups, and permissions are platform-level entities, not organization-owned, unless explicitly scoped per `docs/RBAC.md`. Do not add an `organization_id` requirement to role/group creation without reading `docs/RBAC.md` first.
 
 ## Multi-Tenancy and Security
 
@@ -173,6 +202,7 @@ Follow `docs/DATABASE_CONVENTIONS.md` when database-related work is involved.
 * Verify migration and seeding order when relevant.
 * For significant database changes, verify a fresh database initialization when appropriate.
 * Do not bypass Prisma with a second data-access layer without explicit architectural justification.
+* Before running any `prisma migrate` command against a database that may contain real data, read `docs/PRISMA_BASELINE.md`.
 
 ## Git Safety and Conventions
 
@@ -209,3 +239,5 @@ Never create or push a tag for incomplete work. Tag only when the described capa
 * FORBIDDEN: Hardcoding business logic for specific sectors, such as UN or NGO workflows, inside the platform Core.
 * FORBIDDEN: Expanding a task into unrelated refactoring without explicit justification.
 * FORBIDDEN: Reimplementing functionality that already exists without first verifying the current implementation.
+* FORBIDDEN: Deleting, replacing, or substantially rewriting a documentation file without checking and updating every other file that links or refers to it.
+* FORBIDDEN: Adding a UI component library, CSS framework, or state-management library other than what is defined in `frontend/docs/FRONTEND_STACK.md` without explicit developer approval.

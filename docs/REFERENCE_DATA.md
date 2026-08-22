@@ -1,53 +1,157 @@
-# Reference Data — Template + Override
+# Reference Data
 
-جزء من **Core Platform**، تستخدمه أي وحدة أعمال (CFMS اليوم، ووحدات مستقبلية
-لاحقاً) دون بناء آلية خاصة بها.
+## Overview
 
-## القاعدة
+Reference Data is a Core Platform capability shared by CFMS and future business modules.
 
-**ممنوع** أي قائمة قيم (تصنيفات، حالات، أنواع...) كثوابت في الكود. كل قائمة
-قابلة للتخصيص تُدار عبر جدولين عامّين:
+Configurable lists must be managed centrally and must not be hard-coded in application or frontend code.
 
-- `reference_lists`: `key` (مُعرِّف فريد نصي)، `organization_id` (NULL = نظامي/
-  Template مشترك؛ قيمة = نسخة خاصة بمؤسسة/Override).
-- `reference_list_items`: `code`, `label_ar`, `label_en`, `sort_order`,
-  `is_active`, `is_default`, `meta` (JSON حر).
+The system uses:
 
-## آلية Copy-on-Write
+```text
+reference_lists
+reference_list_items
+```
 
-أول مرة تُعدِّل فيها مؤسسة قائمة نظامية، يُستنسَخ الـ Template بالكامل (القائمة
-+ عناصرها) إلى نسخة خاصة بتلك المؤسسة تلقائياً (`getOrCreateOwnList`)، دون
-التأثير على النسخة النظامية أو أي مؤسسة أخرى. القراءة (`getEffectiveList`):
-نسخة المؤسسة الخاصة إن وُجدت، وإلا النسخة النظامية.
+---
 
-## القوائم الموجودة حالياً (وحدة CFMS)
+## Reference Lists
 
-| `key` | Template نظامي؟ | ملاحظة |
-|---|---|---|
-| `gender` | نعم | على `Complainant` |
-| `age_group` | نعم | على `Complainant` |
-| `complaint_category` | لا | قابلة للتخصيص الكامل من البداية |
-| `channel` | لا | |
-| `complaint_type` | نعم | complaint / proposal |
-| `priority` | لا | تحمل `meta.color` |
-| `complainant_relationship` | لا | 8 قيم Bootstrap، على `Complainant` |
+`reference_lists` defines the list:
 
-## ⚠️ فخ حقيقي وقعنا فيه مرتين: seeders الجديدة
+```text
+key
+organization_id
+```
 
-`sequelize-cli` **لا يتتبّع الـ seeders المُنفَّذة افتراضياً** — `db:seed:all`
-يُعيد تشغيل كل ملف في كل مرة. لذلك:
+* `key` is the stable application identifier.
+* `organization_id = NULL` → system-level list.
+* `organization_id = X` → organization-specific list.
 
-1. **كل seeder جديد يجب أن يحمل حارس idempotency خاصاً به** (فحص `COUNT(*)`
-   على شرط محدد بدقة)، وليس الاعتماد على ترتيب التشغيل.
-2. **لا تُضِف قائمة جديدة داخل `seed-reference-data.js` الموجود** — له حارس
-   شامل ("إن وُجدت أي قائمة نظامية، تخطَّ الملف بالكامل"). **أنشئ seeder
-   مستقلاً** بحارس خاص بمفتاحه هو فقط (مثال: `seed-complainant-relationship.js`).
+Items are stored in `reference_list_items`:
 
-## إضافة قائمة مرجعية جديدة — الخطوات الصحيحة
+```text
+code
+label_ar
+label_en
+sort_order
+is_active
+is_default
+meta
+```
 
-1. Migration إن احتجت عمود FK جديد يشير إليها، nullable دائماً ما لم يكن هناك
-   سبب قوي للإلزام.
-2. Seeder **مستقل** بحارس idempotency خاص بـ `key` هذه القائمة تحديداً.
-3. لا حاجة لأي endpoint جديد — `routes/referenceDataRoutes.js` و`publicRoutes.js`
-   عامّان لأي `key` تلقائياً.
-4. Frontend: أضف الـ `key` لمصفوفة الاستهلاك، ولا تكتب القيم مباشرة في الواجهة.
+Application logic should use `code`, not display labels or fixed database IDs.
+
+---
+
+## Organization Overrides
+
+System-level lists provide shared defaults.
+
+An organization may create its own copy when customization is required.
+
+```text
+System List
+    ↓
+Organization Override
+```
+
+The override uses **Copy-on-Write**:
+
+1. Copy the system list and its items on the first modification.
+2. Apply subsequent changes only to the organization's copy.
+3. Never modify the system list through an organization override.
+
+When reading a list:
+
+```text
+Organization list exists?
+        ↓
+   Yes → use it
+   No  → use system list
+```
+
+This resolution logic must remain centralized in the Reference Data service.
+
+---
+
+## Current CFMS Lists
+
+| Key                        | System Default |
+| -------------------------- | -------------- |
+| `gender`                   | Yes            |
+| `age_group`                | Yes            |
+| `complaint_category`       | No             |
+| `channel`                  | No             |
+| `complaint_type`           | Yes            |
+| `priority`                 | No             |
+| `complainant_relationship` | No             |
+
+The actual values belong to the database, not the application code.
+
+---
+
+## Validation
+
+Reference-data inputs must be validated against the effective list for the applicable organization.
+
+Validation must confirm:
+
+* List exists.
+* Code exists.
+* Item is active.
+* Item belongs to the applicable effective list.
+
+Use the centralized validation mechanism, for example:
+
+```text
+custom(isActiveReferenceCode(listKey))
+```
+
+Do not replace configurable reference data with hard-coded `isIn([...])` lists.
+
+---
+
+## Historical Data
+
+Prefer deactivation over deletion when an item is referenced by existing records.
+
+Inactive items may need to remain available for:
+
+* Historical records
+* Reports
+* Audit
+* Referential integrity
+
+---
+
+## Adding a New List
+
+1. Create a migration only if a schema change is required.
+2. Create a **dedicated idempotent seeder** for the new list.
+3. Do not add new lists to a broad seeder whose global guard could skip them.
+4. Existing generic Reference Data APIs normally require no new endpoint.
+5. Frontend consumes the list by its `key`; values must not be hard-coded.
+
+Historical Sequelize seeders must remain idempotent because `sequelize-cli` does not reliably track previously executed seeders.
+
+---
+
+## Security
+
+Organization-specific reference data is protected by server-side authorization.
+
+The backend must ensure that users cannot read or modify reference data outside their authorized organizational context.
+
+The frontend is never the source of truth.
+
+---
+
+## Principle
+
+> **Reference Data is centralized.**
+> **Codes are stable identifiers.**
+> **System lists provide shared defaults.**
+> **Organizations may override configurable lists.**
+> **Copy-on-Write prevents cross-organization changes.**
+> **The database is the source of truth.**

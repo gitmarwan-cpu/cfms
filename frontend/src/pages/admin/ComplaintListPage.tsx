@@ -41,6 +41,8 @@ export default function ComplaintListPage() {
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState('');
   const [isSensitiveFilter, setIsSensitiveFilter] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const [searchFilter, setSearchFilter] = useState('');
 
   const loadComplaints = useCallback(() => {
     setLoading(true);
@@ -51,6 +53,7 @@ export default function ComplaintListPage() {
       limit: 15,
       ...(statusFilter ? { status: statusFilter as ComplaintStatus } : {}),
       ...(isSensitiveFilter !== '' ? { isSensitive: isSensitiveFilter === 'true' } : {}),
+      ...(searchFilter ? { search: searchFilter } : {}),
     })
       .then((res) => {
         setComplaints(res.data);
@@ -63,11 +66,17 @@ export default function ComplaintListPage() {
       .finally(() => {
         setLoading(false);
       });
-  }, [page, statusFilter, isSensitiveFilter]);
+  }, [page, statusFilter, isSensitiveFilter, searchFilter]);
 
   useEffect(() => {
     loadComplaints();
   }, [loadComplaints]);
+
+  const applySearch = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setPage(1);
+    setSearchFilter(searchInput.trim());
+  };
 
   const handleFilterChange =
     (setter: React.Dispatch<React.SetStateAction<string>>) =>
@@ -85,6 +94,29 @@ export default function ComplaintListPage() {
       {/* Filters */}
       <div className="card" style={{ marginBottom: '20px' }}>
         <div className="card__body" style={{ padding: '16px 20px', display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+          <div className="field" style={{ flex: '2', minWidth: '220px' }}>
+            <label htmlFor="searchFilter">البحث</label>
+            <form onSubmit={applySearch} style={{ display: 'flex', gap: '8px' }}>
+              <input
+                id="searchFilter"
+                type="search"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder="رقم، اسم مقدم الطلب، هاتف، بريد، أو نص الشكوى"
+                style={{ flex: '1' }}
+              />
+              <button className="btn btn-primary" type="submit">بحث</button>
+              {searchFilter && (
+                <button
+                  className="btn btn-outline"
+                  type="button"
+                  onClick={() => { setSearchInput(''); setSearchFilter(''); setPage(1); }}
+                >
+                  مسح
+                </button>
+              )}
+            </form>
+          </div>
           <div className="field" style={{ flex: '1', minWidth: '150px' }}>
             <label htmlFor="statusFilter">الحالة</label>
             <select

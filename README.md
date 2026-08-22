@@ -19,7 +19,7 @@
 | خارطة الطريق والوحدات المستقبلية | [`docs/ROADMAP.md`](./docs/ROADMAP.md) |
 | الحالة الفعلية الحالية لكل شيء (منجز/قيد التنفيذ) | [`docs/PROJECT_STATUS.md`](./docs/PROJECT_STATUS.md) |
 | مواصفة وحدة معينة (مثال: الشكاوى) | [`modules/`](./modules/) |
-| اتجاه تصميم الواجهة الأمامية (مستهدف، وليس الحالة الحالية بالكامل) | [`frontend/docs/FRONTEND_DESIGN_SPEC.md`](./frontend/docs/FRONTEND_DESIGN_SPEC.md) |
+| **قرار وخطة تقنية الواجهة الأمامية (Tailwind CSS + shadcn/ui + Radix UI)** | [`frontend/docs/FRONTEND_STACK.md`](./frontend/docs/FRONTEND_STACK.md) |
 | قواعد قاعدة البيانات، الـ RBAC، البيانات المرجعية، الـ API | [`docs/`](./docs/) |
 | قواعد العمل قبل أي تعديل | [`AGENTS.md`](./AGENTS.md) |
 

@@ -23,6 +23,6 @@ export function FormDialog({ title, onClose, onSubmit, saving, error, children, 
   return <Dialog title={title} onClose={onClose}><form className="admin-dialog__form" onSubmit={onSubmit}>{error && <div className="alert alert-danger" role="alert">{error}</div>}{children}<footer><button className="btn btn-outline" type="button" onClick={onClose}>إلغاء</button><button className="btn btn-primary" disabled={saving}>{saving ? 'جارٍ الحفظ…' : submitLabel}</button></footer></form></Dialog>;
 }
 
-export function ConfirmDialog({ title, message, onClose, onConfirm, busy = false }: { title: string; message: string; onClose: () => void; onConfirm: () => void; busy?: boolean }) {
-  return <Dialog title={title} onClose={onClose}><div className="admin-confirm"><p>{message}</p><footer><button className="btn btn-outline" onClick={onClose}>إلغاء</button><button className="btn admin-btn-danger" onClick={onConfirm} disabled={busy}>{busy ? 'جارٍ التنفيذ…' : 'تأكيد الحذف'}</button></footer></div></Dialog>;
+export function ConfirmDialog({ title, message, onClose, onConfirm, busy = false, confirmLabel = 'تأكيد الحذف' }: { title: string; message: string; onClose: () => void; onConfirm: () => void; busy?: boolean; confirmLabel?: string }) {
+  return <Dialog title={title} onClose={onClose}><div className="admin-confirm"><p>{message}</p><footer><button className="btn btn-outline" onClick={onClose}>إلغاء</button><button className="btn admin-btn-danger" onClick={onConfirm} disabled={busy}>{busy ? 'جارٍ التنفيذ…' : confirmLabel}</button></footer></div></Dialog>;
 }

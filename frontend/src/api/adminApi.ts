@@ -161,6 +161,7 @@ export interface ComplaintListFilters {
   category?: string;
   priority?: string;
   isSensitive?: boolean;
+  search?: string;
 }
 
 // ── Complaint API ────────────────────────────────────────────────────
@@ -183,6 +184,7 @@ export const fetchComplaints = async (
   if (filters.category) params.append('category', filters.category);
   if (filters.priority) params.append('priority', filters.priority);
   if (filters.isSensitive !== undefined) params.append('isSensitive', String(filters.isSensitive));
+  if (filters.search) params.append('search', filters.search);
 
   const query = params.toString();
   const url = query ? `/complaints?${query}` : '/complaints';
@@ -281,6 +283,79 @@ export const fetchNotifications = async (
 export const markNotificationRead = async (id: number): Promise<void> => {
   await axiosClient.patch(`/notifications/${id}/read`);
 };
+
+// ── User Management Types ────────────────────────────────────────────
+
+export interface AdminUser {
+  id: number;
+  fullName: string;
+  email: string;
+  isActive: boolean;
+  orgUnitId: number | null;
+  defaultOrganizationId: number | null;
+  createdAt: string;
+  updatedAt: string;
+  orgUnit: OrgUnitRef | null;
+  roles: Array<{ id: number; code: string; nameAr: string; nameEn: string | null }>;
+  groups: Array<{ id: number; code: string; nameAr: string; nameEn: string | null }>;
+}
+
+export interface UserRoleAssignment {
+  id: number;
+  userId: number;
+  roleId: number;
+  organizationId: number;
+  orgUnitId: number | null;
+  role: { id: number; code: string; nameAr: string; nameEn: string | null };
+  orgUnit: OrgUnitRef | null;
+}
+
+export interface UserGroupMembership {
+  id: number;
+  userId: number;
+  groupId: number;
+  organizationId: number;
+  group: { id: number; code: string; nameAr: string; nameEn: string | null };
+}
+
+// ── User Management API ──────────────────────────────────────────────
+
+export interface UserListParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  isActive?: boolean;
+}
+
+export const fetchUsers = async (
+  params: UserListParams = {}
+): Promise<{ data: AdminUser[]; pagination: PaginationInfo }> => {
+  const response = await axiosClient.get<{ data: AdminUser[]; pagination: PaginationInfo }>(
+    '/users',
+    { params: { page: params.page, limit: params.limit, search: params.search || undefined, isActive: params.isActive } }
+  );
+  return response.data;
+};
+
+export const createUser = (payload: {
+  fullName: string;
+  email: string;
+  password: string;
+  roleCode?: string;
+  orgUnitId?: number;
+}) => unwrap<AdminUser>(axiosClient.post('/auth/register', payload));
+
+export const updateUserStatus = (id: number, isActive: boolean) =>
+  unwrap<AdminUser>(axiosClient.patch(`/users/${id}/status`, { isActive }));
+
+export const fetchUserRoles = (userId: number) => unwrap<UserRoleAssignment[]>(axiosClient.get(`/users/${userId}/roles`));
+export const assignUserRole = (userId: number, roleId: number, orgUnitId?: number) =>
+  unwrap<UserRoleAssignment>(axiosClient.post(`/users/${userId}/roles`, { roleId, orgUnitId }));
+export const revokeUserRole = (userRoleId: number) => axiosClient.delete(`/users/roles/${userRoleId}`);
+export const fetchUserGroups = (userId: number) => unwrap<UserGroupMembership[]>(axiosClient.get(`/users/${userId}/groups`));
+export const addUserToGroup = (userId: number, groupId: number) =>
+  unwrap<UserGroupMembership>(axiosClient.post(`/users/${userId}/groups`, { groupId }));
+export const removeUserFromGroup = (userGroupId: number) => axiosClient.delete(`/users/groups/${userGroupId}`);
 
 // ── Report Types ─────────────────────────────────────────────────────
 

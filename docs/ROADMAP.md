@@ -1,108 +1,288 @@
 # CFMS Platform — Development Roadmap
 
-> يدمج هذا الملف خارطة الطريق الأصلية مع الرؤية طويلة المدى للمنصة كنظام
-> ERP-style قابل للتوسع. الحالة (✅ منجز / 🔶 قيد التنفيذ / ⏳ مخطَّط) مُحدَّثة
-> لتطابق الكود الفعلي وقت الكتابة (commit `66deec9`) — **وليست** الحالة
-> الأصلية في نسخة `Roadmap.md` المرفقة سابقاً، والتي أصبحت متجاوَزة جزئياً.
+> يحدد هذا الملف خارطة الطريق الحالية لمنصة CFMS، مع الحفاظ على رؤية طويلة المدى لمنصة مؤسسية قابلة للتوسع وإضافة وحدات أعمال مستقبلية.
+>
+> الحالة: ✅ منجز / 🔶 قيد التنفيذ / ⏳ مخطَّط
 
 ## Phase 0 — Foundation Stabilization ✅ منجز
 
-- بنية المشروع، Backend (Express+Sequelize)، Frontend (React+Vite)، قاعدة
-  البيانات الأساسية، Git workflow.
+- بنية المشروع الأساسية.
+- Backend باستخدام Express + TypeScript + Prisma.
+- Frontend باستخدام React + TypeScript + Vite.
+- PostgreSQL كقاعدة البيانات الأساسية.
+- Git workflow.
+- أساسيات الاختبارات والبنية المشتركة.
 
-## Phase 1 — Core Platform Completion 🔶 قيد التنفيذ (متقدّم جداً)
+---
 
-### 1.1 Reference Data Framework ✅ منجز (بنية عامة، وليس جداول منفصلة لكل نوع)
+## Phase 1 — Core Platform Completion 🔶 قيد التنفيذ
 
-**تصحيح مهم عن الوصف الأصلي**: البند الأصلي افترض جداول/كيانات منفصلة لكل نوع
-(Complaint Types, Categories, Channels, Priorities, Complainant Relationships).
-الفعلي المبني **أعم وأصح هندسياً**: بنية واحدة عامة (`reference_lists`/
-`reference_list_items`) بنمط Template+Override، تُستخدَم لكل هذه الأنواع دون
-جداول منفصلة. راجع [`../docs/REFERENCE_DATA.md`](../docs/REFERENCE_DATA.md).
+### 1.1 Reference Data Framework ✅ منجز
 
-- ✅ Countries, Governorates, Districts (جداول جغرافية مخصَّصة، صحيح أن تبقى
-  منفصلة لأنها هرمية جغرافياً وليست قوائم قيم بسيطة).
-- ✅ Complaint Types, Categories, Channels, Priorities, Complainant Relationships
-  (عبر البنية العامة أعلاه).
-- ✅ CRUD, Activation/Deactivation عبر API إداري عام.
-- ⏳ Soft Delete على البيانات المرجعية نفسها (موجود على بعض الجداول الأخرى، لا
-  على `reference_lists`/`items` بعد).
-- ⏳ Audit Logging عام (غير مبني بعد - راجع 1.8).
+بنية مرجعية عامة تعتمد على:
 
-### 1.2 Organization Management ✅ منجز جزئياً
+`reference_lists` / `reference_list_items`
 
-- ✅ Organization (متعددة، Multi-Tenant حقيقي، ليس مؤسسة واحدة فقط).
-- ✅ Branches/Departments/Teams: عبر `OrgUnit`/`OrgUnitType` — **هيكل تنظيمي
-  مرن قابل للتخصيص لكل مؤسسة** (وليس Branches/Departments/Teams كجداول
-  منفصلة ثابتة)، يدعم أي عمق هرمي.
-- ✅ Organization Settings, Branding (شعار، ألوان، اسم)، Default Country.
-- ⏳ Contact Information كحقول مخصَّصة أوسع (الأساسي موجود: phone/email/website).
+بدلاً من إنشاء جدول منفصل لكل نوع من البيانات المرجعية.
+
+- ✅ Complaint Types
+- ✅ Categories
+- ✅ Channels
+- ✅ Priorities
+- ✅ Complainant Relationships
+- ✅ Countries
+- ✅ Governorates
+- ✅ Districts
+- ✅ CRUD عبر API إداري عام
+- ✅ Activation / Deactivation
+- ⏳ Soft Delete للبيانات المرجعية
+- ⏳ استكمال التكامل مع جميع الوحدات التي تحتاج بيانات مرجعية
+
+---
+
+### 1.2 Organization Management 🔶 قيد التنفيذ
+
+CFMS يستخدم نموذجًا تنظيميًا هرميًا موحدًا يعتمد على جدول:
+
+`organizations`
+
+وتُحدد طبيعة العقدة التنظيمية بواسطة:
+
+`org_unit_type_id → org_unit_types`
+
+بدلاً من إنشاء جداول منفصلة للـ Branches أو Departments أو Sectors أو Teams.
+
+يدعم النموذج:
+
+- ✅ Organizations
+- ✅ Multiple root organizations
+- 🔶 Parent / Child hierarchy
+- 🔶 Configurable organizational unit types
+- 🔶 Organizational membership
+- 🔶 Default user organization
+- ⏳ Organization settings
+- ⏳ Branding
+- ⏳ Contact information
+- ⏳ Hierarchy validation and cycle prevention
+- ⏳ تحسين إدارة organizational context
+
+`users.organization_id` يمثل المنظمة الافتراضية للمستخدم، بينما:
+
+`user_organizations`
+
+يمثل عضوية المستخدم في المؤسسات والعقد التنظيمية المختلفة.
+
+> التنظيم المؤسسي يحدد السياق، بينما RBAC يحدد الصلاحيات.
+
+---
 
 ### 1.3 User & Permission Management ✅ منجز
 
-- ✅ Users, Roles, Permissions, **Groups** (راجع [`../docs/RBAC.md`](../docs/RBAC.md)).
-- ✅ User↔Organization Assignment (M:N حقيقي عبر `UserOrganization`، مستخدم
-  واحد قد ينتمي لعدة مؤسسات بأدوار مختلفة).
-- ✅ RBAC مع Data permissions (Scoped بـ `org_unit_id`).
+- ✅ Users
+- ✅ Roles
+- ✅ Permissions
+- ✅ User ↔ Organization membership
+- ✅ User ↔ Role assignment
+- ✅ Permission-based authorization
+- ✅ Backend authorization
+- ✅ Organizational context support
 
-### 1.4 Authentication & Access Management 🔶 جزئي
+يجب الحفاظ على RBAC الحالي وإعادة استخدامه دون إعادة تصميمه أثناء تطوير الهيكل التنظيمي.
 
-- ✅ Staff Login/Logout, Protected Routes, Permission-based Navigation (Backend).
-- ✅ Backend Authorization كامل.
-- ⏳ Password Management (إعادة تعيين، تغيير ذاتي) — غير مبني بعد.
-- ⏳ Session Management متقدّم (Refresh Tokens) — توكن واحد 8 ساعات فقط حالياً.
-- ⏳ Login Audit — غير مبني بعد.
+---
 
-### 1.5 Workflow Engine ⏳ مخطَّط، غير مبني
+### 1.4 Authentication & Access Management 🔶 قيد التنفيذ
 
-حالة الشكوى حالياً ENUM بسيط (`new/in_review/resolved/closed/rejected`) بلا
-محرّك سير عمل قابل للتخصيص.
+- ✅ Staff Login / Logout
+- ✅ Protected Routes
+- ✅ Permission-based navigation
+- ✅ Backend authorization
+- ⏳ Password change
+- ⏳ Password reset
+- ⏳ Refresh token / session management
+- ⏳ Login and authentication audit improvements
+- ⏳ Security hardening
 
-### 1.6 File Management Foundation ✅ منجز (أساسي)
+---
 
-- ✅ Upload, Storage, Metadata (حجم/نوع/اسم مُخزَّن)، Access Control أساسي.
-- ⏳ لا مسار تنزيل/عرض مرفقات بعد (راجع ملاحظة أمنية في مراجعة الأمان السابقة).
+### 1.5 Workflow Engine ⏳ مخطَّط
+
+تحويل workflow من الحالة الحالية المعتمدة على حالات ثابتة إلى محرك Workflow قابل للتخصيص.
+
+المستهدف:
+
+- Workflow Definitions
+- Workflow States
+- Workflow Transitions
+- Role / Permission-based transitions
+- Organizational rules
+- Validation
+- History and audit
+- Module-specific workflows
+
+---
+
+### 1.6 File Management Foundation 🔶 قيد التنفيذ
+
+- ✅ File upload
+- ✅ Storage
+- ✅ File metadata
+- ✅ Basic access control
+- ⏳ Secure download / preview
+- ⏳ File access authorization
+- ⏳ File lifecycle management
+- ⏳ Additional security validation
+
+---
 
 ### 1.7 API Foundation ✅ منجز
 
-راجع [`../docs/API_CONVENTIONS.md`](../docs/API_CONVENTIONS.md).
+- ✅ REST API structure
+- ✅ Authentication middleware
+- ✅ Authorization middleware
+- ✅ Validation
+- ✅ Consistent responses
+- ✅ Error handling
+- ✅ API conventions
 
-### 1.8 Audit & Activity System ✅ منجز (سجلات تدقيق كاملة للشكاوى والإسناد والمصادقة)
+راجع:
 
-- ✅ `audit_logs` جدول تدقيق معزول لكل مؤسسة يدعم التتبع الدقيق لجميع العمليات وإعادة التعيين والتصعيد وتغييرات الحالة.
+`docs/API_CONVENTIONS.md`
 
-## Phase 2 — Complaint Management Module (CFMS) 🔶 قيد التنفيذ (مكتمِل الهيكل والـ Backend)
+---
 
-راجع [`../modules/complaints/README.md`](../modules/complaints/README.md)
-للتفاصيل الكاملة وحالة كل بند.
+### 1.8 Audit & Activity System 🔶 قيد التنفيذ
 
-- ✅ 2.1 Complaint Submission (عام، مجهول، مرفقات، PIN، ربط اختياري بمشروع/موظف كنص حر، وأولوية).
-- ✅ 2.2 SLA & Escalation Management (قواعد اتفاقيات مستوى الخدمة، التصعيد الآلي، خادم الخلفية، وحساب المهلة الزمنية حسب الأولوية).
-- ✅ 2.3 Complaint Assignment بأقسام/فرق (إسناد فردي + وحدة تنظيمية اختيارية مع تحقق عضوية/نطاق المؤسسة ومسار تدقيق).
-- ✅ 2.4 Reporting Summary API (`GET /api/reports/complaints` تفصيلي مع الإحصائيات والأولويات والتوزيعات).
-- ✅ 2.5 Public Tracking (رقم مرجعي + PIN، عرض مبسَّط آمن).
+- ✅ `audit_logs`
+- ✅ Complaint activity auditing
+- ✅ Assignment auditing
+- ✅ Status change auditing
+- ✅ Escalation auditing
+- ✅ Authentication-related auditing
+- ⏳ Expand auditing across Core Platform modules
+- ⏳ Administrative activity views
+
+---
+
+## Phase 2 — Complaint Management Module 🔶 قيد التنفيذ
+
+CFMS Complaints & Feedback Management هو أول Business Module في المنصة والأكثر نضجًا حاليًا.
+
+### 2.1 Complaint Submission ✅ منجز
+
+- ✅ Public submission
+- ✅ Anonymous submission
+- ✅ Reference number
+- ✅ PIN
+- ✅ Attachments
+- ✅ Priority
+- ✅ Optional project / staff information
+- ✅ Validation
+
+### 2.2 Complaint Lifecycle 🔶 قيد التنفيذ
+
+- ✅ Complaint status management
+- ✅ Assignment
+- ✅ Status history
+- 🔶 Workflow integration
+- ⏳ Advanced lifecycle rules
+
+### 2.3 SLA & Escalation Management ✅ منجز
+
+- ✅ SLA rules
+- ✅ Priority-based SLA calculation
+- ✅ Automatic escalation
+- ✅ Escalation events
+- ✅ Backend enforcement
+
+### 2.4 Complaint Assignment ✅ منجز
+
+- ✅ Individual assignment
+- ✅ Organizational unit assignment
+- ✅ Membership validation
+- ✅ Organizational access validation
+- ✅ Audit trail
+
+### 2.5 Public Tracking ✅ منجز
+
+- ✅ Reference number + PIN
+- ✅ Secure public tracking
+- ✅ Limited public information exposure
+
+### 2.6 Reporting Summary API ✅ منجز
+
+- ✅ Complaint statistics
+- ✅ Priority distribution
+- ✅ Status distribution
+- ✅ Organizational distributions
+- ⏳ Advanced reporting and analytics
+
+---
 
 ## Phase 3 — Platform Extensions ⏳ مخطَّط
 
-- Notification Engine (Email/SMS/WhatsApp/In-app).
-- Reporting Engine (Dashboards/Export/Analytics).
+### Notification Engine
 
-## Phase 4 — Additional Business Modules ⏳ مخطَّط (رؤية طويلة المدى)
+- Email
+- SMS
+- WhatsApp
+- In-app notifications
+- Notification templates
+- Event-based notifications
+- Organizational configuration
 
-بعد اكتمال Core Platform، المنصة مصمَّمة لاستيعاب أي عدد من وحدات الأعمال دون
-إعادة تصميم الأساس. القائمة أدناه توضيحية وليست شاملة أو نهائية:
+### Reporting & Analytics Engine
 
-**الأساس المشترك (Core Platform)**: Authentication, Organizations, Branches,
-Departments, Teams, Users, Roles & Permissions, Workflow Engine, Notification
-Engine, Audit Trail, File Management, Dashboard Framework, AI Services,
-Reporting Engine.
+- Dashboards
+- Reports
+- Filters
+- Exports
+- Organizational reporting
+- Performance indicators
+- Scheduled reports
 
-**وحدات الأعمال (Business Modules)**:
-- Complaints & Feedback Management (**الوحدة الأولى الحالية، الأكثر نضجاً**)
-- Human Resources (HR)
+### Dashboard Framework
+
+- Reusable KPI components
+- Charts
+- Configurable filters
+- Organizational views
+- Module dashboards
+- Export and printing support
+
+---
+
+## Phase 4 — Additional Business Modules ⏳ مخطَّط
+
+CFMS is designed to evolve into a broader enterprise platform where future business modules reuse the same Core Platform services.
+
+### Core Platform
+
+Shared capabilities include:
+
+- Authentication
+- Organizations
+- Organizational hierarchy
+- Users
+- Roles & Permissions
+- Workflow Engine
+- Notification Engine
+- Audit Trail
+- File Management
+- Reporting Engine
+- Dashboard Framework
+- Shared Reference Data
+- Shared Validation and Security Services
+
+### Business Modules
+
+Potential future modules include:
+
+- Complaints & Feedback Management
+- Human Resources
 - Project Management
 - Planning & Strategic Planning
-- Monitoring & Evaluation (M&E)
+- Monitoring & Evaluation
 - Grants & Donor Management
 - Procurement
 - Inventory & Warehouse
@@ -121,19 +301,82 @@ Reporting Engine.
 - Training Management
 - Performance Management
 
-القائمة مفتوحة لأي وحدة مستقبلية إضافية دون قيد.
+The list is indicative and may evolve according to organizational requirements.
+
+---
+
+## Phase 5 — Enterprise Capabilities ⏳ مخطَّط
+
+Long-term capabilities may include:
+
+- Advanced integrations
+- External APIs
+- Mobile applications
+- Advanced analytics
+- Automation
+- AI-assisted services
+- Enterprise reporting
+- Multi-language support
+- Advanced configuration
+- Cross-module workflows
+
+These capabilities should be introduced only after the underlying platform services are sufficiently stable.
+
+---
 
 ## Definition of Done
 
-أي Phase/بند لا يُعتبر مكتملاً إلا إذا:
+A feature or phase is considered complete when applicable requirements are satisfied:
 
-- Database updated with migrations and verified on real PostgreSQL, including the
-  disposable migration-validation database (see [`../docs/DATABASE_CONVENTIONS.md`](../docs/DATABASE_CONVENTIONS.md)).
-- API documented.
-- Tests passing.
-- Frontend integrated.
-- Documentation updated (هذا الملف ووثائق `docs/`/`modules/` ذات الصلة).
-- RBAC verified.
-- Tenant isolation verified (مع اختبار عزل فعلي، راجع `tenantIsolation.test.js`).
-- Security reviewed.
-- Performance reviewed.
+- Database changes are implemented through safe migrations.
+- Changes are verified against PostgreSQL.
+- API contracts are implemented and documented.
+- Automated tests are passing.
+- Frontend integration is complete where applicable.
+- Documentation is updated.
+- RBAC and authorization are verified.
+- Organizational access and scope are verified where applicable.
+- Security implications are reviewed.
+- Performance implications are reviewed where applicable.
+- Existing functionality remains stable.
+
+Production data and applied migrations must not be modified to hide inconsistencies.
+
+---
+
+## Development Priorities
+
+CFMS development follows these priorities:
+
+1. **Security**
+2. **Data integrity**
+3. **Organizational integrity**
+4. **Reliability**
+5. **Maintainability**
+6. **Testability**
+7. **Performance**
+8. **User experience**
+9. **Extensibility**
+
+New capabilities should build on existing Core Platform services rather than duplicate them.
+
+---
+
+## Development Flow
+
+```text
+Inspect
+  ↓
+Understand
+  ↓
+Define Target
+  ↓
+Plan
+  ↓
+Implement
+  ↓
+Test
+  ↓
+Verify
+  ↓
+Document

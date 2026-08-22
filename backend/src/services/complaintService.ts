@@ -3,7 +3,7 @@ import prisma from '../prisma/client';
 import ApiError from '../utils/ApiError';
 import * as locationService from './locationService';
 import { recordAuditEvent } from './auditService';
-import { createNotification } from './notificationService';
+import { createNotification, getComplaintIntakeRecipients, notifyComplaintIntake } from './notificationService';
 import { resolveComplaintSlaFields, slaStatusForStatusChange } from './slaService';
 import { sendComplaintReceipt } from './whatsappService';
 
@@ -63,6 +63,7 @@ export interface ComplaintFilters {
   category?: string;
   priority?: string;
   isSensitive?: string | boolean;
+  search?: string;
 }
 
 const REF_ITEM_SELECT = {
@@ -419,6 +420,8 @@ export const createComplaint = async (
     ? null
     : toPositiveInteger(createdByUserId);
 
+  const intakeRecipients = await getComplaintIntakeRecipients(parsedOrganizationId);
+
   const result = await prisma.$transaction(async (tx) => {
     const initialWorkflowState = await getWorkflowState(tx, 'new');
     await locationService.validateGovernorateDistrictPair(payload.governorateId, payload.districtId);
@@ -545,6 +548,7 @@ export const createComplaint = async (
       entityId: complaint.id,
       metadata: { referenceCode, type: payload.type, status: 'new' },
     });
+    await notifyComplaintIntake(tx, parsedOrganizationId, intakeRecipients, complaint.id, referenceCode);
 
     const created = await tx.complaints.findUnique({
       where: { id: complaint.id },
@@ -594,8 +598,27 @@ export const listComplaints = async (organizationId: IdInput, filters: Complaint
     );
     where.category_item_id = categoryItem.id;
   }
+  if (filters.priority) {
+    const priorityItem = await referenceDataService.resolveActiveItem(
+      'complaint_priority',
+      filters.priority,
+      parsedOrganizationId
+    );
+    where.priority_item_id = priorityItem.id;
+  }
   if (filters.isSensitive !== undefined) {
     where.is_sensitive = filters.isSensitive === 'true' || filters.isSensitive === true;
+  }
+  if (filters.search !== undefined) {
+    const searchTerm = String(filters.search).trim();
+    if (searchTerm) {
+      where.OR = [
+        { description: { contains: searchTerm, mode: 'insensitive' } },
+        { complainants: { is: { full_name: { contains: searchTerm, mode: 'insensitive' } } } },
+        { complainants: { is: { phone: { contains: searchTerm, mode: 'insensitive' } } } },
+        { complainants: { is: { email: { contains: searchTerm, mode: 'insensitive' } } } },
+      ];
+    }
   }
 
   const [rows, total] = await Promise.all([

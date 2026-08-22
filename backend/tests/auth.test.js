@@ -41,4 +41,53 @@ describe('Auth API', () => {
     const res = await request(app).get('/api/auth/me');
     expect(res.status).toBe(401);
   });
+
+  it('ينشئ مستخدمًا عبر register ويسجّل حدث user.created في سجل التدقيق', async () => {
+    const login = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'test.admin@cfms.local', password: 'Password123' });
+    const token = login.body.data.token;
+
+    const res = await request(app)
+      .post('/api/auth/register')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        fullName: 'مستخدم جديد',
+        email: `new-user-${Date.now()}@cfms.local`,
+        password: 'Password123',
+        roleCode: 'staff',
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data).toHaveProperty('id');
+
+    const audit = await prisma.audit_logs.findFirst({
+      where: { action: 'user.created', entity_type: 'user', entity_id: res.body.data.id },
+    });
+    expect(audit).toMatchObject({ organization_id: login.body.data.user.defaultOrganizationId });
+    expect(audit.metadata).toMatchObject({ roleCode: 'staff' });
+  });
+
+  it('يرفض register لمن لا يملك صلاحية users.manage', async () => {
+    const staff = await createUserWithRole({
+      fullName: 'Staff Without Manage',
+      email: `staff-nomanage-${Date.now()}@cfms.local`,
+      roleCode: 'staff',
+    });
+    const login = await request(app)
+      .post('/api/auth/login')
+      .send({ email: staff.user.email, password: 'Password123' });
+
+    const res = await request(app)
+      .post('/api/auth/register')
+      .set('Authorization', `Bearer ${login.body.data.token}`)
+      .send({
+        fullName: 'مرفوض',
+        email: `denied-${Date.now()}@cfms.local`,
+        password: 'Password123',
+        roleCode: 'staff',
+      });
+
+    expect(res.status).toBe(403);
+  });
 });

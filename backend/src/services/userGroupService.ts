@@ -1,12 +1,14 @@
 import prisma from '../prisma/client';
 import ApiError from '../utils/ApiError';
+import { recordAuditEvent } from './auditService';
 
 export type OrganizationId = string | number;
 export type UserId = string | number;
 export type GroupId = string | number;
 export type UserGroupId = string | number;
 
-const toSafeInteger = (value: string | number): number | null => {
+const toSafeInteger = (value: string | number | null | undefined): number | null => {
+  if (value === null || value === undefined) return null;
   if (typeof value === 'number') return Number.isSafeInteger(value) && value > 0 ? value : null;
   if (!/^[1-9]\d*$/.test(value)) return null;
   const parsed = Number(value);
@@ -55,7 +57,8 @@ export const listUserGroups = async (organizationId: OrganizationId, userId: Use
 
 export const addUserToGroup = async (
   organizationId: OrganizationId,
-  payload: { userId: UserId; groupId: GroupId }
+  payload: { userId: UserId; groupId: GroupId },
+  actorUserId?: string | number | null
 ) => {
   const parsedOrganizationId = toSafeInteger(organizationId);
   const parsedUserId = toSafeInteger(payload.userId);
@@ -92,16 +95,39 @@ export const addUserToGroup = async (
     },
     select: USER_GROUP_SELECT,
   });
+  await recordAuditEvent(prisma, {
+    organizationId: parsedOrganizationId,
+    actorUserId: toSafeInteger(actorUserId),
+    action: 'user.group_added',
+    entityType: 'user',
+    entityId: parsedUserId,
+    metadata: { groupId: parsedGroupId },
+  });
   return mapUserGroup(created);
 };
 
-export const removeUserFromGroup = async (organizationId: OrganizationId, userGroupId: UserGroupId): Promise<void> => {
+export const removeUserFromGroup = async (
+  organizationId: OrganizationId,
+  userGroupId: UserGroupId,
+  actorUserId?: string | number | null
+): Promise<void> => {
   const parsedOrganizationId = toSafeInteger(organizationId);
   const parsedUserGroupId = toSafeInteger(userGroupId);
   const userGroup = parsedOrganizationId && parsedUserGroupId
-    ? await prisma.user_groups.findFirst({ where: { id: parsedUserGroupId, organization_id: parsedOrganizationId }, select: { id: true } })
+    ? await prisma.user_groups.findFirst({
+        where: { id: parsedUserGroupId, organization_id: parsedOrganizationId },
+        select: { id: true, user_id: true, group_id: true },
+      })
     : null;
   if (!userGroup) throw new ApiError(404, 'عضوية المجموعة غير موجودة ضمن مؤسستك');
   await prisma.user_groups.delete({ where: { id: parsedUserGroupId as number } });
+  await recordAuditEvent(prisma, {
+    organizationId: parsedOrganizationId,
+    actorUserId: toSafeInteger(actorUserId),
+    action: 'user.group_removed',
+    entityType: 'user',
+    entityId: userGroup.user_id,
+    metadata: { groupId: userGroup.group_id },
+  });
 };
 

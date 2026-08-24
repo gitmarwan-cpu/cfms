@@ -3,10 +3,20 @@ import ApiError from '../utils/ApiError';
 
 export type LocationId = string | number;
 
+export interface CountrySummary {
+  id: number;
+  nameEn: string;
+  nameAr: string;
+  iso2: string;
+  iso3: string | null;
+  isActive: boolean;
+}
+
 export interface GovernorateSummary {
   id: number;
   nameEn: string;
   nameAr: string;
+  countryId?: number;
 }
 
 export interface DistrictSummary {
@@ -29,7 +39,7 @@ export interface DistrictWithGovernorate extends DistrictRecord {
 const GOVERNORATE_NOT_FOUND_MESSAGE =
   '\u0627\u0644\u0645\u062d\u0627\u0641\u0638\u0629\u0020\u063a\u064a\u0631\u0020\u0645\u0648\u062c\u0648\u062f\u0629';
 const INVALID_LOCATION_PAIR_MESSAGE =
-  '\u0627\u0644\u0645\u062f\u064a\u0631\u064a\u0629\u0020\u0627\u0644\u0645\u062d\u062f\u062f\u0629\u0020\u0644\u0627\u0020\u062a\u0646\u062a\u0645\u064a\u0020\u0625\u0644\u0649\u0020\u0627\u0644\u0645\u062d\u0627\u0641\u0638\u0629\u0020\u0627\u0644\u0645\u062d\u062f\u062f\u0629';
+  '\u0627\u0644\u0645\u062f\u064a\u0631\u064a\u0629\u0020\u0627\u0644\u0645\u062d\u062f\u062f\u0629\u0020\u0644\u0627\u0020\u062a\u0646\u062a\u0645\u064a\u0020\u0625\u0644\u0649\u0020\u0627\u0644\u0645\u062d\u062f\u062f\u0629';
 
 const toSafeInteger = (value: LocationId): number | null => {
   if (typeof value === 'number') {
@@ -48,10 +58,12 @@ const mapGovernorate = (governorate: {
   id: number;
   name_en: string;
   name_ar: string;
+  country_id?: number;
 }): GovernorateSummary => ({
   id: governorate.id,
   nameEn: governorate.name_en,
   nameAr: governorate.name_ar,
+  ...(governorate.country_id !== undefined ? { countryId: governorate.country_id } : {}),
 });
 
 const mapDistrict = (district: {
@@ -72,14 +84,49 @@ const mapDistrict = (district: {
   updatedAt: district.updated_at,
 });
 
-export const getAllGovernorates = async (): Promise<GovernorateSummary[]> => {
-  const governorates = await prisma.governorates.findMany({
+export const getAllCountries = async (): Promise<CountrySummary[]> => {
+  const countries = await prisma.countries.findMany({
     where: { is_active: true },
     orderBy: { name_ar: 'asc' },
     select: {
       id: true,
       name_en: true,
       name_ar: true,
+      iso2: true,
+      iso3: true,
+      is_active: true,
+    },
+  });
+
+  return countries.map((c) => ({
+    id: c.id,
+    nameEn: c.name_en,
+    nameAr: c.name_ar,
+    iso2: c.iso2,
+    iso3: c.iso3,
+    isActive: c.is_active,
+  }));
+};
+
+export const getAllGovernorates = async (countryId?: LocationId): Promise<GovernorateSummary[]> => {
+  const whereClause: { is_active: boolean; country_id?: number } = { is_active: true };
+
+  if (countryId !== undefined && countryId !== null && countryId !== '') {
+    const parsedCountryId = toSafeInteger(countryId);
+    if (parsedCountryId === null) {
+      return [];
+    }
+    whereClause.country_id = parsedCountryId;
+  }
+
+  const governorates = await prisma.governorates.findMany({
+    where: whereClause,
+    orderBy: { name_ar: 'asc' },
+    select: {
+      id: true,
+      name_en: true,
+      name_ar: true,
+      country_id: true,
     },
   });
 

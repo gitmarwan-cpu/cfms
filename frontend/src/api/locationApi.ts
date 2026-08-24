@@ -1,9 +1,18 @@
 import axiosClient from './axiosClient';
 
+export interface CountrySummary {
+  id: number;
+  nameEn: string;
+  nameAr: string;
+  iso2: string;
+  iso3: string | null;
+}
+
 export interface GovernorateSummary {
   id: number;
   nameEn: string;
   nameAr: string;
+  countryId?: number;
 }
 
 export interface DistrictSummary {
@@ -13,8 +22,16 @@ export interface DistrictSummary {
   governorateId: number;
 }
 
-export const fetchGovernorates = async (): Promise<GovernorateSummary[]> => {
-  const res = await axiosClient.get<{ data: GovernorateSummary[] }>('/locations/governorates');
+export const fetchCountries = async (): Promise<CountrySummary[]> => {
+  const res = await axiosClient.get<{ data: CountrySummary[] }>('/locations/countries');
+  return res.data.data;
+};
+
+export const fetchGovernorates = async (
+  countryId?: string | number | undefined
+): Promise<GovernorateSummary[]> => {
+  const url = countryId ? `/locations/governorates?countryId=${countryId}` : '/locations/governorates';
+  const res = await axiosClient.get<{ data: GovernorateSummary[] }>(url);
   return res.data.data;
 };
 

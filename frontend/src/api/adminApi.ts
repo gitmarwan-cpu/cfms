@@ -381,9 +381,9 @@ export interface ReferenceList { id: number; key: string; nameAr: string; nameEn
 export interface OrganizationSettings {
   id: number; legalName: string; shortName: string | null; logoUrl: string | null; faviconUrl: string | null;
   description: string | null; vision: string | null; mission: string | null; phone: string | null; email: string | null;
-  website: string | null; country: string | null; governorateId: number | null; city: string | null; address: string | null;
-  defaultLanguage: 'ar' | 'en'; timezone: string | null; primaryColor: string | null; secondaryColor: string | null;
-  accentColor: string | null; anonymousComplaintsPolicy: 'allowed' | 'not_allowed' | 'optional';
+  website: string | null; country: string | null; countryId: number | null; governorateId: number | null; districtId: number | null;
+  city: string | null; address: string | null; defaultLanguage: 'ar' | 'en'; timezone: string | null; primaryColor: string | null;
+  secondaryColor: string | null; accentColor: string | null; anonymousComplaintsPolicy: 'allowed' | 'not_allowed' | 'optional';
 }
 export interface OrgUnitType { id: number; code: string; nameAr: string; nameEn: string | null; hierarchyLevel: number; isActive: boolean; allowedParentTypeId: number | null; }
 export interface SlaRule { id: number; name: string; complaintType: 'complaint' | 'proposal' | null; categoryItemId: number | null; priorityItemId: number | null; isSensitive: boolean | null; firstResponseHours: number; resolutionHours: number; escalationIntervalHours: number; maxEscalationLevel: number; isActive: boolean; }

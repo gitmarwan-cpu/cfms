@@ -16,7 +16,9 @@ export interface OrganizationUpdatePayload {
   email?: string | null;
   website?: string | null;
   country?: string;
+  countryId?: number | string | null;
   governorateId?: number | string | null;
+  districtId?: number | string | null;
   city?: string | null;
   address?: string | null;
   latitude?: Prisma.Decimal | number | string | null;
@@ -45,7 +47,9 @@ export interface OrganizationResponse {
   email: string | null;
   website: string | null;
   country: string;
+  countryId: number | null;
   governorateId: number | null;
+  districtId: number | null;
   city: string | null;
   address: string | null;
   latitude: Prisma.Decimal | null;
@@ -82,7 +86,9 @@ const ORGANIZATION_SELECT = {
   email: true,
   website: true,
   country: true,
+  country_id: true,
   governorate_id: true,
+  district_id: true,
   city: true,
   address: true,
   latitude: true,
@@ -149,7 +155,9 @@ const mapOrganization = (
     email: record.email,
     website: record.website,
     country: record.country,
-    governorateId: record.governorate_id,
+    countryId: record.country_id ?? null,
+    governorateId: record.governorate_id ?? null,
+    districtId: record.district_id ?? null,
     city: record.city,
     address: record.address,
     latitude: record.latitude,
@@ -227,7 +235,9 @@ export const updateOrganization = async (
     email: 'email',
     website: 'website',
     country: 'country',
+    countryId: 'country_id',
     governorateId: 'governorate_id',
+    districtId: 'district_id',
     city: 'city',
     address: 'address',
     latitude: 'latitude',
@@ -243,9 +253,22 @@ export const updateOrganization = async (
     isActive: 'is_active',
   } as const;
 
+  const idFields = ['country_id', 'governorate_id', 'district_id'];
+
   for (const [field, databaseField] of Object.entries(fields)) {
     const value = payload[field as keyof OrganizationUpdatePayload];
-    if (value !== undefined) data[databaseField] = value;
+    if (value !== undefined) {
+      if (idFields.includes(databaseField)) {
+        if (value === null || value === '' || value === undefined) {
+          data[databaseField] = null;
+        } else {
+          const parsedId = typeof value === 'number' ? value : Number(value);
+          data[databaseField] = Number.isSafeInteger(parsedId) && parsedId > 0 ? parsedId : null;
+        }
+      } else {
+        data[databaseField] = value;
+      }
+    }
   }
 
   const updated = await prisma.organizations.update({

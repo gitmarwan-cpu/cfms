@@ -222,6 +222,7 @@ model complaints {
   consent_given                                                          Boolean                    @default(false)
   assigned_to_user_id                                                    Int?
   assigned_to_org_unit_id                                                Int?
+  assigned_to_organization_id                                          Int?
   sla_rule_id                                                            Int?
   sla_due_at                                                             DateTime?                  @db.Timestamptz(6)
   sla_first_response_due_at                                              DateTime?                  @db.Timestamptz(6)
@@ -250,6 +251,7 @@ model complaints {
   sla_rules                                                              sla_rules?                 @relation(fields: [sla_rule_id], references: [id])
   users_complaints_assigned_to_user_idTousers                            users?                     @relation("complaints_assigned_to_user_idTousers", fields: [assigned_to_user_id], references: [id])
   org_units_complaints_assigned_to_org_unit_idToorg_units                org_units?                 @relation("complaints_assigned_to_org_unit_idToorg_units", fields: [assigned_to_org_unit_id], references: [id])
+  organizations_complaints_assigned_to_organization_idToorganizations  organizations?             @relation("ComplaintsAssignedToOrganization", fields: [assigned_to_organization_id], references: [id], onDelete: Restrict)
   reference_list_items_complaints_category_item_idToreference_list_items reference_list_items       @relation("complaints_category_item_idToreference_list_items", fields: [category_item_id], references: [id])
   reference_list_items_complaints_channel_item_idToreference_list_items  reference_list_items       @relation("complaints_channel_item_idToreference_list_items", fields: [channel_item_id], references: [id])
   reference_list_items_complaints_priority_item_idToreference_list_items reference_list_items?      @relation("complaints_priority_item_idToreference_list_items", fields: [priority_item_id], references: [id])
@@ -261,6 +263,7 @@ model complaints {
   workflow_states                                                        workflow_states?           @relation(fields: [workflow_state_id], references: [id])
 
   @@index([assigned_to_org_unit_id], map: "complaints_assigned_to_org_unit_id")
+  @@index([assigned_to_organization_id], map: "complaints_assigned_to_organization_id")
   @@index([category_item_id], map: "complaints_category_item_id")
   @@index([channel_item_id], map: "complaints_channel_item_id")
   @@index([priority_item_id], map: "complaints_priority_item_id")
@@ -278,15 +281,16 @@ model complaints {
 }
 
 model countries {
-  id           Int            @id @default(autoincrement())
-  iso2         String         @unique @db.VarChar(2)
-  iso3         String?        @unique @db.VarChar(3)
-  name_ar      String         @db.VarChar(150)
-  name_en      String         @db.VarChar(150)
-  is_active    Boolean        @default(true)
-  created_at   DateTime       @db.Timestamptz(6)
-  updated_at   DateTime       @db.Timestamptz(6)
-  governorates governorates[]
+  id            Int             @id @default(autoincrement())
+  iso2          String          @unique @db.VarChar(2)
+  iso3          String?         @unique @db.VarChar(3)
+  name_ar       String          @db.VarChar(150)
+  name_en       String          @db.VarChar(150)
+  is_active     Boolean         @default(true)
+  created_at    DateTime        @db.Timestamptz(6)
+  updated_at    DateTime        @db.Timestamptz(6)
+  governorates  governorates[]
+  organizations organizations[]
 }
 
 model districts {
@@ -353,6 +357,7 @@ model groups {
 model org_unit_types {
   id                     Int              @id @default(autoincrement())
   organization_id        Int
+  root_organization_id   Int?
   code                   String           @db.VarChar(60)
   name_ar                String           @db.VarChar(100)
   name_en                String?          @db.VarChar(100)
@@ -363,10 +368,13 @@ model org_unit_types {
   updated_at             DateTime         @db.Timestamptz(6)
   org_unit_types         org_unit_types?  @relation("org_unit_typesToorg_unit_types", fields: [allowed_parent_type_id], references: [id])
   other_org_unit_types   org_unit_types[] @relation("org_unit_typesToorg_unit_types")
-  organizations          organizations    @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  organizations          organizations    @relation("OrgUnitTypesTenantScope", fields: [organization_id], references: [id], onDelete: Cascade)
+  root_organization      organizations?   @relation("OrgUnitTypeRootOrganization", fields: [root_organization_id], references: [id], onDelete: Cascade)
+  hierarchy_nodes        organizations[]  @relation("OrganizationHierarchyNodeType")
   org_units              org_units[]
 
   @@unique([organization_id, code], map: "org_unit_types_org_code_unique")
+  @@index([root_organization_id], map: "org_unit_types_root_organization_id")
 }
 
 model org_units {
@@ -400,8 +408,16 @@ model org_units {
   @@index([parent_id], map: "org_units_parent_id")
 }
 
+/// This model contains a partial unique index (organizations_slug_root_unique)
+/// which requires additional setup for migrations and cannot be represented
+/// with @@unique. Visit https://pris.ly/d/expression-indexes for more info.
 model organizations {
   id                          Int                                            @id @default(autoincrement())
+  parent_id                   Int?
+  org_unit_type_id            Int?
+  root_organization_id        Int?
+  code                        String?                                        @db.VarChar(60)
+  deleted_at                  DateTime?                                      @db.Timestamptz(6)
   legal_name                  String                                         @db.VarChar(200)
   short_name                  String?                                        @db.VarChar(80)
   logo_url                    String?                                        @db.VarChar(500)
@@ -413,6 +429,7 @@ model organizations {
   email                       String?                                        @db.VarChar(150)
   website                     String?                                        @db.VarChar(255)
   country                     String                                         @default("Yemen") @db.VarChar(100)
+  country_id                  Int?
   governorate_id              Int?
   city                        String?                                        @db.VarChar(150)
   address                     String?
@@ -429,24 +446,41 @@ model organizations {
   is_active                   Boolean                                        @default(true)
   created_at                  DateTime                                       @db.Timestamptz(6)
   updated_at                  DateTime                                       @db.Timestamptz(6)
-  slug                        String                                         @unique(map: "organizations_slug") @db.VarChar(80)
+  slug                        String                                         @db.VarChar(80)
+  parent                      organizations?                                 @relation("OrgHierarchy", fields: [parent_id], references: [id], onDelete: Restrict)
+  children                    organizations[]                                @relation("OrgHierarchy")
+  root_organization           organizations?                                 @relation("OrgTenantRoot", fields: [root_organization_id], references: [id], onDelete: Restrict)
+  tenant_nodes                organizations[]                                @relation("OrgTenantRoot")
+  org_unit_type               org_unit_types?                                @relation("OrganizationHierarchyNodeType", fields: [org_unit_type_id], references: [id], onDelete: Restrict)
   complainants                complainants[]
   complaints                  complaints[]
+  complaints_assigned_to_organization complaints[]                         @relation("ComplaintsAssignedToOrganization")
   groups                      groups[]
-  org_unit_types              org_unit_types[]
+  org_unit_types              org_unit_types[]                               @relation("OrgUnitTypesTenantScope")
+  org_unit_types_root         org_unit_types[]                               @relation("OrgUnitTypeRootOrganization")
   org_units                   org_units[]
+  country_ref                 countries?                                     @relation(fields: [country_id], references: [id], onDelete: Restrict)
   governorates                governorates?                                  @relation(fields: [governorate_id], references: [id])
   reference_lists             reference_lists[]
   roles                       roles[]
   user_groups                 user_groups[]
   user_organizations          user_organizations[]
   user_roles                  user_roles[]
+  user_roles_organization_node user_roles[]                                  @relation("UserRoleOrganizationNode")
   users                       users[]
+  users_primary_organization_node users[]                                    @relation("UserPrimaryOrganizationNode")
   workflow_definitions        workflow_definitions[]
   audit_logs                  audit_logs[]
   notifications               notifications[]
   sla_rules                   sla_rules[]
   complaint_escalation_events complaint_escalation_events[]
+
+  @@index([country_id], map: "organizations_country_id")
+  @@index([parent_id], map: "organizations_parent_id")
+  @@index([root_organization_id], map: "organizations_root_organization_id")
+  @@index([org_unit_type_id], map: "organizations_org_unit_type_id")
+  @@index([root_organization_id, parent_id], map: "organizations_root_organization_id_parent_id")
+  @@index([root_organization_id, is_active, deleted_at], map: "organizations_root_organization_id_is_active_deleted_at")
 }
 
 model permissions {
@@ -563,19 +597,22 @@ model user_organizations {
 
 /// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
 model user_roles {
-  id              Int           @id @default(autoincrement())
-  user_id         Int
-  role_id         Int
-  org_unit_id     Int?
-  created_at      DateTime      @db.Timestamptz(6)
-  updated_at      DateTime      @db.Timestamptz(6)
-  organization_id Int
-  org_units       org_units?    @relation(fields: [org_unit_id], references: [id], onDelete: Cascade)
-  organizations   organizations @relation(fields: [organization_id], references: [id], onDelete: Cascade)
-  roles           roles         @relation(fields: [role_id], references: [id], onDelete: Cascade)
-  users           users         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  id                   Int            @id @default(autoincrement())
+  user_id              Int
+  role_id              Int
+  org_unit_id          Int?
+  organization_node_id Int?
+  created_at           DateTime       @db.Timestamptz(6)
+  updated_at           DateTime       @db.Timestamptz(6)
+  organization_id      Int
+  org_units            org_units?     @relation(fields: [org_unit_id], references: [id], onDelete: Cascade)
+  organization_node    organizations? @relation("UserRoleOrganizationNode", fields: [organization_node_id], references: [id], onDelete: Cascade)
+  organizations        organizations  @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  roles                roles          @relation(fields: [role_id], references: [id], onDelete: Cascade)
+  users                users          @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@index([organization_id], map: "user_roles_organization_id")
+  @@index([organization_node_id], map: "user_roles_organization_node_id")
   @@index([user_id], map: "user_roles_user_id")
 }
 
@@ -588,6 +625,7 @@ model users {
   created_at                                       DateTime                   @db.Timestamptz(6)
   updated_at                                       DateTime                   @db.Timestamptz(6)
   org_unit_id                                      Int?
+  primary_organization_node_id                     Int?
   default_organization_id                          Int?
   complaint_status_history                         complaint_status_history[]
   complaints_complaints_assigned_to_user_idTousers complaints[]               @relation("complaints_assigned_to_user_idTousers")
@@ -600,9 +638,21 @@ model users {
   notifications                                    notifications[]
   complaint_escalation_events                      complaint_escalation_events[]
   organizations                                    organizations?             @relation(fields: [default_organization_id], references: [id])
+  primary_organization_node                        organizations?             @relation("UserPrimaryOrganizationNode", fields: [primary_organization_node_id], references: [id])
   org_units_users_org_unit_idToorg_units           org_units?                 @relation("users_org_unit_idToorg_units", fields: [org_unit_id], references: [id])
 
   @@index([default_organization_id], map: "users_default_organization_id")
+  @@index([primary_organization_node_id], map: "users_primary_organization_node_id")
+}
+
+/// Phase 1 migration mapping table — populated in Phase 3+. Must remain empty during Phase 1.
+model legacy_org_unit_map {
+  legacy_org_unit_id   Int      @id
+  new_organization_id  Int      @unique
+  root_organization_id Int
+  migrated_at          DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("_legacy_org_unit_map")
 }
 
 /// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.

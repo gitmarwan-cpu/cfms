@@ -18,8 +18,10 @@ const USER_GROUP_SELECT = {
   user_id: true,
   group_id: true,
   organization_id: true,
-  created_at: true,
-  updated_at: true,
+  create_date: true,
+  write_date: true,
+  create_uid: true,
+  write_uid: true,
   groups: { select: { id: true, code: true, name_ar: true, name_en: true } },
 } as const;
 
@@ -28,8 +30,12 @@ const mapUserGroup = (entry: any) => ({
   userId: entry.user_id,
   groupId: entry.group_id,
   organizationId: entry.organization_id,
-  createdAt: entry.created_at,
-  updatedAt: entry.updated_at,
+  createDate: entry.create_date,
+  writeDate: entry.write_date,
+  createUid: entry.create_uid,
+  writeUid: entry.write_uid,
+  createdAt: entry.create_date,
+  updatedAt: entry.write_date,
   group: {
     id: entry.groups.id,
     code: entry.groups.code,
@@ -82,13 +88,14 @@ export const addUserToGroup = async (
   });
   if (existing) throw new ApiError(409, 'المستخدم منضم لهذه المجموعة بالفعل');
 
+  const now = new Date();
   const created = await prisma.user_groups.create({
     data: {
       user_id: parsedUserId as number,
       group_id: parsedGroupId as number,
       organization_id: parsedOrganizationId as number,
-      created_at: new Date(),
-      updated_at: new Date(),
+      create_date: now,
+      write_date: now,
     },
     select: USER_GROUP_SELECT,
   });
@@ -104,4 +111,3 @@ export const removeUserFromGroup = async (organizationId: OrganizationId, userGr
   if (!userGroup) throw new ApiError(404, 'عضوية المجموعة غير موجودة ضمن مؤسستك');
   await prisma.user_groups.delete({ where: { id: parsedUserGroupId as number } });
 };
-

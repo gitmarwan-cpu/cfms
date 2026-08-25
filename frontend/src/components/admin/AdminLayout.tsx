@@ -20,6 +20,7 @@ const NAV_ITEMS: NavItem[] = [
   { path: '/admin/notifications', label: 'الإشعارات', icon: '🔔', exact: false },
   { path: '/admin/organization', label: 'المؤسسة', icon: '🏢', exact: false, permission: 'organization.view' },
   { path: '/admin/roles', label: 'الأدوار والصلاحيات', icon: '🛡️', exact: false, permission: 'roles.view' },
+  { path: '/admin/users', label: 'المستخدمون', icon: '👤', exact: false, permission: 'users.view' },
   { path: '/admin/groups', label: 'المجموعات والفرق', icon: '👥', exact: false, permission: 'groups.view' },
   { path: '/admin/org-structure', label: 'الهيكل التنظيمي', icon: '▦', exact: false, permission: 'org_structure.view' },
   { path: '/admin/reference-data', label: 'البيانات المرجعية', icon: '☷', exact: false, permission: 'reference_data.view' },

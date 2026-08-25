@@ -62,13 +62,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
-  const hasPermission = (permissionCode: string, organizationId: number, orgUnitId: number | null = null) => {
+  const hasPermission = (permissionCode: string, organizationId: number) => {
     if (!user || !user.permissions) return false;
     return user.permissions.some(
-      (p) =>
-        p.code === permissionCode &&
-        p.organizationId === organizationId &&
-        (orgUnitId === null || p.orgUnitId === null || p.orgUnitId === orgUnitId)
+      (p) => p.code === permissionCode && p.organizationId === organizationId
     );
   };
 

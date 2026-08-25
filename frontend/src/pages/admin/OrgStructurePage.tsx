@@ -1,160 +1,259 @@
-import { useEffect, useState, useMemo, type FormEvent } from 'react';
-import { createOrgUnit, deactivateOrgUnit, fetchOrgUnits, fetchOrgUnitTypes, updateOrgUnit, type OrgUnit, type OrgUnitType } from '../../api/adminApi';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  deactivateOrganizationNode,
+  fetchOrganizationNodes,
+  fetchOrgUnitTypes,
+  type OrganizationNodeDto,
+  type OrgUnitType,
+} from '../../api/adminApi';
 import type { ApiClientError } from '../../api/axiosClient';
-import { ConfirmDialog, DataState, FormDialog, PageHeader } from '../../components/admin/AdminUi';
-import OrganizationTree from '../../components/admin/OrganizationTree';
-import { fromOrgUnitDto } from '../../types/organization';
-import { buildOrgTree } from '../../utils/organizationTree';
-
-type Draft = { name: string; code: string; orgUnitTypeId: string; parentId: string; phone: string; email: string; isActive: boolean };
-const empty: Draft = { name: '', code: '', orgUnitTypeId: '', parentId: '', phone: '', email: '', isActive: true };
+import { ConfirmDialog, DataState, PageHeader } from '../../components/admin/AdminUi';
+import OrganizationDetails from '../../components/admin/organization/OrganizationDetails';
+import OrganizationNodeForm from '../../components/admin/organization/OrganizationNodeForm';
+import OrganizationTree from '../../components/admin/organization/OrganizationTree';
+import { useAuth } from '../../context/AuthContext';
+import { fromOrganizationNodeDto, type OrganizationNode } from '../../types/organization';
+import { buildOrgTree, filterOrgTree } from '../../utils/organizationTree';
 
 export default function OrgStructurePage() {
-  const [units, setUnits] = useState<OrgUnit[]>([]);
+  const { user, hasPermission } = useAuth();
+  const orgId = user?.defaultOrganizationId ?? null;
+
+  const canView = orgId !== null && (hasPermission('org_structure.view', orgId) || hasPermission('organization.view', orgId));
+  const canManage = orgId !== null && (hasPermission('org_structure.manage', orgId) || hasPermission('organization.manage', orgId));
+
+  // ── Raw state ──────────────────────────────────────────────────────────────
+  const [nodes, setNodes] = useState<OrganizationNodeDto[]>([]);
   const [types, setTypes] = useState<OrgUnitType[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [editing, setEditing] = useState<OrgUnit | null | undefined>();
-  const [deleting, setDeleting] = useState<OrgUnit | null>(null);
-  const [draft, setDraft] = useState<Draft>(empty);
-  const [saving, setSaving] = useState(false);
-  const [formError, setFormError] = useState('');
+  const [search, setSearch] = useState('');
+  const [notice, setNotice] = useState('');
 
-  const load = () => {
+  // ── Selection & Form state ──────────────────────────────────────────────────
+  const [selectedNodeId, setSelectedNodeId] = useState<number | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingNode, setEditingNode] = useState<OrganizationNodeDto | null>(null);
+  const [defaultParentId, setDefaultParentId] = useState<number | null>(null);
+
+  // ── Deactivate confirmation ─────────────────────────────────────────────────
+  const [deactivatingNode, setDeactivatingNode] = useState<OrganizationNodeDto | null>(null);
+  const [deactivatingBusy, setDeactivatingBusy] = useState(false);
+
+  // ── Load data from backend (/organization/nodes and /org-structure/unit-types) ──
+  const loadData = useCallback(() => {
     setLoading(true);
-    Promise.all([fetchOrgUnits(), fetchOrgUnitTypes()])
-      .then(([u, t]) => { setUnits(u); setTypes(t); })
-      .catch((e: ApiClientError) => setError(e.message))
+    setError('');
+    Promise.all([fetchOrganizationNodes(), fetchOrgUnitTypes()])
+      .then(([n, t]) => {
+        setNodes(n);
+        const firstNode = n[0];
+        if (firstNode && selectedNodeId === null) {
+          setSelectedNodeId(firstNode.id);
+        }
+      })
+      .catch((err: ApiClientError) => {
+        setError(err.message || 'تعذر تحميل بيانات الهيكل التنظيمي.');
+      })
       .finally(() => setLoading(false));
-  };
-  useEffect(load, []);
+  }, [selectedNodeId]);
 
-  const open = (unit?: OrgUnit) => {
-    setEditing(unit ?? null);
-    setFormError('');
-    setDraft(unit ? {
-      name: unit.name,
-      code: unit.code || '',
-      orgUnitTypeId: String(unit.orgUnitTypeId),
-      parentId: unit.parentId ? String(unit.parentId) : '',
-      phone: '',
-      email: '',
-      isActive: unit.isActive,
-    } : empty);
+  useEffect(() => {
+    if (canView) loadData();
+  }, [loadData, canView]);
+
+  // ── Build tree and apply client-side search ─────────────────────────────────
+  const fullTreeRoots = useMemo(() => {
+    const formatted = nodes.map(fromOrganizationNodeDto);
+    return buildOrgTree(formatted);
+  }, [nodes]);
+
+  const displayedTreeRoots = useMemo(() => {
+    return filterOrgTree(fullTreeRoots, search);
+  }, [fullTreeRoots, search]);
+
+  const selectedNode = useMemo(() => {
+    if (!selectedNodeId) return null;
+    const dto = nodes.find((n) => n.id === selectedNodeId);
+    if (!dto) return null;
+    return fromOrganizationNodeDto(dto);
+  }, [nodes, selectedNodeId]);
+
+  // ── Handlers ───────────────────────────────────────────────────────────────
+  const handleAddRootNode = () => {
+    setEditingNode(null);
+    setDefaultParentId(null);
+    setFormOpen(true);
   };
 
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    const p = {
-      name: draft.name,
-      code: draft.code || undefined,
-      orgUnitTypeId: Number(draft.orgUnitTypeId),
-      parentId: draft.parentId ? Number(draft.parentId) : null,
-      phone: draft.phone || undefined,
-      email: draft.email || undefined,
-      isActive: draft.isActive,
-    };
+  const handleAddChildNode = (parent: OrganizationNode) => {
+    setEditingNode(null);
+    setDefaultParentId(parent.id);
+    setFormOpen(true);
+  };
+
+  const handleEditNode = (node: OrganizationNode) => {
+    const dto = nodes.find((n) => n.id === node.id) || node;
+    setEditingNode(dto);
+    setDefaultParentId(null);
+    setFormOpen(true);
+  };
+
+  const handleDeactivatePrompt = (node: OrganizationNode) => {
+    const dto = nodes.find((n) => n.id === node.id) || node;
+    setDeactivatingNode(dto);
+  };
+
+  const confirmDeactivate = async () => {
+    if (!deactivatingNode) return;
+    setDeactivatingBusy(true);
     try {
-      if (editing) await updateOrgUnit(editing.id, p);
-      else await createOrgUnit(p);
-      setEditing(undefined);
-      load();
+      await deactivateOrganizationNode(deactivatingNode.id);
+      setNotice(`تم تعطيل الوحدة التنظيمية «${deactivatingNode.name}» بنجاح.`);
+      setDeactivatingNode(null);
+      loadData();
     } catch (err) {
-      setFormError((err as ApiClientError).message);
+      setError((err as ApiClientError).message || 'تعذر تعطيل الوحدة التنظيمية.');
+      setDeactivatingNode(null);
     } finally {
-      setSaving(false);
+      setDeactivatingBusy(false);
     }
   };
 
-  const treeNodes = useMemo(() => {
-    const nodes = units.map(fromOrgUnitDto);
-    return buildOrgTree(nodes);
-  }, [units]);
+  const handleSaved = (savedNode: OrganizationNodeDto) => {
+    setFormOpen(false);
+    setSelectedNodeId(savedNode.id);
+    setNotice(`تم حفظ الوحدة التنظيمية «${savedNode.name}» بنجاح.`);
+    loadData();
+  };
 
+  // ── Permission Guard ────────────────────────────────────────────────────────
+  if (!user) return null;
+
+  if (!canView) {
+    return (
+      <div>
+        <PageHeader title="الهيكل التنظيمي" description="الوحدات التنظيمية وعلاقاتها الهرمية ضمن المؤسسة." />
+        <div className="card">
+          <div className="card__body">
+            <p>ليس لديك صلاحية «org_structure.view» لعرض الهيكل التنظيمي لهذه المؤسسة.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <>
+    <div>
       <PageHeader
         title="الهيكل التنظيمي"
-        description="الوحدات التنظيمية وعلاقاتها الهرمية ضمن المؤسسة."
-        actions={<button className="btn btn-primary" onClick={() => open()}>إضافة وحدة</button>}
+        description="الوحدات التنظيمية وعلاقاتها الهرمية ضمن المؤسسة (المصدر: جدول المؤسسات organizations)."
+        actions={
+          canManage && (
+            <button className="btn btn-primary" onClick={handleAddRootNode} type="button">
+              + إضافة وحدة جذرية
+            </button>
+          )
+        }
       />
-      <DataState loading={loading} error={error} empty={!units.length} onRetry={load}>
-        <OrganizationTree
-          nodes={treeNodes}
-          onEdit={(node) => { const original = units.find(u => u.id === node.id); if (original) open(original); }}
-          onDeactivate={(node) => { const original = units.find(u => u.id === node.id); if (original) setDeleting(original); }}
-        />
+
+      {notice && (
+        <div className="admin-success" role="status" style={{ marginBottom: '16px' }}>
+          {notice}
+          <button
+            type="button"
+            className="admin-text-button"
+            style={{ marginRight: '12px', fontSize: '12px' }}
+            onClick={() => setNotice('')}
+            aria-label="إغلاق الإشعار"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Filter / Search Bar */}
+      <div className="card admin-filter-bar" style={{ marginBottom: '16px' }}>
+        <label className="field" style={{ flex: 1, minWidth: '240px', maxWidth: '480px' }}>
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="بحث بالاسم، الرمز، أو نوع الوحدة التنظيمية…"
+            aria-label="بحث في الهيكل التنظيمي"
+          />
+        </label>
+      </div>
+
+      <DataState
+        loading={loading}
+        error={error}
+        empty={!loading && !error && nodes.length === 0}
+        onRetry={loadData}
+      >
+        <div className="org-structure-layout">
+          {/* Tree Column */}
+          <div className="org-structure-tree-col">
+            <OrganizationTree
+              nodes={displayedTreeRoots}
+              selectedId={selectedNodeId}
+              canManage={canManage}
+              onSelect={(n) => setSelectedNodeId(n.id)}
+              onAddChild={handleAddChildNode}
+              onEdit={handleEditNode}
+              onDeactivate={handleDeactivatePrompt}
+            />
+          </div>
+
+          {/* Details Column */}
+          {selectedNode ? (
+            <div className="org-structure-detail-col">
+              <OrganizationDetails
+                node={selectedNode}
+                allNodes={nodes}
+                canManage={canManage}
+                onAddChild={handleAddChildNode}
+                onEdit={handleEditNode}
+                onDeactivate={handleDeactivatePrompt}
+                onClose={() => setSelectedNodeId(null)}
+              />
+            </div>
+          ) : (
+            <div className="org-structure-detail-col org-structure-detail-col--empty">
+              <div className="card">
+                <div className="card__body" style={{ textAlign: 'center', padding: '40px 24px', color: 'var(--color-text-muted)' }}>
+                  <div style={{ fontSize: '32px', marginBottom: '12px' }}>▦</div>
+                  <p style={{ margin: 0 }}>اختر وحدة تنظيمية من الشجرة الهرمية لعرض التفاصيل الكاملة.</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </DataState>
 
-      {editing !== undefined && (
-        <FormDialog
-          title={editing ? 'تعديل وحدة' : 'إضافة وحدة'}
-          onClose={() => setEditing(undefined)}
-          onSubmit={submit}
-          saving={saving}
-          error={formError}
-        >
-          <div className="admin-form-grid">
-            <label className="field">
-              الاسم
-              <input value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} required />
-            </label>
-            <label className="field">
-              الرمز
-              <input dir="ltr" value={draft.code} onChange={e => setDraft({ ...draft, code: e.target.value })} />
-            </label>
-            <label className="field">
-              نوع الوحدة
-              <select value={draft.orgUnitTypeId} onChange={e => setDraft({ ...draft, orgUnitTypeId: e.target.value })} required>
-                <option value="">اختر النوع</option>
-                {types.filter(t => t.isActive).map(t => (
-                  <option key={t.id} value={t.id}>{t.nameAr}</option>
-                ))}
-              </select>
-            </label>
-            <label className="field">
-              الوحدة الأم
-              <select value={draft.parentId} onChange={e => setDraft({ ...draft, parentId: e.target.value })}>
-                <option value="">بدون أم</option>
-                {units.filter(u => u.id !== editing?.id && u.isActive).map(u => (
-                  <option key={u.id} value={u.id}>{u.name}</option>
-                ))}
-              </select>
-            </label>
-            <label className="field">
-              الهاتف
-              <input dir="ltr" value={draft.phone} onChange={e => setDraft({ ...draft, phone: e.target.value })} />
-            </label>
-            <label className="field">
-              البريد الإلكتروني
-              <input type="email" dir="ltr" value={draft.email} onChange={e => setDraft({ ...draft, email: e.target.value })} />
-            </label>
-            <label className="admin-check">
-              <input type="checkbox" checked={draft.isActive} onChange={e => setDraft({ ...draft, isActive: e.target.checked })} />
-              نشط
-            </label>
-          </div>
-        </FormDialog>
-      )}
-
-      {deleting && (
-        <ConfirmDialog
-          title="تأكيد إلغاء التنشيط"
-          message={`هل أنت متأكد من إلغاء تنشيط "${deleting.name}"؟`}
-          onClose={() => setDeleting(null)}
-          onConfirm={async () => {
-            try {
-              await deactivateOrgUnit(deleting.id);
-              setDeleting(null);
-              load();
-            } catch (e) {
-              setError((e as ApiClientError).message);
-              setDeleting(null);
-            }
-          }}
+      {/* Create / Edit Dialog */}
+      {formOpen && (
+        <OrganizationNodeForm
+          editingNode={editingNode}
+          defaultParentId={defaultParentId}
+          allNodes={nodes}
+          types={types}
+          onClose={() => setFormOpen(false)}
+          onSaved={handleSaved}
         />
       )}
-    </>
+
+      {/* Deactivate Confirmation Dialog */}
+      {deactivatingNode && (
+        <ConfirmDialog
+          title="تأكيد تعطيل الوحدة التنظيمية"
+          message={`هل أنت متأكد من تعطيل الوحدة التنظيمية «${deactivatingNode.name}»؟`}
+          onClose={() => setDeactivatingNode(null)}
+          onConfirm={confirmDeactivate}
+          busy={deactivatingBusy}
+        />
+      )}
+    </div>
   );
 }

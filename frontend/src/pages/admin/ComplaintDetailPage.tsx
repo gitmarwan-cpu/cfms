@@ -14,6 +14,8 @@ import {
   type SlaStatus,
 } from '../../api/adminApi';
 import type { ApiClientError } from '../../api/axiosClient';
+import AuditMetadata from '../../components/admin/AuditMetadata';
+import { formatDateTime } from '../../utils/dateTime';
 
 const STATUS_LABELS: Record<ComplaintStatus, string> = {
   new: 'جديد',
@@ -85,9 +87,9 @@ export default function ComplaintDetailPage() {
     loadData();
   }, [loadData]);
 
-  // Load org structure for assignment dropdowns
+  // Load organization nodes for assignment dropdowns
   useEffect(() => {
-    fetchOrgUnits().then(setOrgUnits).catch(() => {/* Non-critical */});
+    fetchOrgUnits().then(setOrgUnits as any).catch(() => {/* Non-critical */});
     fetchGroups().then(setGroups).catch(() => {/* Non-critical */});
   }, []);
 
@@ -195,8 +197,8 @@ export default function ComplaintDetailPage() {
                   <div className="admin-detail-value">{data.priorityItem?.labelAr || '-'}</div>
                 </div>
                 <div>
-                  <div className="admin-detail-label">تاريخ التقديم</div>
-                  <div className="admin-detail-value">{new Date(data.createdAt).toLocaleString('ar')}</div>
+                  <div className="admin-detail-label">تاريخ الإنشاء</div>
+                  <div className="admin-detail-value">{formatDateTime(data.createdAt)}</div>
                 </div>
                 <div>
                   <div className="admin-detail-label">قناة الاستقبال</div>
@@ -331,7 +333,7 @@ export default function ComplaintDetailPage() {
                               : STATUS_LABELS[entry.toStatus as ComplaintStatus] || entry.toStatus}
                           </span>
                           <span style={{ color: 'var(--color-text-muted)', fontSize: '12px' }}>
-                            {new Date(entry.createdAt).toLocaleString('ar')}
+                            {formatDateTime(entry.createdAt)}
                           </span>
                         </div>
                         {entry.note && (
@@ -342,6 +344,12 @@ export default function ComplaintDetailPage() {
                   </div>
                 </div>
               )}
+
+              {/* Record Information — audit metadata (secondary to business data) */}
+              <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '20px', marginTop: '20px' }}>
+                <h3 style={{ fontSize: '1.1rem', marginTop: 0, marginBottom: '16px' }}>معلومات السجل</h3>
+                <AuditMetadata createdAt={data.createdAt} updatedAt={data.updatedAt} />
+              </div>
             </div>
           </div>
         </div>
@@ -506,14 +514,14 @@ export default function ComplaintDetailPage() {
               <div style={{ marginBottom: '16px' }}>
                 <div className="admin-detail-label">تاريخ الاستحقاق</div>
                 <div style={{ fontWeight: 500 }}>
-                  {data.slaDueAt ? new Date(data.slaDueAt).toLocaleString('ar') : '-'}
+                  {formatDateTime(data.slaDueAt)}
                 </div>
               </div>
               {data.lastEscalatedAt && (
                 <div style={{ marginBottom: '16px' }}>
                   <div className="admin-detail-label">آخر تصعيد</div>
                   <div style={{ fontWeight: 500 }}>
-                    {new Date(data.lastEscalatedAt).toLocaleString('ar')}
+                    {formatDateTime(data.lastEscalatedAt)}
                   </div>
                 </div>
               )}
@@ -530,7 +538,7 @@ export default function ComplaintDetailPage() {
                       مستوى {evt.fromLevel} → {evt.toLevel}
                       {evt.note && <span style={{ color: 'var(--color-text-muted)' }}> — {evt.note}</span>}
                       <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginTop: '4px' }}>
-                        {new Date(evt.createdAt).toLocaleString('ar')}
+                        {formatDateTime(evt.createdAt)}
                       </div>
                     </div>
                   ))}

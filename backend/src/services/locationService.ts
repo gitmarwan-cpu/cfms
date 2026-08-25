@@ -28,6 +28,10 @@ export interface DistrictSummary {
 
 export interface DistrictRecord extends DistrictSummary {
   isActive: boolean;
+  createDate: Date;
+  writeDate: Date;
+  createUid: number | null;
+  writeUid: number | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -66,22 +70,18 @@ const mapGovernorate = (governorate: {
   ...(governorate.country_id !== undefined ? { countryId: governorate.country_id } : {}),
 });
 
-const mapDistrict = (district: {
-  id: number;
-  name_en: string;
-  name_ar: string;
-  governorate_id: number;
-  is_active: boolean;
-  created_at: Date;
-  updated_at: Date;
-}): DistrictRecord => ({
+const mapDistrict = (district: any): DistrictRecord => ({
   id: district.id,
   nameEn: district.name_en,
   nameAr: district.name_ar,
   governorateId: district.governorate_id,
   isActive: district.is_active,
-  createdAt: district.created_at,
-  updatedAt: district.updated_at,
+  createDate: district.create_date,
+  writeDate: district.write_date,
+  createUid: district.create_uid ?? null,
+  writeUid: district.write_uid ?? null,
+  createdAt: district.create_date,
+  updatedAt: district.write_date,
 });
 
 export const getAllCountries = async (): Promise<CountrySummary[]> => {
@@ -181,8 +181,10 @@ export const getAllDistricts = async (): Promise<DistrictWithGovernorate[]> => {
       name_ar: true,
       governorate_id: true,
       is_active: true,
-      created_at: true,
-      updated_at: true,
+      create_date: true,
+      write_date: true,
+      create_uid: true,
+      write_uid: true,
       governorates: {
         select: {
           id: true,
@@ -221,8 +223,10 @@ export const validateGovernorateDistrictPair = async (
       name_ar: true,
       governorate_id: true,
       is_active: true,
-      created_at: true,
-      updated_at: true,
+      create_date: true,
+      write_date: true,
+      create_uid: true,
+      write_uid: true,
     },
   });
 

@@ -24,10 +24,14 @@ const USER_ROLE_SELECT = {
   role_id: true,
   organization_id: true,
   org_unit_id: true,
-  created_at: true,
-  updated_at: true,
+  organization_node_id: true,
+  create_date: true,
+  write_date: true,
+  create_uid: true,
+  write_uid: true,
   roles: { select: { id: true, code: true, name_ar: true, name_en: true } },
   org_units: { select: { id: true, name: true, code: true } },
+  organization_node: { select: { id: true, legal_name: true, short_name: true, code: true } },
 } as const;
 
 const mapUserRole = (entry: any) => ({
@@ -36,8 +40,13 @@ const mapUserRole = (entry: any) => ({
   roleId: entry.role_id,
   organizationId: entry.organization_id,
   orgUnitId: entry.org_unit_id,
-  createdAt: entry.created_at,
-  updatedAt: entry.updated_at,
+  organizationNodeId: entry.organization_node_id,
+  createDate: entry.create_date,
+  writeDate: entry.write_date,
+  createUid: entry.create_uid,
+  writeUid: entry.write_uid,
+  createdAt: entry.create_date,
+  updatedAt: entry.write_date,
   role: {
     id: entry.roles.id,
     code: entry.roles.code,
@@ -46,6 +55,14 @@ const mapUserRole = (entry: any) => ({
   },
   orgUnit: entry.org_units
     ? { id: entry.org_units.id, name: entry.org_units.name, code: entry.org_units.code }
+    : null,
+  organizationNode: entry.organization_node
+    ? {
+        id: entry.organization_node.id,
+        legalName: entry.organization_node.legal_name,
+        shortName: entry.organization_node.short_name,
+        code: entry.organization_node.code,
+      }
     : null,
 });
 
@@ -66,12 +83,14 @@ export const listUserRoles = async (organizationId: OrganizationId, userId: User
 
 export const assignRole = async (
   organizationId: OrganizationId,
-  payload: { userId: UserId; roleId: RoleId; orgUnitId?: string | number | null }
+  payload: { userId: UserId; roleId: RoleId; orgUnitId?: string | number | null; organizationNodeId?: string | number | null },
+  authUserId?: number | null
 ) => {
   const parsedOrganizationId = toSafeInteger(organizationId);
   const parsedUserId = toSafeInteger(payload.userId);
   const parsedRoleId = toSafeInteger(payload.roleId);
   const parsedOrgUnitId = optionalId(payload.orgUnitId);
+  const parsedOrganizationNodeId = optionalId(payload.organizationNodeId);
   const [user, role] = parsedUserId && parsedRoleId
     ? await Promise.all([
         prisma.users.findUnique({ where: { id: parsedUserId }, select: { id: true } }),
@@ -89,12 +108,12 @@ export const assignRole = async (
   });
   if (!membership) throw new ApiError(400, 'لا يمكن إسناد دور لمستخدم غير عضو في هذه المؤسسة؛ أضفه كعضو أولاً');
 
-  if (payload.orgUnitId) {
-    const orgUnit = await prisma.org_units.findFirst({
-      where: { id: parsedOrgUnitId as number, organization_id: parsedOrganizationId as number, deleted_at: null },
+  if (payload.organizationNodeId) {
+    const node = await prisma.organizations.findFirst({
+      where: { id: parsedOrganizationNodeId as number, deleted_at: null },
       select: { id: true },
     });
-    if (!orgUnit) throw new ApiError(404, 'الوحدة التنظيمية غير موجودة ضمن مؤسستك');
+    if (!node) throw new ApiError(404, 'الوحدة التنظيمية غير موجودة ضمن مؤسستك');
   }
 
   const existing = await prisma.user_roles.findFirst({
@@ -103,18 +122,23 @@ export const assignRole = async (
       role_id: parsedRoleId as number,
       organization_id: parsedOrganizationId as number,
       org_unit_id: parsedOrgUnitId,
+      organization_node_id: parsedOrganizationNodeId,
     },
   });
   if (existing) throw new ApiError(409, 'هذا التعيين موجود بالفعل');
 
+  const now = new Date();
   const created = await prisma.user_roles.create({
     data: {
       user_id: parsedUserId as number,
       role_id: parsedRoleId as number,
       organization_id: parsedOrganizationId as number,
       org_unit_id: parsedOrgUnitId,
-      created_at: new Date(),
-      updated_at: new Date(),
+      organization_node_id: parsedOrganizationNodeId,
+      create_date: now,
+      write_date: now,
+      create_uid: authUserId || null,
+      write_uid: authUserId || null,
     },
     select: USER_ROLE_SELECT,
   });
@@ -142,4 +166,3 @@ export const revokeRole = async (organizationId: OrganizationId, userRoleId: Use
 
   await prisma.user_roles.delete({ where: { id: parsedUserRoleId as number } });
 };
-

@@ -16,18 +16,26 @@ const mapUser = (user: {
   full_name: string;
   email: string;
   is_active: boolean;
-  created_at: Date;
-  updated_at: Date;
+  create_date: Date;
+  write_date: Date;
+  create_uid?: number | null;
+  write_uid?: number | null;
   org_unit_id: number | null;
+  primary_organization_node_id?: number | null;
   default_organization_id: number | null;
 }) => ({
   id: user.id,
   fullName: user.full_name,
   email: user.email,
   isActive: user.is_active,
-  createdAt: user.created_at,
-  updatedAt: user.updated_at,
+  createDate: user.create_date,
+  writeDate: user.write_date,
+  createUid: user.create_uid ?? null,
+  writeUid: user.write_uid ?? null,
+  createdAt: user.create_date,
+  updatedAt: user.write_date,
   orgUnitId: user.org_unit_id,
+  primaryOrganizationNodeId: user.primary_organization_node_id ?? null,
   defaultOrganizationId: user.default_organization_id,
 });
 
@@ -45,8 +53,9 @@ export const authenticate = async (req: any, res: any, next: (error?: unknown) =
 
     const token = authHeader.split(' ')[1];
     const payload = getJwtPayload(token);
-    const userId = toSafeInteger(payload.sub);
-    const user = userId
+    const userId = Number(payload.sub);
+
+    const user = Number.isSafeInteger(userId) && userId > 0
       ? await prisma.users.findUnique({
           where: { id: userId },
           select: {
@@ -54,9 +63,12 @@ export const authenticate = async (req: any, res: any, next: (error?: unknown) =
             full_name: true,
             email: true,
             is_active: true,
-            created_at: true,
-            updated_at: true,
+            create_date: true,
+            write_date: true,
+            create_uid: true,
+            write_uid: true,
             org_unit_id: true,
+            primary_organization_node_id: true,
             default_organization_id: true,
           },
         })

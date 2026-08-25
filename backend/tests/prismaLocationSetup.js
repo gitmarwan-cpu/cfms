@@ -17,8 +17,8 @@ beforeAll(async () => {
       name_ar: 'اليمن',
       name_en: 'Yemen',
       is_active: true,
-      created_at: now,
-      updated_at: now,
+      create_date: now,
+      write_date: now,
     },
   });
 
@@ -28,8 +28,8 @@ beforeAll(async () => {
       name_ar: 'إب',
       is_active: true,
       country_id: seedCountry.id,
-      created_at: now,
-      updated_at: now,
+      create_date: now,
+      write_date: now,
     },
   });
   const abyan = await prisma.governorates.create({
@@ -38,8 +38,8 @@ beforeAll(async () => {
       name_ar: 'أبين',
       is_active: true,
       country_id: seedCountry.id,
-      created_at: now,
-      updated_at: now,
+      create_date: now,
+      write_date: now,
     },
   });
 
@@ -50,24 +50,24 @@ beforeAll(async () => {
         name_ar: 'القفر',
         governorate_id: ibb.id,
         is_active: true,
-        created_at: now,
-        updated_at: now,
+        create_date: now,
+        write_date: now,
       },
       {
         name_en: 'Yarim',
         name_ar: 'يريم',
         governorate_id: ibb.id,
         is_active: true,
-        created_at: now,
-        updated_at: now,
+        create_date: now,
+        write_date: now,
       },
       {
         name_en: 'Ahwar',
         name_ar: 'أحور',
         governorate_id: abyan.id,
         is_active: true,
-        created_at: now,
-        updated_at: now,
+        create_date: now,
+        write_date: now,
       },
     ],
   });

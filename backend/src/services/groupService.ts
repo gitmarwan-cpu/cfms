@@ -36,6 +36,10 @@ export interface GroupResponse {
   description: string | null;
   isSystem: boolean;
   isActive: boolean;
+  createDate: Date;
+  writeDate: Date;
+  createUid: number | null;
+  writeUid: number | null;
   createdAt: Date;
   updatedAt: Date;
   roles?: GroupRoleResponse[];
@@ -50,8 +54,10 @@ const GROUP_SELECT = {
   description: true,
   is_system: true,
   is_active: true,
-  created_at: true,
-  updated_at: true,
+  create_date: true,
+  write_date: true,
+  create_uid: true,
+  write_uid: true,
 } as const;
 
 const GROUP_WITH_ROLES_SELECT = {
@@ -77,8 +83,12 @@ const mapGroup = (group: any): GroupResponse => ({
   description: group.description,
   isSystem: group.is_system,
   isActive: group.is_active,
-  createdAt: group.created_at,
-  updatedAt: group.updated_at,
+  createDate: group.create_date,
+  writeDate: group.write_date,
+  createUid: group.create_uid,
+  writeUid: group.write_uid,
+  createdAt: group.create_date,
+  updatedAt: group.write_date,
   ...(group.group_roles === undefined
     ? {}
     : {
@@ -141,6 +151,7 @@ export const createGroup = async (organizationId: OrganizationId, payload: Group
   const existing = await prisma.groups.findFirst({ where: { code: payload.code, organization_id: parsedOrganizationId } });
   if (existing) throw new ApiError(409, 'يوجد مجموعة بنفس الكود مسبقاً في مؤسستك');
 
+  const now = new Date();
   const group = await prisma.groups.create({
     data: {
       code: payload.code,
@@ -150,8 +161,8 @@ export const createGroup = async (organizationId: OrganizationId, payload: Group
       is_system: false,
       is_active: true,
       organization_id: parsedOrganizationId,
-      created_at: new Date(),
-      updated_at: new Date(),
+      create_date: now,
+      write_date: now,
     },
     select: GROUP_SELECT,
   });
@@ -174,7 +185,7 @@ export const updateGroup = async (
   }
   if (group.is_system) throw new ApiError(403, 'لا يمكن تعديل المجموعات النظامية');
 
-  const data: Record<string, unknown> = { updated_at: new Date() };
+  const data: Record<string, unknown> = { write_date: new Date() };
   if (payload.nameAr !== undefined) data.name_ar = payload.nameAr;
   if (payload.nameEn !== undefined) data.name_en = payload.nameEn;
   if (payload.description !== undefined) data.description = payload.description;

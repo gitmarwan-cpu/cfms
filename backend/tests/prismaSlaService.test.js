@@ -23,8 +23,8 @@ const makeOrganization = async (suffix) => {
       anonymous_complaints_policy: 'allowed',
       notification_settings: {},
       is_active: true,
-      created_at: new Date(),
-      updated_at: new Date(),
+      create_date: new Date(),
+      write_date: new Date(),
     },
   });
 };
@@ -35,8 +35,8 @@ const makeUser = async (suffix) => prisma.users.create({
     email: `sla-user-${suffix}-${Date.now()}@cfms.local`,
     password_hash: 'not-used-in-service-test',
     is_active: true,
-    created_at: new Date(),
-    updated_at: new Date(),
+    create_date: new Date(),
+    write_date: new Date(),
   },
 });
 
@@ -109,8 +109,8 @@ describe('Prisma SLA service', () => {
         organization_id: organization.id,
         is_primary: true,
         is_active: true,
-        created_at: new Date(),
-        updated_at: new Date(),
+        create_date: new Date(),
+        write_date: new Date(),
       },
     });
   });

@@ -1,9 +1,8 @@
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import prisma from '../prisma/client';
 import ApiError from '../utils/ApiError';
-import { withTenantScope } from '../utils/prismaTenantScope';
 
-export interface ReferenceItemInput {
+export interface ReferenceItemPayload {
   code: string;
   labelAr: string;
   labelEn?: string | null;
@@ -13,17 +12,13 @@ export interface ReferenceItemInput {
   meta?: Prisma.InputJsonValue | null;
 }
 
-export interface ReferenceItemUpdateInput {
+export interface ReferenceItemUpdatePayload {
   labelAr?: string;
   labelEn?: string | null;
   sortOrder?: number;
   isActive?: boolean;
   isDefault?: boolean;
   meta?: Prisma.InputJsonValue | null;
-}
-
-export interface ReferenceItemsOptions {
-  includeInactive?: boolean;
 }
 
 export interface ReferenceListResponse {
@@ -34,6 +29,10 @@ export interface ReferenceListResponse {
   description: string | null;
   isSystem: boolean;
   organizationId: number | null;
+  createDate: Date;
+  writeDate: Date;
+  createUid: number | null;
+  writeUid: number | null;
   createdAt: Date;
   updatedAt: Date;
   items?: ReferenceItemResponse[];
@@ -49,6 +48,10 @@ export interface ReferenceItemResponse {
   isActive: boolean;
   isDefault: boolean;
   meta: Prisma.JsonValue | null;
+  createDate: Date;
+  writeDate: Date;
+  createUid: number | null;
+  writeUid: number | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -61,8 +64,10 @@ const LIST_SELECT = {
   description: true,
   is_system: true,
   organization_id: true,
-  created_at: true,
-  updated_at: true,
+  create_date: true,
+  write_date: true,
+  create_uid: true,
+  write_uid: true,
 } satisfies Prisma.reference_listsSelect;
 
 const ITEM_SELECT = {
@@ -75,8 +80,10 @@ const ITEM_SELECT = {
   is_active: true,
   is_default: true,
   meta: true,
-  created_at: true,
-  updated_at: true,
+  create_date: true,
+  write_date: true,
+  create_uid: true,
+  write_uid: true,
 } satisfies Prisma.reference_list_itemsSelect;
 
 type ReferenceList = Prisma.reference_listsGetPayload<{}>;
@@ -94,6 +101,7 @@ const nullableJsonInput = (
 
 const toItemCamel = (item: SelectedReferenceItem | ReferenceListItem | null): ReferenceItemResponse | null => {
   if (!item) return null;
+  const anyItem = item as any;
   return {
     id: item.id,
     referenceListId: item.reference_list_id,
@@ -104,13 +112,18 @@ const toItemCamel = (item: SelectedReferenceItem | ReferenceListItem | null): Re
     isActive: item.is_active,
     isDefault: item.is_default,
     meta: item.meta,
-    createdAt: item.created_at,
-    updatedAt: item.updated_at,
+    createDate: anyItem.create_date,
+    writeDate: anyItem.write_date,
+    createUid: anyItem.create_uid,
+    writeUid: anyItem.write_uid,
+    createdAt: anyItem.create_date,
+    updatedAt: anyItem.write_date,
   };
 };
 
 const toListCamel = (list: ReferenceListForMapping | null): ReferenceListResponse | null => {
   if (!list) return null;
+  const anyList = list as any;
   return {
     id: list.id,
     key: list.key,
@@ -119,8 +132,12 @@ const toListCamel = (list: ReferenceListForMapping | null): ReferenceListRespons
     description: list.description,
     isSystem: list.is_system,
     organizationId: list.organization_id,
-    createdAt: list.created_at,
-    updatedAt: list.updated_at,
+    createDate: anyList.create_date,
+    writeDate: anyList.write_date,
+    createUid: anyList.create_uid,
+    writeUid: anyList.write_uid,
+    createdAt: anyList.create_date,
+    updatedAt: anyList.write_date,
     ...(list.reference_list_items
       ? { items: list.reference_list_items.map((item) => toItemCamel(item) as ReferenceItemResponse) }
       : {}),
@@ -150,6 +167,7 @@ const getOrCreateOwnList = async (key: string, organizationId: number): Promise<
     throw new ApiError(404, `القائمة المرجعية '${key}' غير موجودة كنموذج نظامي لاستنساخها`);
   }
 
+  const now = new Date();
   const forkedList = await prisma.reference_lists.create({
     data: {
       key: systemList.key,
@@ -158,8 +176,8 @@ const getOrCreateOwnList = async (key: string, organizationId: number): Promise<
       description: systemList.description,
       is_system: false,
       organization_id: organizationId,
-      created_at: new Date(),
-      updated_at: new Date(),
+      create_date: now,
+      write_date: now,
     },
   });
 
@@ -174,8 +192,8 @@ const getOrCreateOwnList = async (key: string, organizationId: number): Promise<
         is_active: item.is_active,
         is_default: item.is_default,
         meta: nullableJsonInput(item.meta === null ? null : (item.meta as Prisma.InputJsonValue)),
-        created_at: new Date(),
-        updated_at: new Date(),
+        create_date: now,
+        write_date: now,
       })),
     });
   }
@@ -183,80 +201,59 @@ const getOrCreateOwnList = async (key: string, organizationId: number): Promise<
   return forkedList;
 };
 
-export const getAllLists = async (organizationId: number): Promise<ReferenceListResponse[]> => {
-  if (!organizationId) {
-    throw new ApiError(500, 'خطأ داخلي: لم يتم تحديد سياق المؤسسة قبل تنفيذ الاستعلام');
-  }
+export const listReferenceLists = async (organizationId: number): Promise<ReferenceListResponse[]> => {
+  const ownLists = await prisma.reference_lists.findMany({
+    where: { organization_id: organizationId },
+    select: LIST_SELECT,
+    orderBy: { key: 'asc' },
+  });
+  const ownKeys = new Set(ownLists.map((l) => l.key));
 
-  const [ownLists, systemLists] = await Promise.all([
-    prisma.reference_lists.findMany(
-      withTenantScope(organizationId, {
-        select: {
-          ...LIST_SELECT,
-          reference_list_items: { select: ITEM_SELECT, orderBy: { sort_order: 'asc' } },
-        },
-      })
-    ),
-    prisma.reference_lists.findMany({
-      where: { organization_id: null },
-      select: {
-        ...LIST_SELECT,
-        reference_list_items: { select: ITEM_SELECT, orderBy: { sort_order: 'asc' } },
-      },
-    }),
-  ]);
+  const systemLists = await prisma.reference_lists.findMany({
+    where: { organization_id: null },
+    select: LIST_SELECT,
+    orderBy: { key: 'asc' },
+  });
 
-  const ownKeys = new Set(ownLists.map((list) => list.key));
-  const inheritedSystemLists = systemLists.filter((list) => !ownKeys.has(list.key));
+  const merged = [
+    ...ownLists,
+    ...systemLists.filter((s) => !ownKeys.has(s.key)),
+  ].sort((a, b) => a.key.localeCompare(b.key));
 
-  return [...ownLists, ...inheritedSystemLists]
-    .map((list) => toListCamel(list) as ReferenceListResponse)
-    .sort((a, b) => a.key.localeCompare(b.key));
+  return merged.map((list) => toListCamel(list) as ReferenceListResponse);
 };
 
-export const getItemsByListKey = async (
-  key: string,
-  organizationId: number,
-  { includeInactive = false }: ReferenceItemsOptions = {}
-): Promise<ReferenceItemResponse[]> => {
+export const getListByKey = async (key: string, organizationId: number): Promise<ReferenceListResponse> => {
   const list = await getEffectiveList(key, organizationId);
-
   const items = await prisma.reference_list_items.findMany({
-    where: { reference_list_id: list.id, ...(includeInactive ? {} : { is_active: true }) },
-    orderBy: { sort_order: 'asc' },
+    where: { reference_list_id: list.id },
     select: ITEM_SELECT,
+    orderBy: [{ sort_order: 'asc' }, { code: 'asc' }],
   });
 
-  return items.map((item) => toItemCamel(item) as ReferenceItemResponse);
-};
-
-export const resolveActiveItem = async (
-  key: string,
-  code: string,
-  organizationId: number
-): Promise<ReferenceListItem | null> => {
-  if (!code) return null;
-  const list = await getEffectiveList(key, organizationId);
-  const item = await prisma.reference_list_items.findFirst({
-    where: { reference_list_id: list.id, code, is_active: true },
-  });
-  if (!item) {
-    throw new ApiError(422, `القيمة '${code}' غير صالحة ضمن القائمة '${key}'`);
-  }
-  return item;
+  return toListCamel({ ...list, reference_list_items: items }) as ReferenceListResponse;
 };
 
 export const createItem = async (
-  listKey: string,
+  key: string,
   organizationId: number,
-  payload: ReferenceItemInput
+  payload: ReferenceItemPayload
 ): Promise<ReferenceItemResponse> => {
-  const list = await getOrCreateOwnList(listKey, organizationId);
-  const existing = await prisma.reference_list_items.findFirst({
+  const list = await getOrCreateOwnList(key, organizationId);
+
+  const existingCode = await prisma.reference_list_items.findFirst({
     where: { reference_list_id: list.id, code: payload.code },
   });
-  if (existing) {
-    throw new ApiError(409, 'الرمز (code) مستخدم بالفعل ضمن هذه القائمة');
+  if (existingCode) {
+    throw new ApiError(409, `العنصر بالرمز '${payload.code}' موجود بالفعل في هذه القائمة`);
+  }
+
+  const now = new Date();
+  if (payload.isDefault) {
+    await prisma.reference_list_items.updateMany({
+      where: { reference_list_id: list.id },
+      data: { is_default: false },
+    });
   }
 
   const item = await prisma.reference_list_items.create({
@@ -265,12 +262,12 @@ export const createItem = async (
       code: payload.code,
       label_ar: payload.labelAr,
       label_en: payload.labelEn || null,
-      sort_order: payload.sortOrder || 0,
-      is_active: payload.isActive !== undefined ? payload.isActive : true,
+      sort_order: payload.sortOrder ?? 0,
+      is_active: payload.isActive !== false,
       is_default: !!payload.isDefault,
-      meta: nullableJsonInput(payload.meta || null),
-      created_at: new Date(),
-      updated_at: new Date(),
+      meta: payload.meta !== undefined ? nullableJsonInput(payload.meta) : undefined,
+      create_date: now,
+      write_date: now,
     },
     select: ITEM_SELECT,
   });
@@ -278,49 +275,44 @@ export const createItem = async (
   return toItemCamel(item) as ReferenceItemResponse;
 };
 
-type EditableField = keyof ReferenceItemUpdateInput;
-type EditableColumn = 'label_ar' | 'label_en' | 'sort_order' | 'is_active' | 'is_default' | 'meta';
-
-const fieldToColumn = (field: EditableField): EditableColumn => {
-  const map: Record<EditableField, EditableColumn> = {
-    labelAr: 'label_ar',
-    labelEn: 'label_en',
-    sortOrder: 'sort_order',
-    isActive: 'is_active',
-    isDefault: 'is_default',
-    meta: 'meta',
-  };
-  return map[field];
-};
-
 export const updateItem = async (
-  listKey: string,
+  key: string,
+  itemId: number | string,
   organizationId: number,
-  itemId: string | number,
-  payload: ReferenceItemUpdateInput
+  payload: ReferenceItemUpdatePayload
 ): Promise<ReferenceItemResponse> => {
-  const list = await getOrCreateOwnList(listKey, organizationId);
-  const numericItemId = Number(itemId);
-  if (!Number.isSafeInteger(numericItemId) || numericItemId < 1) {
-    throw new ApiError(422, 'Invalid reference item ID');
+  const parsedItemId = typeof itemId === 'number' ? itemId : Number(itemId);
+  if (!Number.isSafeInteger(parsedItemId)) throw new ApiError(400, 'عنصر القائمة غير صالح');
+
+  const list = await getOrCreateOwnList(key, organizationId);
+
+  const existingItem = await prisma.reference_list_items.findFirst({
+    where: { id: parsedItemId, reference_list_id: list.id },
+  });
+  if (!existingItem) {
+    throw new ApiError(404, 'عنصر القائمة المرجعية غير موجود ضمن هذه القائمة لمؤسستك');
   }
 
-  const item = await prisma.reference_list_items.findFirst({
-    where: { id: numericItemId, reference_list_id: list.id },
-  });
-  if (!item) {
-    throw new ApiError(404, 'العنصر المرجعي غير موجود ضمن نسخة مؤسستك من هذه القائمة');
+  if (payload.isDefault) {
+    await prisma.reference_list_items.updateMany({
+      where: { reference_list_id: list.id, id: { not: parsedItemId } },
+      data: { is_default: false },
+    });
   }
 
-  const data: Prisma.reference_list_itemsUpdateInput = { updated_at: new Date() };
-  const fields: EditableField[] = ['labelAr', 'labelEn', 'sortOrder', 'isActive', 'isDefault', 'meta'];
-  const dataRecord = data as Record<string, unknown>;
-  fields.forEach((field) => {
-    if (payload[field] !== undefined) dataRecord[fieldToColumn(field)] = payload[field];
-  });
+  const data: Prisma.reference_list_itemsUpdateInput = {
+    write_date: new Date(),
+  };
+
+  if (payload.labelAr !== undefined) data.label_ar = payload.labelAr;
+  if (payload.labelEn !== undefined) data.label_en = payload.labelEn || null;
+  if (payload.sortOrder !== undefined) data.sort_order = payload.sortOrder;
+  if (payload.isActive !== undefined) data.is_active = payload.isActive;
+  if (payload.isDefault !== undefined) data.is_default = payload.isDefault;
+  if (payload.meta !== undefined) data.meta = nullableJsonInput(payload.meta);
 
   const updated = await prisma.reference_list_items.update({
-    where: { id: item.id },
+    where: { id: parsedItemId },
     data,
     select: ITEM_SELECT,
   });
@@ -328,8 +320,22 @@ export const updateItem = async (
   return toItemCamel(updated) as ReferenceItemResponse;
 };
 
-export const deactivateItem = async (
-  listKey: string,
-  organizationId: number,
-  itemId: string | number
-): Promise<ReferenceItemResponse> => updateItem(listKey, organizationId, itemId, { isActive: false });
+export const resolveActiveItem = async (key: string, code: string, organizationId: number) => {
+  const list = await getEffectiveList(key, organizationId);
+  const item = await prisma.reference_list_items.findFirst({
+    where: { reference_list_id: list.id, code, is_active: true },
+    select: ITEM_SELECT,
+  });
+  if (!item) {
+    throw new ApiError(422, `عنصر القائمة المرجعية '${code}' غير موجود أو غير مفعّل في قائمة '${key}'`);
+  }
+  return item;
+};
+
+export const deactivateItem = async (key: string, organizationId: number, itemId: number | string) =>
+  updateItem(key, itemId, organizationId, { isActive: false });
+
+export const getItemsByListKey = async (key: string, organizationId: number): Promise<ReferenceItemResponse[]> => {
+  const list = await getListByKey(key, organizationId);
+  return (list.items || []).filter((item) => item.isActive);
+};

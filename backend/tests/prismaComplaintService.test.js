@@ -24,8 +24,8 @@ const makeOrganization = async (suffix) => {
       anonymous_complaints_policy: 'allowed',
       notification_settings: {},
       is_active: true,
-      created_at: new Date(),
-      updated_at: new Date(),
+      create_date: new Date(),
+      write_date: new Date(),
     },
   });
 };
@@ -36,8 +36,8 @@ const makeUser = async (suffix) => prisma.users.create({
     email: `complaint-user-${suffix}-${Date.now()}@cfms.local`,
     password_hash: 'not-used-in-service-test',
     is_active: true,
-    created_at: new Date(),
-    updated_at: new Date(),
+    create_date: new Date(),
+    write_date: new Date(),
   },
 });
 
@@ -223,8 +223,8 @@ describe('Prisma complaint service', () => {
         organization_id: organization.id,
         is_primary: true,
         is_active: true,
-        created_at: new Date(),
-        updated_at: new Date(),
+        create_date: new Date(),
+        write_date: new Date(),
       },
     });
     const created = await complaintService.createComplaint(organization.id, makePayload(locations));
@@ -262,8 +262,8 @@ describe('Prisma complaint service', () => {
         organization_id: organization.id,
         is_primary: true,
         is_active: true,
-        created_at: new Date(),
-        updated_at: new Date(),
+        create_date: new Date(),
+        write_date: new Date(),
       },
     });
 
@@ -274,8 +274,8 @@ describe('Prisma complaint service', () => {
         name_ar: 'فريق',
         name_en: 'Team',
         hierarchy_level: 1,
-        created_at: new Date(),
-        updated_at: new Date(),
+        create_date: new Date(),
+        write_date: new Date(),
       },
     });
     const orgUnit = await prisma.org_units.create({
@@ -286,8 +286,8 @@ describe('Prisma complaint service', () => {
         code: `CT-${Date.now()}`,
         manager_user_id: actor.id,
         is_active: true,
-        created_at: new Date(),
-        updated_at: new Date(),
+        create_date: new Date(),
+        write_date: new Date(),
       },
     });
 
@@ -299,8 +299,8 @@ describe('Prisma complaint service', () => {
         name_ar: 'أجنبي',
         name_en: 'Foreign',
         hierarchy_level: 1,
-        created_at: new Date(),
-        updated_at: new Date(),
+        create_date: new Date(),
+        write_date: new Date(),
       },
     });
     const foreignUnit = await prisma.org_units.create({
@@ -310,8 +310,8 @@ describe('Prisma complaint service', () => {
         name: 'Foreign Team',
         code: `FT-${Date.now()}`,
         is_active: true,
-        created_at: new Date(),
-        updated_at: new Date(),
+        create_date: new Date(),
+        write_date: new Date(),
       },
     });
     const inactiveUnit = await prisma.org_units.create({
@@ -321,8 +321,8 @@ describe('Prisma complaint service', () => {
         name: 'Inactive Team',
         code: `IT-${Date.now()}`,
         is_active: false,
-        created_at: new Date(),
-        updated_at: new Date(),
+        create_date: new Date(),
+        write_date: new Date(),
       },
     });
 
@@ -344,8 +344,8 @@ describe('Prisma complaint service', () => {
         organization_id: organization.id,
         is_primary: true,
         is_active: true,
-        created_at: new Date(),
-        updated_at: new Date(),
+        create_date: new Date(),
+        write_date: new Date(),
       },
     });
     const bothAssigned = await complaintService.assignComplaint(

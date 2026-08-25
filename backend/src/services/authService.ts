@@ -1,31 +1,34 @@
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import { Prisma } from '@prisma/client';
-
-// The existing dependencies do not ship declarations in this repository.
-// Keep the runtime imports CommonJS-compatible until the dependency retirement phase.
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
 import prisma from '../prisma/client';
 import ApiError from '../utils/ApiError';
 import { getEffectiveRoleCodes } from './rbacService';
 import { recordAuditEvent } from './auditService';
+
+export interface RegisterPayload {
+  email: string;
+  password: string;
+  fullName: string;
+  roleCode?: string;
+  orgUnitId?: number | string | null;
+  defaultOrganizationId?: number | string | null;
+}
 
 export interface UserResponse {
   id: number;
   fullName: string;
   email: string;
   isActive: boolean;
+  createDate: Date;
+  writeDate: Date;
+  createUid: number | null;
+  writeUid: number | null;
   createdAt: Date;
   updatedAt: Date;
   orgUnitId: number | null;
+  primaryOrganizationNodeId: number | null;
   defaultOrganizationId: number | null;
-}
-
-export interface RegisterPayload {
-  fullName: string;
-  email: string;
-  password: string;
-  roleCode?: string;
-  orgUnitId?: string | number | null;
 }
 
 const USER_WITH_PASSWORD_SELECT = {
@@ -34,9 +37,12 @@ const USER_WITH_PASSWORD_SELECT = {
   email: true,
   password_hash: true,
   is_active: true,
-  created_at: true,
-  updated_at: true,
+  create_date: true,
+  write_date: true,
+  create_uid: true,
+  write_uid: true,
   org_unit_id: true,
+  primary_organization_node_id: true,
   default_organization_id: true,
 } as const;
 
@@ -45,9 +51,12 @@ const USER_SAFE_SELECT = {
   full_name: true,
   email: true,
   is_active: true,
-  created_at: true,
-  updated_at: true,
+  create_date: true,
+  write_date: true,
+  create_uid: true,
+  write_uid: true,
   org_unit_id: true,
+  primary_organization_node_id: true,
   default_organization_id: true,
 } as const;
 
@@ -64,9 +73,14 @@ const mapUser = (user: any): UserResponse => ({
   fullName: user.full_name,
   email: user.email,
   isActive: user.is_active,
-  createdAt: user.created_at,
-  updatedAt: user.updated_at,
-  orgUnitId: user.org_unit_id,
+  createDate: user.create_date,
+  writeDate: user.write_date,
+  createUid: user.create_uid ?? null,
+  writeUid: user.write_uid ?? null,
+  createdAt: user.create_date,
+  updatedAt: user.write_date,
+  orgUnitId: user.org_unit_id ?? null,
+  primaryOrganizationNodeId: user.primary_organization_node_id ?? null,
   defaultOrganizationId: user.default_organization_id,
 });
 
@@ -87,8 +101,9 @@ const recordSuccessfulLoginEvent = async (user: { id: number; default_organizati
 
 export const generateToken = async (user: { id: number }): Promise<string> => {
   const roleCodes = await getEffectiveRoleCodes(user.id);
-  return jwt.sign({ sub: user.id, roles: roleCodes }, process.env.JWT_SECRET as string, {
-    expiresIn: process.env.JWT_EXPIRES_IN || '8h',
+  const secret = process.env.JWT_SECRET || 'secret';
+  return jwt.sign({ sub: user.id, roles: roleCodes }, secret, {
+    expiresIn: '8h',
   });
 };
 
@@ -136,8 +151,8 @@ export const register = async (organizationId: string | number, payload: Registe
           is_active: true,
           org_unit_id: parsedOrgUnitId,
           default_organization_id: parsedOrganizationId,
-          created_at: now,
-          updated_at: now,
+          create_date: now,
+          write_date: now,
         },
         select: USER_SAFE_SELECT,
       });
@@ -148,8 +163,8 @@ export const register = async (organizationId: string | number, payload: Registe
           organization_id: parsedOrganizationId,
           is_primary: true,
           is_active: true,
-          created_at: now,
-          updated_at: now,
+          create_date: now,
+          write_date: now,
         },
       });
       await tx.user_roles.create({
@@ -158,8 +173,8 @@ export const register = async (organizationId: string | number, payload: Registe
           role_id: role.id,
           organization_id: parsedOrganizationId,
           org_unit_id: parsedOrgUnitId,
-          created_at: now,
-          updated_at: now,
+          create_date: now,
+          write_date: now,
         },
       });
 

@@ -132,3 +132,160 @@ describe('Organizational Structure API (flexible hierarchy)', () => {
     expect(res.body.data.parentId).toBe(branchUnitId);
   });
 });
+
+describe('Organization Hierarchy Nodes API (Unified organizations table)', () => {
+  let orgA;
+  let orgB;
+  let adminTokenA;
+  let adminTokenB;
+  let unitTypeA;
+  let unitTypeB;
+  let rootNodeA;
+  let childNodeA;
+  let grandChildNodeA;
+
+  beforeAll(async () => {
+    orgA = await createOrganization({ legalName: 'مؤسسة (أ) للربط الهيكلي', slug: `org-nodes-a-${Date.now()}` });
+    orgB = await createOrganization({ legalName: 'مؤسسة (ب) المستقلة', slug: `org-nodes-b-${Date.now()}` });
+
+    const { user: userA } = await createUserWithRole(
+      { fullName: 'مدير أ', email: `admin.nodes.a.${Date.now()}@cfms.local`, roleCode: 'admin', organizationId: orgA.id },
+      'Password123'
+    );
+    const { user: userB } = await createUserWithRole(
+      { fullName: 'مدير ب', email: `admin.nodes.b.${Date.now()}@cfms.local`, roleCode: 'admin', organizationId: orgB.id },
+      'Password123'
+    );
+
+    const resA = await request(app).post('/api/auth/login').send({ email: userA.email, password: 'Password123' });
+    adminTokenA = resA.body.data.token;
+
+    const resB = await request(app).post('/api/auth/login').send({ email: userB.email, password: 'Password123' });
+    adminTokenB = resB.body.data.token;
+
+    const typeResA = await request(app)
+      .post('/api/org-structure/unit-types')
+      .set('Authorization', `Bearer ${adminTokenA}`)
+      .send({ code: `type_a_${Date.now()}`, nameAr: 'فرع هرمي', hierarchyLevel: 1 });
+    unitTypeA = typeResA.body.data.id;
+
+    const typeResB = await request(app)
+      .post('/api/org-structure/unit-types')
+      .set('Authorization', `Bearer ${adminTokenB}`)
+      .send({ code: `type_b_${Date.now()}`, nameAr: 'فرع ب', hierarchyLevel: 1 });
+    unitTypeB = typeResB.body.data.id;
+  });
+
+  it('يرفض إنشاء عقدة بنوع وحدة غير صالح بالنسبة للمؤسسة', async () => {
+    const res = await request(app)
+      .post('/api/organization/nodes')
+      .set('Authorization', `Bearer ${adminTokenA}`)
+      .send({ name: 'فرع باطل', orgUnitTypeId: 99999 });
+
+    expect(res.status).toBe(422);
+  });
+
+  it('ينشئ عقدة جذرية جديدة تحت المؤسسة بنجاح', async () => {
+    const res = await request(app)
+      .post('/api/organization/nodes')
+      .set('Authorization', `Bearer ${adminTokenA}`)
+      .send({ name: 'المقر الرئيسي - صنعاء', orgUnitTypeId: unitTypeA });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.name).toBe('المقر الرئيسي - صنعاء');
+    expect(res.body.data.rootOrganizationId).toBe(orgA.id);
+    rootNodeA = res.body.data;
+  });
+
+  it('ينشئ عقدة فرعية تابعة للفرع الرئيسي بنجاح', async () => {
+    const res = await request(app)
+      .post('/api/organization/nodes')
+      .set('Authorization', `Bearer ${adminTokenA}`)
+      .send({ name: 'إدارة الشؤون المالية', orgUnitTypeId: unitTypeA, parentId: rootNodeA.id });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.parentId).toBe(rootNodeA.id);
+    childNodeA = res.body.data;
+  });
+
+  it('ينشئ عقدة من المستوى الثالث (حفيد)', async () => {
+    const res = await request(app)
+      .post('/api/organization/nodes')
+      .set('Authorization', `Bearer ${adminTokenA}`)
+      .send({ name: 'قسم المحاسبة', orgUnitTypeId: unitTypeA, parentId: childNodeA.id });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.parentId).toBe(childNodeA.id);
+    grandChildNodeA = res.body.data;
+  });
+
+  it('يجلب قائمة جميع العقد الهيكلية الخاصة بالمؤسسة فقط (Tenant Isolation)', async () => {
+    const resA = await request(app)
+      .get('/api/organization/nodes')
+      .set('Authorization', `Bearer ${adminTokenA}`);
+
+    expect(resA.status).toBe(200);
+    const nodeIdsA = resA.body.data.map((n) => n.id);
+    expect(nodeIdsA).toContain(rootNodeA.id);
+    expect(nodeIdsA).toContain(childNodeA.id);
+    expect(nodeIdsA).toContain(grandChildNodeA.id);
+
+    const resB = await request(app)
+      .get('/api/organization/nodes')
+      .set('Authorization', `Bearer ${adminTokenB}`);
+
+    expect(resB.status).toBe(200);
+    const nodeIdsB = resB.body.data.map((n) => n.id);
+    expect(nodeIdsB).not.toContain(rootNodeA.id);
+    expect(nodeIdsB).not.toContain(childNodeA.id);
+  });
+
+  it('يرفض تعيين أب ينتمي لمؤسسة أخرى (Reject cross-tenant parent)', async () => {
+    const res = await request(app)
+      .post('/api/organization/nodes')
+      .set('Authorization', `Bearer ${adminTokenB}`)
+      .send({ name: 'فرع متسلل', orgUnitTypeId: unitTypeB, parentId: rootNodeA.id });
+
+    expect(res.status).toBe(422);
+  });
+
+  it('يرفض تعيين العقدة كأب لنفسها عند التحديث (Reject self-parent)', async () => {
+    const res = await request(app)
+      .put(`/api/organization/nodes/${childNodeA.id}`)
+      .set('Authorization', `Bearer ${adminTokenA}`)
+      .send({ parentId: childNodeA.id });
+
+    expect(res.status).toBe(422);
+    expect(res.body.message).toContain('نفسها');
+  });
+
+  it('يرفض تعيين عقدة تابعة كأم للوحدة الحالية لمنع الحلقات (Reject descendant-parent cycle)', async () => {
+    const res = await request(app)
+      .put(`/api/organization/nodes/${rootNodeA.id}`)
+      .set('Authorization', `Bearer ${adminTokenA}`)
+      .send({ parentId: grandChildNodeA.id });
+
+    expect(res.status).toBe(422);
+  });
+
+  it('يحدث بيانات العقدة بنجاح (Update node)', async () => {
+    const res = await request(app)
+      .put(`/api/organization/nodes/${childNodeA.id}`)
+      .set('Authorization', `Bearer ${adminTokenA}`)
+      .send({ name: 'إدارة الشؤون المالية والإدارية', code: 'FIN-ADM' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.name).toBe('إدارة الشؤون المالية والإدارية');
+    expect(res.body.data.code).toBe('FIN-ADM');
+  });
+
+  it('يعطل العقدة بنجاح (Deactivate node)', async () => {
+    const res = await request(app)
+      .patch(`/api/organization/nodes/${grandChildNodeA.id}/deactivate`)
+      .set('Authorization', `Bearer ${adminTokenA}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.isActive).toBe(false);
+    expect(res.body.data.deletedAt).not.toBeNull();
+  });
+});

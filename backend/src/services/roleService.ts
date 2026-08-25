@@ -25,6 +25,10 @@ export interface PermissionResponse {
   code: string;
   module: string;
   descriptionAr: string | null;
+  createDate: Date;
+  writeDate: Date;
+  createUid: number | null;
+  writeUid: number | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -38,6 +42,10 @@ export interface RoleResponse {
   description: string | null;
   isSystem: boolean;
   isActive: boolean;
+  createDate: Date;
+  writeDate: Date;
+  createUid: number | null;
+  writeUid: number | null;
   createdAt: Date;
   updatedAt: Date;
   permissions?: PermissionResponse[];
@@ -52,8 +60,10 @@ const ROLE_SELECT = {
   description: true,
   is_system: true,
   is_active: true,
-  created_at: true,
-  updated_at: true,
+  create_date: true,
+  write_date: true,
+  create_uid: true,
+  write_uid: true,
 } as const;
 
 const ROLE_WITH_PERMISSIONS_SELECT = {
@@ -61,7 +71,16 @@ const ROLE_WITH_PERMISSIONS_SELECT = {
   role_permissions: {
     select: {
       permissions: {
-        select: { id: true, code: true, module: true, description_ar: true, created_at: true, updated_at: true },
+        select: {
+          id: true,
+          code: true,
+          module: true,
+          description_ar: true,
+          create_date: true,
+          write_date: true,
+          create_uid: true,
+          write_uid: true,
+        },
       },
     },
   },
@@ -74,20 +93,17 @@ const toSafeInteger = (value: OrganizationId | RoleId): number | null => {
   return Number.isSafeInteger(parsed) ? parsed : null;
 };
 
-const mapPermission = (permission: {
-  id: number;
-  code: string;
-  module: string;
-  description_ar: string | null;
-  created_at: Date;
-  updated_at: Date;
-}): PermissionResponse => ({
+const mapPermission = (permission: any): PermissionResponse => ({
   id: permission.id,
   code: permission.code,
   module: permission.module,
   descriptionAr: permission.description_ar,
-  createdAt: permission.created_at,
-  updatedAt: permission.updated_at,
+  createDate: permission.create_date,
+  writeDate: permission.write_date,
+  createUid: permission.create_uid,
+  writeUid: permission.write_uid,
+  createdAt: permission.create_date,
+  updatedAt: permission.write_date,
 });
 
 const mapRole = (role: any): RoleResponse => ({
@@ -99,8 +115,12 @@ const mapRole = (role: any): RoleResponse => ({
   description: role.description,
   isSystem: role.is_system,
   isActive: role.is_active,
-  createdAt: role.created_at,
-  updatedAt: role.updated_at,
+  createDate: role.create_date,
+  writeDate: role.write_date,
+  createUid: role.create_uid,
+  writeUid: role.write_uid,
+  createdAt: role.create_date,
+  updatedAt: role.write_date,
   ...(role.role_permissions === undefined
     ? {}
     : { permissions: role.role_permissions.map((entry: any) => mapPermission(entry.permissions)) }),
@@ -153,6 +173,7 @@ export const createRole = async (organizationId: OrganizationId, payload: RolePa
   const existing = await prisma.roles.findFirst({ where: { code: payload.code, organization_id: parsedOrganizationId } });
   if (existing) throw new ApiError(409, 'يوجد دور بنفس الكود مسبقاً في مؤسستك');
 
+  const now = new Date();
   const role = await prisma.roles.create({
     data: {
       code: payload.code,
@@ -162,8 +183,8 @@ export const createRole = async (organizationId: OrganizationId, payload: RolePa
       is_system: false,
       is_active: true,
       organization_id: parsedOrganizationId,
-      created_at: new Date(),
-      updated_at: new Date(),
+      create_date: now,
+      write_date: now,
     },
     select: ROLE_SELECT,
   });
@@ -188,7 +209,7 @@ export const updateRole = async (
   }
   if (role.is_system) throw new ApiError(403, 'لا يمكن تعديل الأدوار النظامية (admin/staff)');
 
-  const data: Record<string, unknown> = { updated_at: new Date() };
+  const data: Record<string, unknown> = { write_date: new Date() };
   if (payload.nameAr !== undefined) data.name_ar = payload.nameAr;
   if (payload.nameEn !== undefined) data.name_en = payload.nameEn;
   if (payload.description !== undefined) data.description = payload.description;
@@ -221,4 +242,3 @@ export const listPermissions = async (): Promise<PermissionResponse[]> => {
   const permissions = await prisma.permissions.findMany({ orderBy: [{ module: 'asc' }, { code: 'asc' }] });
   return permissions.map(mapPermission);
 };
-

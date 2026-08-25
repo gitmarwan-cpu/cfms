@@ -807,6 +807,62 @@ body {
   font-size: 14px;
 }
 
+/* ── Audit Metadata ── */
+
+.admin-audit-metadata {
+  margin-top: 20px;
+}
+
+.admin-audit-metadata .admin-detail-value {
+  color: var(--color-text-muted);
+}
+
+/* ── User Administration — assignment lists ── */
+
+.admin-assign-list {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.admin-assign-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #f9fafb;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+}
+
+.admin-assign-item small {
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.admin-assign-note {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  margin: 0 0 12px;
+}
+
+.admin-inline-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.admin-inline-form .field {
+  flex: 1;
+  min-width: 150px;
+}
+
 .admin-assignment-badge {
   margin-bottom: 16px;
   padding: 12px;
@@ -1024,3 +1080,148 @@ body {
   .admin-header__context { display: none; }
   .notification-dropdown { width: min(320px, calc(100vw - 32px)); }
 }
+
+/* ── Organizational Hierarchy Tree & Two-Panel Layout ───────────────────────── */
+
+.org-structure-layout {
+  display: grid;
+  grid-template-columns: minmax(320px, 1fr) minmax(320px, 1.2fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .org-structure-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.admin-tree-card {
+  max-width: none;
+}
+
+.admin-tree-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.admin-tree {
+  max-width: none;
+  padding: 4px;
+}
+
+.admin-tree-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm, 6px);
+  border-bottom: 1px solid var(--color-border);
+  transition: background-color 0.15s ease;
+  cursor: pointer;
+  outline: none;
+}
+
+.admin-tree-row:hover {
+  background-color: var(--color-bg-subtle, #f4f6f8);
+}
+
+.admin-tree-row:focus-visible {
+  box-shadow: 0 0 0 2px var(--color-primary, #1e3a8a);
+}
+
+.admin-tree-row--selected {
+  background-color: var(--color-primary-light, #eff6ff) !important;
+  border-inline-start: 3px solid var(--color-primary, #1e3a8a);
+}
+
+.admin-tree-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.admin-tree-toggle {
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  padding: 2px 6px;
+  font-size: 14px;
+  color: var(--color-text-muted, #64748b);
+  border-radius: 4px;
+}
+
+.admin-tree-toggle:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.admin-tree-spacer {
+  width: 20px;
+  display: inline-block;
+}
+
+.admin-tree-node-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.admin-tree-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 14px;
+}
+
+.admin-tree-short-name {
+  color: var(--color-text-muted, #64748b);
+  font-size: 13px;
+  font-weight: normal;
+}
+
+.admin-tree-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-inline-start: 6px;
+  flex-shrink: 0;
+}
+
+.admin-tree-type-tag {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 12px;
+  background: var(--color-bg-subtle, #e2e8f0);
+  color: var(--color-text, #334155);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.admin-tree-code-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #f1f5f9;
+  color: #475569;
+  font-family: monospace;
+  font-size: 11px;
+  border: 1px solid #cbd5e1;
+}
+
+.admin-tree-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.admin-details-card {
+  max-width: none;
+}
+

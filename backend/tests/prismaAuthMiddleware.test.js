@@ -41,8 +41,8 @@ describe('Prisma authentication middleware', () => {
           anonymous_complaints_policy: 'allowed',
           notification_settings: {},
           is_active: true,
-          created_at: now,
-          updated_at: now,
+          create_date: now,
+          write_date: now,
         },
       }),
       prisma.organizations.create({
@@ -59,8 +59,8 @@ describe('Prisma authentication middleware', () => {
           anonymous_complaints_policy: 'allowed',
           notification_settings: {},
           is_active: true,
-          created_at: now,
-          updated_at: now,
+          create_date: now,
+          write_date: now,
         },
       }),
     ]);
@@ -72,8 +72,8 @@ describe('Prisma authentication middleware', () => {
         password_hash: 'not-used',
         is_active: true,
         default_organization_id: organization.id,
-        created_at: now,
-        updated_at: now,
+        create_date: now,
+        write_date: now,
       },
     });
     await prisma.user_organizations.create({
@@ -82,8 +82,8 @@ describe('Prisma authentication middleware', () => {
         organization_id: organization.id,
         is_primary: true,
         is_active: true,
-        created_at: now,
-        updated_at: now,
+        create_date: now,
+        write_date: now,
       },
     });
   });
@@ -132,8 +132,8 @@ describe('Prisma authentication middleware', () => {
         email: 'prisma.auth.inactive@cfms.local',
         password_hash: 'not-used',
         is_active: false,
-        created_at: new Date(),
-        updated_at: new Date(),
+        create_date: new Date(),
+        write_date: new Date(),
       },
     });
     const inactiveResponse = await request(createApp())

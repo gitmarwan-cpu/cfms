@@ -160,7 +160,7 @@ const ensureCountryData = async (db: Db): Promise<void> => {
     }
     const conflictingIso3 = await db.countries.findFirst({ where: { iso3 } });
     if (conflictingIso3) fail(`Country iso3 '${iso3}' is already used by iso2 '${conflictingIso3.iso2}'`);
-    await db.countries.create({ data: { iso2, iso3, name_ar, name_en, is_active: true, created_at: now, updated_at: now } });
+    await db.countries.create({ data: { iso2, iso3, name_ar, name_en, is_active: true, create_date: now, write_date: now } });
   }
 };
 
@@ -209,7 +209,7 @@ const seedGeography = async (db: Db): Promise<void> => {
       assertSame({ name_ar: governorate.name_ar, country_id: yemen.id, is_active: true }, { name_ar: existing.name_ar, country_id: existing.country_id, is_active: existing.is_active }, `governorate ${governorate.name_en}`);
       governorateIds.set(governorate.name_en, existing.id);
     } else {
-      const created = await db.governorates.create({ data: { name_en: governorate.name_en, name_ar: governorate.name_ar, country_id: yemen.id, is_active: true, created_at: now, updated_at: now } });
+      const created = await db.governorates.create({ data: { name_en: governorate.name_en, name_ar: governorate.name_ar, country_id: yemen.id, is_active: true, create_date: now, write_date: now } });
       governorateIds.set(governorate.name_en, created.id);
     }
   }
@@ -220,7 +220,7 @@ const seedGeography = async (db: Db): Promise<void> => {
     if (existing) {
       assertSame({ name_ar: district.name_ar, is_active: true }, { name_ar: existing.name_ar, is_active: existing.is_active }, `district ${district.gov_en}/${district.name_en}`);
     } else {
-      await db.districts.create({ data: { name_en: district.name_en, name_ar: district.name_ar, governorate_id: governorateId, is_active: true, created_at: now, updated_at: now } });
+      await db.districts.create({ data: { name_en: district.name_en, name_ar: district.name_ar, governorate_id: governorateId, is_active: true, create_date: now, write_date: now } });
     }
   }
 };
@@ -230,7 +230,7 @@ const ensureReferenceList = async (db: Db, definition: { key: string; name_ar: s
   if (list) {
     assertSame({ name_ar: definition.name_ar, name_en: definition.name_en, is_system: definition.is_system }, { name_ar: list.name_ar, name_en: list.name_en, is_system: list.is_system }, `reference list ${definition.key}`);
   } else {
-    list = await db.reference_lists.create({ data: { key: definition.key, name_ar: definition.name_ar, name_en: definition.name_en, is_system: definition.is_system, organization_id: null, created_at: now, updated_at: now } });
+    list = await db.reference_lists.create({ data: { key: definition.key, name_ar: definition.name_ar, name_en: definition.name_en, is_system: definition.is_system, organization_id: null, create_date: now, write_date: now } });
   }
   for (const item of definition.items) {
     const existing = await db.reference_list_items.findFirst({ where: { reference_list_id: list.id, code: item.code } });
@@ -238,7 +238,7 @@ const ensureReferenceList = async (db: Db, definition: { key: string; name_ar: s
     if (existing) {
       assertSame(expected, { label_ar: existing.label_ar, label_en: existing.label_en, sort_order: existing.sort_order, is_active: existing.is_active, is_default: existing.is_default, meta: existing.meta }, `reference item ${definition.key}/${item.code}`);
     } else {
-      await db.reference_list_items.create({ data: { reference_list_id: list.id, code: item.code, ...expected, meta: item.meta === undefined ? Prisma.JsonNull : item.meta as Prisma.InputJsonValue, created_at: now, updated_at: now } });
+      await db.reference_list_items.create({ data: { reference_list_id: list.id, code: item.code, ...expected, meta: item.meta === undefined ? Prisma.JsonNull : item.meta as Prisma.InputJsonValue, create_date: now, write_date: now } });
     }
   }
   return list.id;
@@ -274,7 +274,7 @@ const ensureSystemRoles = async (db: Db): Promise<void> => {
         is_active: existing.is_active,
       }, `system role ${role.code}`);
     } else {
-      await db.roles.create({ data: { ...expected, created_at: now, updated_at: now } });
+      await db.roles.create({ data: { ...expected, create_date: now, write_date: now } });
     }
   }
 };
@@ -296,7 +296,7 @@ const seedPermissions = async (db: Db, roleIds: { adminId: number; staffId: numb
       assertSame({ module, description_ar }, { module: existing.module, description_ar: existing.description_ar }, `permission ${code}`);
       permissionIds.set(code, existing.id);
     } else {
-      const created = await db.permissions.create({ data: { code, module, description_ar, created_at: now, updated_at: now } });
+      const created = await db.permissions.create({ data: { code, module, description_ar, create_date: now, write_date: now } });
       permissionIds.set(code, created.id);
     }
   }
@@ -325,29 +325,29 @@ const seedBootstrapOrganization = async (db: Db, adminRoleId: number): Promise<v
     description: 'مؤسسة افتراضية تلقائية عند أول تنصيب - يمكن للمدير إعادة تسميتها وتهيئتها', country: 'Yemen',
     default_language: 'ar', timezone: 'Asia/Aden', date_format: 'DD/MM/YYYY', primary_color: '#0e5f66',
     secondary_color: '#0a464b', accent_color: '#c77b3f', anonymous_complaints_policy: 'allowed',
-    notification_settings: {}, is_active: true, created_at: now, updated_at: now,
+    notification_settings: {}, is_active: true, create_date: now, write_date: now,
   } });
   const existingUser = await db.users.findUnique({ where: { email } });
   if (existingUser) fail(`Bootstrap email '${email}' already belongs to an existing user`);
-  const user = await db.users.create({ data: { full_name: 'مدير المنصة', email, password_hash: passwordHash, is_active: true, default_organization_id: organization.id, created_at: now, updated_at: now } });
-  await db.user_organizations.create({ data: { user_id: user.id, organization_id: organization.id, is_primary: true, is_active: true, created_at: now, updated_at: now } });
-  await db.user_roles.create({ data: { user_id: user.id, role_id: adminRoleId, organization_id: organization.id, org_unit_id: null, created_at: now, updated_at: now } });
+  const user = await db.users.create({ data: { full_name: 'مدير المنصة', email, password_hash: passwordHash, is_active: true, default_organization_id: organization.id, create_date: now, write_date: now } });
+  await db.user_organizations.create({ data: { user_id: user.id, organization_id: organization.id, is_primary: true, is_active: true, create_date: now, write_date: now } });
+  await db.user_roles.create({ data: { user_id: user.id, role_id: adminRoleId, organization_id: organization.id, org_unit_id: null, create_date: now, write_date: now } });
 };
 
 const seedOrgUnitTypes = async (db: Db): Promise<void> => {
   const organization = await db.organizations.findFirst({ orderBy: { id: 'asc' }, select: { id: true } });
   if (!organization) return;
   let branch = await db.org_unit_types.findFirst({ where: { organization_id: organization.id, code: 'branch_sector' } });
-  if (!branch) branch = await db.org_unit_types.create({ data: { organization_id: organization.id, code: 'branch_sector', name_ar: 'فرع / قطاع', name_en: 'Branch / Sector', hierarchy_level: 1, allowed_parent_type_id: null, is_active: true, created_at: now, updated_at: now } });
+  if (!branch) branch = await db.org_unit_types.create({ data: { organization_id: organization.id, code: 'branch_sector', name_ar: 'فرع / قطاع', name_en: 'Branch / Sector', hierarchy_level: 1, allowed_parent_type_id: null, is_active: true, create_date: now, write_date: now } });
   else assertSame({ name_ar: 'فرع / قطاع', name_en: 'Branch / Sector', hierarchy_level: 1, allowed_parent_type_id: null, is_active: true }, { name_ar: branch.name_ar, name_en: branch.name_en, hierarchy_level: branch.hierarchy_level, allowed_parent_type_id: branch.allowed_parent_type_id, is_active: branch.is_active }, 'org unit type branch_sector');
   const department = await db.org_unit_types.findFirst({ where: { organization_id: organization.id, code: 'department' } });
-  if (!department) await db.org_unit_types.create({ data: { organization_id: organization.id, code: 'department', name_ar: 'قسم', name_en: 'Department', hierarchy_level: 2, allowed_parent_type_id: branch.id, is_active: true, created_at: now, updated_at: now } });
+  if (!department) await db.org_unit_types.create({ data: { organization_id: organization.id, code: 'department', name_ar: 'قسم', name_en: 'Department', hierarchy_level: 2, allowed_parent_type_id: branch.id, is_active: true, create_date: now, write_date: now } });
   else assertSame({ name_ar: 'قسم', name_en: 'Department', hierarchy_level: 2, allowed_parent_type_id: branch.id, is_active: true }, { name_ar: department.name_ar, name_en: department.name_en, hierarchy_level: department.hierarchy_level, allowed_parent_type_id: department.allowed_parent_type_id, is_active: department.is_active }, 'org unit type department');
 };
 
 const seedSystemGroups = async (db: Db, staffRoleId: number): Promise<void> => {
   const existing = await db.groups.findFirst({ where: { code: 'complaint_officers', organization_id: null } });
-  const group = existing || await db.groups.create({ data: { code: 'complaint_officers', organization_id: null, name_ar: 'موظفو معالجة الشكاوى', name_en: 'Complaint Officers', description: 'مجموعة جاهزة لفريق استقبال ومعالجة الشكاوى', is_system: true, is_active: true, created_at: now, updated_at: now } });
+  const group = existing || await db.groups.create({ data: { code: 'complaint_officers', organization_id: null, name_ar: 'موظفو معالجة الشكاوى', name_en: 'Complaint Officers', description: 'مجموعة جاهزة لفريق استقبال ومعالجة الشكاوى', is_system: true, is_active: true, create_date: now, write_date: now } });
   if (existing) assertSame({ name_ar: 'موظفو معالجة الشكاوى', name_en: 'Complaint Officers', is_system: true, is_active: true }, { name_ar: existing.name_ar, name_en: existing.name_en, is_system: existing.is_system, is_active: existing.is_active }, 'system group complaint_officers');
   const mapping = await db.group_roles.findFirst({ where: { group_id: group.id, role_id: staffRoleId } });
   if (!mapping) await db.group_roles.create({ data: { group_id: group.id, role_id: staffRoleId, created_at: now } });
@@ -356,11 +356,11 @@ const seedSystemGroups = async (db: Db, staffRoleId: number): Promise<void> => {
 const seedWorkflow = async (db: Db): Promise<void> => {
   let definition = await db.workflow_definitions.findFirst({ where: { code: 'complaint_default', organization_id: null } });
   if (definition) assertSame({ name_ar: 'سير عمل الشكاوى الافتراضي', name_en: 'Default Complaint Workflow', entity_type: 'complaint', is_active: true }, { name_ar: definition.name_ar, name_en: definition.name_en, entity_type: definition.entity_type, is_active: definition.is_active }, 'workflow complaint_default');
-  else definition = await db.workflow_definitions.create({ data: { code: 'complaint_default', name_ar: 'سير عمل الشكاوى الافتراضي', name_en: 'Default Complaint Workflow', entity_type: 'complaint', is_active: true, organization_id: null, created_at: now, updated_at: now } });
+  else definition = await db.workflow_definitions.create({ data: { code: 'complaint_default', name_ar: 'سير عمل الشكاوى الافتراضي', name_en: 'Default Complaint Workflow', entity_type: 'complaint', is_active: true, organization_id: null, create_date: now, write_date: now } });
   const stateIds = new Map<string, number>();
   for (const [code, name_ar, name_en, is_initial, is_final, sort_order] of WORKFLOW_STATES) {
     const existing = await db.workflow_states.findFirst({ where: { workflow_definition_id: definition.id, code } });
-    const state = existing || await db.workflow_states.create({ data: { workflow_definition_id: definition.id, code, name_ar, name_en, is_initial, is_final, sort_order, created_at: now, updated_at: now } });
+    const state = existing || await db.workflow_states.create({ data: { workflow_definition_id: definition.id, code, name_ar, name_en, is_initial, is_final, sort_order, create_date: now, write_date: now } });
     if (existing) assertSame({ name_ar, name_en, is_initial, is_final, sort_order }, { name_ar: existing.name_ar, name_en: existing.name_en, is_initial: existing.is_initial, is_final: existing.is_final, sort_order: existing.sort_order }, `workflow state ${code}`);
     stateIds.set(code, state.id);
   }
@@ -370,7 +370,7 @@ const seedWorkflow = async (db: Db): Promise<void> => {
     if (fromStateId === undefined || toStateId === undefined) return fail(`Workflow transition '${code}' references an unknown state`);
     const existing = await db.workflow_transitions.findFirst({ where: { workflow_definition_id: definition.id, code } });
     if (existing) assertSame({ from_state_id: fromStateId, to_state_id: toStateId, name_ar, name_en, requires_permission: null }, { from_state_id: existing.from_state_id, to_state_id: existing.to_state_id, name_ar: existing.name_ar, name_en: existing.name_en, requires_permission: existing.requires_permission }, `workflow transition ${code}`);
-    else await db.workflow_transitions.create({ data: { workflow_definition_id: definition.id, from_state_id: fromStateId, to_state_id: toStateId, code, name_ar, name_en, requires_permission: null, created_at: now, updated_at: now } });
+    else await db.workflow_transitions.create({ data: { workflow_definition_id: definition.id, from_state_id: fromStateId, to_state_id: toStateId, code, name_ar, name_en, requires_permission: null, create_date: now, write_date: now } });
   }
 };
 

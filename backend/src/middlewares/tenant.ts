@@ -28,8 +28,10 @@ const mapOrganization = (organization: any) => ({
   anonymousComplaintsPolicy: organization.anonymous_complaints_policy,
   notificationSettings: organization.notification_settings,
   isActive: organization.is_active,
-  createdAt: organization.created_at,
-  updatedAt: organization.updated_at,
+  createdAt: organization.create_date,
+  updatedAt: organization.write_date,
+  createUid: organization.create_uid,
+  writeUid: organization.write_uid,
   slug: organization.slug,
 });
 
@@ -60,8 +62,10 @@ const ORGANIZATION_SELECT = {
   anonymous_complaints_policy: true,
   notification_settings: true,
   is_active: true,
-  created_at: true,
-  updated_at: true,
+  create_date: true,
+  write_date: true,
+  create_uid: true,
+  write_uid: true,
   slug: true,
 } as const;
 

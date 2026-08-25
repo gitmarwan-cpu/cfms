@@ -36,8 +36,8 @@ describe('Prisma identity and RBAC services', () => {
         anonymous_complaints_policy: 'allowed',
         notification_settings: {},
         is_active: true,
-        created_at: now,
-        updated_at: now,
+        create_date: now,
+        write_date: now,
       },
     });
 
@@ -50,8 +50,8 @@ describe('Prisma identity and RBAC services', () => {
           password_hash: passwordHash,
           is_active: true,
           default_organization_id: organization.id,
-          created_at: now,
-          updated_at: now,
+          create_date: now,
+          write_date: now,
         },
       }),
       prisma.users.create({
@@ -61,8 +61,8 @@ describe('Prisma identity and RBAC services', () => {
           password_hash: passwordHash,
           is_active: true,
           default_organization_id: organization.id,
-          created_at: now,
-          updated_at: now,
+          create_date: now,
+          write_date: now,
         },
       }),
     ]);
@@ -73,8 +73,8 @@ describe('Prisma identity and RBAC services', () => {
         organization_id: organization.id,
         is_primary: true,
         is_active: true,
-        created_at: now,
-        updated_at: now,
+        create_date: now,
+        write_date: now,
       })),
     });
 
@@ -83,8 +83,8 @@ describe('Prisma identity and RBAC services', () => {
         code: 'identity.test',
         module: 'identity',
         description_ar: 'Identity test permission',
-        created_at: now,
-        updated_at: now,
+        create_date: now,
+        write_date: now,
       },
     });
     adminRole = await prisma.roles.create({
@@ -94,8 +94,8 @@ describe('Prisma identity and RBAC services', () => {
         is_system: true,
         is_active: true,
         organization_id: null,
-        created_at: now,
-        updated_at: now,
+        create_date: now,
+        write_date: now,
       },
     });
     customRole = await prisma.roles.create({
@@ -105,8 +105,8 @@ describe('Prisma identity and RBAC services', () => {
         is_system: false,
         is_active: true,
         organization_id: organization.id,
-        created_at: now,
-        updated_at: now,
+        create_date: now,
+        write_date: now,
       },
     });
     await prisma.role_permissions.create({
@@ -118,8 +118,8 @@ describe('Prisma identity and RBAC services', () => {
         role_id: adminRole.id,
         organization_id: organization.id,
         org_unit_id: null,
-        created_at: now,
-        updated_at: now,
+        create_date: now,
+        write_date: now,
       },
     });
     group = await prisma.groups.create({
@@ -129,8 +129,8 @@ describe('Prisma identity and RBAC services', () => {
         is_system: false,
         is_active: true,
         organization_id: organization.id,
-        created_at: now,
-        updated_at: now,
+        create_date: now,
+        write_date: now,
       },
     });
     await prisma.group_roles.create({
@@ -141,8 +141,8 @@ describe('Prisma identity and RBAC services', () => {
         user_id: staff.id,
         group_id: group.id,
         organization_id: organization.id,
-        created_at: now,
-        updated_at: now,
+        create_date: now,
+        write_date: now,
       },
     });
   });

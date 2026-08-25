@@ -62,8 +62,10 @@ const SLA_RULE_SELECT = {
   escalation_interval_hours: true,
   max_escalation_level: true,
   is_active: true,
-  created_at: true,
-  updated_at: true,
+  create_date: true,
+  write_date: true,
+  create_uid: true,
+  write_uid: true,
 } satisfies Prisma.sla_rulesSelect;
 
 type SlaRuleRecord = Prisma.sla_rulesGetPayload<{ select: typeof SLA_RULE_SELECT }>;
@@ -163,8 +165,12 @@ const mapSlaRule = (rule: SlaRuleRecord) => ({
   escalationIntervalHours: rule.escalation_interval_hours,
   maxEscalationLevel: rule.max_escalation_level,
   isActive: rule.is_active,
-  createdAt: rule.created_at,
-  updatedAt: rule.updated_at,
+  createDate: rule.create_date,
+  writeDate: rule.write_date,
+  createUid: rule.create_uid,
+  writeUid: rule.write_uid,
+  createdAt: rule.create_date,
+  updatedAt: rule.write_date,
 });
 
 const assertHours = (firstResponseHours: number, resolutionHours: number, escalationIntervalHours: number) => {
@@ -372,8 +378,10 @@ export const createSlaRule = async (
           escalation_interval_hours: payload.escalationIntervalHours,
           max_escalation_level: maxEscalationLevel,
           is_active: payload.isActive !== false,
-          created_at: now,
-          updated_at: now,
+          create_date: now,
+          write_date: now,
+          create_uid: parsedActorUserId,
+          write_uid: parsedActorUserId,
         },
         select: SLA_RULE_SELECT,
       });
@@ -444,7 +452,8 @@ export const updateSlaRule = async (
           escalation_interval_hours: escalationIntervalHours,
           max_escalation_level: maxEscalationLevel,
           is_active: nextActive,
-          updated_at: new Date(),
+          write_date: new Date(),
+          write_uid: parsedActorUserId,
         },
         select: SLA_RULE_SELECT,
       });
@@ -475,6 +484,7 @@ const notifyEscalation = async (
     id: number;
     assigned_to_user_id: number | null;
     assigned_to_org_unit_id: number | null;
+    assigned_to_organization_id?: number | null;
   },
   toLevel: number,
   reason: EscalationReason
@@ -542,7 +552,7 @@ const persistEscalation = async (
       escalation_level: toLevel,
       last_escalated_at: now,
       sla_status: slaStatus,
-      updated_at: now,
+      write_date: now,
     },
   });
   if (updated.count === 0) return;
@@ -594,6 +604,7 @@ export const evaluateOrganizationSla = async (
         escalation_level: true,
         assigned_to_user_id: true,
         assigned_to_org_unit_id: true,
+        assigned_to_organization_id: true,
         sla_rules: {
           select: { escalation_interval_hours: true, max_escalation_level: true },
         },
@@ -639,7 +650,7 @@ export const evaluateOrganizationSla = async (
       if (complaint.sla_status !== slaStatus) {
         await tx.complaints.updateMany({
           where: { id: complaint.id, organization_id: parsedOrganizationId },
-          data: { sla_status: slaStatus, updated_at: now },
+          data: { sla_status: slaStatus, write_date: now },
         });
         if (slaStatus === 'overdue') {
           await recordAuditEvent(tx, {
@@ -682,6 +693,7 @@ export const escalateComplaint = async (
         escalation_level: true,
         assigned_to_user_id: true,
         assigned_to_org_unit_id: true,
+        assigned_to_organization_id: true,
         sla_rules: { select: { max_escalation_level: true } },
       },
     });

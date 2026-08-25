@@ -11,6 +11,8 @@ export interface ReferenceItem {
   sortOrder?: number;
   isActive?: boolean;
   isDefault?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface LocationRef {
@@ -360,10 +362,92 @@ export interface Group {
 
 // ── Org Structure API ────────────────────────────────────────────────
 
-export const fetchOrgUnits = async (): Promise<OrgUnit[]> => {
-  const res = await axiosClient.get<{ success: boolean; data: OrgUnit[] }>('/org-structure/units');
+export const fetchOrgUnits = async (): Promise<any[]> => {
+  return fetchOrganizationNodes();
+};
+
+// ── Organization Nodes API (authoritative hierarchy backend endpoint /organization/nodes) ──
+
+export interface OrganizationNodeDto {
+  id: number;
+  name: string;
+  shortName: string | null;
+  code: string | null;
+  parentId: number | null;
+  rootOrganizationId: number | null;
+  orgUnitTypeId: number | null;
+  countryId: number | null;
+  governorateId: number | null;
+  districtId: number | null;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+  unitType: {
+    id: number;
+    code: string;
+    nameAr: string;
+    nameEn: string | null;
+    hierarchyLevel: number;
+  } | null;
+}
+
+export interface CreateOrganizationNodeInput {
+  name: string;
+  shortName?: string | null;
+  code?: string | null;
+  orgUnitTypeId: number;
+  parentId?: number | null;
+  countryId?: number | null;
+  governorateId?: number | null;
+  districtId?: number | null;
+  phone?: string | null;
+  email?: string | null;
+  address?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  isActive?: boolean;
+}
+
+export interface UpdateOrganizationNodeInput {
+  name?: string;
+  shortName?: string | null;
+  code?: string | null;
+  orgUnitTypeId?: number;
+  parentId?: number | null;
+  countryId?: number | null;
+  governorateId?: number | null;
+  districtId?: number | null;
+  phone?: string | null;
+  email?: string | null;
+  address?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  isActive?: boolean;
+}
+
+/** Fetches organizational hierarchy nodes from the backend (/organization/nodes). */
+export const fetchOrganizationNodes = async (): Promise<OrganizationNodeDto[]> => {
+  const res = await axiosClient.get<{ success: boolean; data: OrganizationNodeDto[] }>('/organization/nodes');
   return res.data.data;
 };
+
+/** Creates a node in the organizational hierarchy (/organization/nodes). */
+export const createOrganizationNode = (payload: CreateOrganizationNodeInput): Promise<OrganizationNodeDto> =>
+  unwrap<OrganizationNodeDto>(axiosClient.post('/organization/nodes', payload));
+
+/** Updates an existing node in the organizational hierarchy (/organization/nodes/:id). */
+export const updateOrganizationNode = (id: number, payload: UpdateOrganizationNodeInput): Promise<OrganizationNodeDto> =>
+  unwrap<OrganizationNodeDto>(axiosClient.put(`/organization/nodes/${id}`, payload));
+
+/** Deactivates an organization node (/organization/nodes/:id/deactivate). */
+export const deactivateOrganizationNode = (id: number): Promise<OrganizationNodeDto> =>
+  unwrap<OrganizationNodeDto>(axiosClient.patch(`/organization/nodes/${id}/deactivate`));
 
 export const fetchGroups = async (): Promise<Group[]> => {
   const res = await axiosClient.get<{ success: boolean; data: Group[] }>('/groups');
@@ -386,7 +470,7 @@ export interface OrganizationSettings {
   secondaryColor: string | null; accentColor: string | null; anonymousComplaintsPolicy: 'allowed' | 'not_allowed' | 'optional';
 }
 export interface OrgUnitType { id: number; code: string; nameAr: string; nameEn: string | null; hierarchyLevel: number; isActive: boolean; allowedParentTypeId: number | null; }
-export interface SlaRule { id: number; name: string; complaintType: 'complaint' | 'proposal' | null; categoryItemId: number | null; priorityItemId: number | null; isSensitive: boolean | null; firstResponseHours: number; resolutionHours: number; escalationIntervalHours: number; maxEscalationLevel: number; isActive: boolean; }
+export interface SlaRule { id: number; name: string; complaintType: 'complaint' | 'proposal' | null; categoryItemId: number | null; priorityItemId: number | null; isSensitive: boolean | null; firstResponseHours: number; resolutionHours: number; escalationIntervalHours: number; maxEscalationLevel: number; isActive: boolean; createdAt: string; updatedAt: string; }
 export interface AuditLog { id: number; actor: UserRef | null; action: string; entityType: string; entityId: number | null; metadata: unknown; createdAt: string; }
 
 const unwrap = async <T>(request: Promise<{ data: { data: T } }>): Promise<T> => (await request).data.data;

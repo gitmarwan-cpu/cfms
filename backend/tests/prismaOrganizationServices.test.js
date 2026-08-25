@@ -32,8 +32,8 @@ describe('Prisma organization services', () => {
         anonymous_complaints_policy: 'allowed',
         notification_settings: {},
         is_active: true,
-        created_at: now,
-        updated_at: now,
+        create_date: now,
+        write_date: now,
       },
     });
 
@@ -43,8 +43,8 @@ describe('Prisma organization services', () => {
         email: 'prisma.organization.member@cfms.local',
         password_hash: 'not-used-in-service-test',
         is_active: true,
-        created_at: now,
-        updated_at: now,
+        create_date: now,
+        write_date: now,
       },
     });
 
@@ -54,8 +54,8 @@ describe('Prisma organization services', () => {
         organization_id: organization.id,
         is_primary: true,
         is_active: true,
-        created_at: now,
-        updated_at: now,
+        create_date: now,
+        write_date: now,
       },
     });
   });

@@ -75,7 +75,7 @@ const REFERENCE_SEED = [
     items: [
       { code: 'low', labelAr: 'منخفضة' },
       { code: 'medium', labelAr: 'متوسطة', isDefault: true },
-      { code: 'high', labelAr: 'عالية' },
+      { code: 'high', labelAr: 'حرجة' },
       { code: 'urgent', labelAr: 'حرجة / عاجلة' },
     ],
   },
@@ -95,8 +95,8 @@ beforeAll(async () => {
       iso3: 'YEM',
       name_ar: 'اليمن',
       name_en: 'Yemen',
-      created_at: timestamp(),
-      updated_at: timestamp(),
+      create_date: timestamp(),
+      write_date: timestamp(),
     },
   });
   seedCountryId = yemen.id;
@@ -106,8 +106,8 @@ beforeAll(async () => {
       name_en: 'Ibb',
       name_ar: 'إب',
       country_id: yemen.id,
-      created_at: timestamp(),
-      updated_at: timestamp(),
+      create_date: timestamp(),
+      write_date: timestamp(),
     },
   });
   const abyan = await prisma.governorates.create({
@@ -115,17 +115,17 @@ beforeAll(async () => {
       name_en: 'Abyan',
       name_ar: 'أبين',
       country_id: yemen.id,
-      created_at: timestamp(),
-      updated_at: timestamp(),
+      create_date: timestamp(),
+      write_date: timestamp(),
     },
   });
   seedGovernorateId = ibb.id;
 
   await prisma.districts.createMany({
     data: [
-      { name_en: 'Al Qafr', name_ar: 'القفر', governorate_id: ibb.id, created_at: timestamp(), updated_at: timestamp() },
-      { name_en: 'Yarim', name_ar: 'يريم', governorate_id: ibb.id, created_at: timestamp(), updated_at: timestamp() },
-      { name_en: 'Ahwar', name_ar: 'أحور', governorate_id: abyan.id, created_at: timestamp(), updated_at: timestamp() },
+      { name_en: 'Al Qafr', name_ar: 'القفر', governorate_id: ibb.id, create_date: timestamp(), write_date: timestamp() },
+      { name_en: 'Yarim', name_ar: 'يريم', governorate_id: ibb.id, create_date: timestamp(), write_date: timestamp() },
+      { name_en: 'Ahwar', name_ar: 'أحور', governorate_id: abyan.id, create_date: timestamp(), write_date: timestamp() },
     ],
   });
 
@@ -136,8 +136,8 @@ beforeAll(async () => {
         name_ar: list.nameAr,
         is_system: true,
         organization_id: null,
-        created_at: timestamp(),
-        updated_at: timestamp(),
+        create_date: timestamp(),
+        write_date: timestamp(),
       },
     });
 
@@ -149,17 +149,17 @@ beforeAll(async () => {
         sort_order: index + 1,
         is_active: true,
         is_default: !!item.isDefault,
-        created_at: timestamp(),
-        updated_at: timestamp(),
+        create_date: timestamp(),
+        write_date: timestamp(),
       })),
     });
   }
 
   const adminRole = await prisma.roles.create({
-    data: { code: 'admin', name_ar: 'مدير النظام', is_system: true, organization_id: null, created_at: timestamp(), updated_at: timestamp() },
+    data: { code: 'admin', name_ar: 'مدير النظام', is_system: true, organization_id: null, create_date: timestamp(), write_date: timestamp() },
   });
   const staffRole = await prisma.roles.create({
-    data: { code: 'staff', name_ar: 'موظف', is_system: true, organization_id: null, created_at: timestamp(), updated_at: timestamp() },
+    data: { code: 'staff', name_ar: 'موظف', is_system: true, organization_id: null, create_date: timestamp(), write_date: timestamp() },
   });
 
   const permissionCodes = [
@@ -187,8 +187,8 @@ beforeAll(async () => {
     data: permissionCodes.map((code) => ({
       code,
       module: code.split('.')[0],
-      created_at: timestamp(),
-      updated_at: timestamp(),
+      create_date: timestamp(),
+      write_date: timestamp(),
     })),
   });
   const permissions = await prisma.permissions.findMany({ where: { code: { in: permissionCodes } } });
@@ -211,8 +211,8 @@ beforeAll(async () => {
       name_ar: 'موظفو معالجة الشكاوى',
       is_system: true,
       organization_id: null,
-      created_at: timestamp(),
-      updated_at: timestamp(),
+      create_date: timestamp(),
+      write_date: timestamp(),
     },
   });
   await prisma.group_roles.create({
@@ -231,8 +231,8 @@ beforeAll(async () => {
       date_format: 'DD/MM/YYYY',
       anonymous_complaints_policy: 'allowed',
       notification_settings: {},
-      created_at: timestamp(),
-      updated_at: timestamp(),
+      create_date: timestamp(),
+      write_date: timestamp(),
     },
   });
 
@@ -244,8 +244,8 @@ beforeAll(async () => {
       entity_type: 'complaint',
       organization_id: null,
       is_active: true,
-      created_at: timestamp(),
-      updated_at: timestamp(),
+      create_date: timestamp(),
+      write_date: timestamp(),
     },
   });
   const workflowStates = {};
@@ -265,8 +265,8 @@ beforeAll(async () => {
         is_initial: isInitial,
         is_final: isFinal,
         sort_order: sortOrder,
-        created_at: timestamp(),
-        updated_at: timestamp(),
+        create_date: timestamp(),
+        write_date: timestamp(),
       },
     });
   }
@@ -286,8 +286,8 @@ beforeAll(async () => {
         name_ar: code,
         name_en: code,
         requires_permission: null,
-        created_at: timestamp(),
-        updated_at: timestamp(),
+        create_date: timestamp(),
+        write_date: timestamp(),
       },
     });
   }
@@ -305,8 +305,8 @@ const createOrganization = async (overrides = {}) => prisma.organizations.create
     date_format: 'DD/MM/YYYY',
     anonymous_complaints_policy: 'allowed',
     notification_settings: {},
-    created_at: timestamp(),
-    updated_at: timestamp(),
+    create_date: timestamp(),
+    write_date: timestamp(),
   },
 });
 
@@ -323,17 +323,17 @@ const createUserWithRole = async (
       password_hash: passwordHash,
       org_unit_id: orgUnitId,
       default_organization_id: targetOrgId,
-      created_at: timestamp(),
-      updated_at: timestamp(),
+      create_date: timestamp(),
+      write_date: timestamp(),
     },
   });
   const role = roleCode === 'admin' ? global.__rbacRoles.adminRole : global.__rbacRoles.staffRole;
 
   await prisma.user_organizations.create({
-    data: { user_id: user.id, organization_id: targetOrgId, is_primary: true, is_active: true, created_at: timestamp(), updated_at: timestamp() },
+    data: { user_id: user.id, organization_id: targetOrgId, is_primary: true, is_active: true, create_date: timestamp(), write_date: timestamp() },
   });
   await prisma.user_roles.create({
-    data: { user_id: user.id, role_id: role.id, organization_id: targetOrgId, org_unit_id: orgUnitId, created_at: timestamp(), updated_at: timestamp() },
+    data: { user_id: user.id, role_id: role.id, organization_id: targetOrgId, org_unit_id: orgUnitId, create_date: timestamp(), write_date: timestamp() },
   });
 
   return { user, rawPassword, organizationId: targetOrgId };

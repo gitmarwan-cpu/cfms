@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { fetchNotifications, markNotificationRead, type Notification } from '../../api/adminApi';
 import { useNavigate } from 'react-router-dom';
+import { formatDateTime } from '../../utils/dateTime';
 
 const POLL_INTERVAL_MS = 60_000;
 
@@ -95,7 +96,7 @@ export default function NotificationCenter() {
                   <div className="notification-item__title">{n.title}</div>
                   <div className="notification-item__message">{n.message}</div>
                   <div className="notification-item__time">
-                    {new Date(n.createdAt).toLocaleString('ar')}
+                    {formatDateTime(n.createdAt)}
                   </div>
                 </button>
               ))

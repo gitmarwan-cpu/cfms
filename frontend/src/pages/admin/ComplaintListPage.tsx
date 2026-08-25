@@ -8,6 +8,7 @@ import {
   type SlaStatus,
 } from '../../api/adminApi';
 import type { ApiClientError } from '../../api/axiosClient';
+import { formatDate, formatDateTime } from '../../utils/dateTime';
 
 const STATUS_LABELS: Record<ComplaintStatus, string> = {
   new: 'جديد',
@@ -125,7 +126,7 @@ export default function ComplaintListPage() {
                 <th>النوع</th>
                 <th>التصنيف</th>
                 <th>الأولوية</th>
-                <th>تاريخ التقديم</th>
+                <th>تاريخ الإنشاء</th>
                 <th>التعيين</th>
                 <th>SLA</th>
                 <th>الحالة</th>
@@ -172,7 +173,7 @@ export default function ComplaintListPage() {
                       <td>{item.type === 'complaint' ? 'شكوى' : 'مقترح'}</td>
                       <td>{item.categoryItem?.labelAr || '-'}</td>
                       <td>{item.priorityItem?.labelAr || '-'}</td>
-                      <td>{new Date(item.createdAt).toLocaleDateString('ar')}</td>
+                      <td title={formatDateTime(item.createdAt)}>{formatDate(item.createdAt)}</td>
                       <td>
                         {item.assignedTo
                           ? item.assignedTo.fullName

@@ -85,10 +85,14 @@ model complainants {
   gender_item_id          Int?
   age_group_item_id       Int?
   beneficiary_external_id String?       @db.VarChar(100)
-  created_at              DateTime      @db.Timestamptz(6)
-  updated_at              DateTime      @db.Timestamptz(6)
+  create_date             DateTime      @db.Timestamptz(6)
+  write_date              DateTime      @db.Timestamptz(6)
+  create_uid              Int?
+  write_uid               Int?
   relationship_item_id    Int?
   organizations           organizations @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  create_user             users?        @relation("complainants_create_uidTousers", fields: [create_uid], references: [id], onDelete: SetNull)
+  write_user              users?        @relation("complainants_write_uidTousers", fields: [write_uid], references: [id], onDelete: SetNull)
   complaints              complaints[]
 
   @@index([organization_id], map: "complainants_organization_id")
@@ -102,9 +106,13 @@ model complaint_attachments {
   stored_file_name String     @db.VarChar(255)
   mime_type        String     @db.VarChar(100)
   size_bytes       Int
-  created_at       DateTime   @db.Timestamptz(6)
-  updated_at       DateTime   @db.Timestamptz(6)
+  create_date      DateTime   @db.Timestamptz(6)
+  write_date       DateTime   @db.Timestamptz(6)
+  create_uid       Int?
+  write_uid        Int?
   complaints       complaints @relation(fields: [complaint_id], references: [id], onDelete: Cascade)
+  create_user      users?     @relation("complaint_attachments_create_uidTousers", fields: [create_uid], references: [id], onDelete: SetNull)
+  write_user       users?     @relation("complaint_attachments_write_uidTousers", fields: [write_uid], references: [id], onDelete: SetNull)
 
   @@index([complaint_id], map: "complaint_attachments_complaint_id")
 }
@@ -126,25 +134,29 @@ model complaint_status_history {
 /// Organization-scoped SLA matching rules. An expression unique index on the
 /// active match key is created in SQL and cannot be represented as @@unique.
 model sla_rules {
-  id                        Int                   @id @default(autoincrement())
-  organization_id           Int
-  name                      String                @db.VarChar(150)
-  complaint_type            enum_complaints_type?
-  category_item_id          Int?
-  priority_item_id          Int?
-  is_sensitive              Boolean?
-  first_response_hours      Int
-  resolution_hours          Int
-  escalation_interval_hours Int
-  max_escalation_level      Int                   @default(3)
-  is_active                 Boolean               @default(true)
-  created_at                DateTime              @db.Timestamptz(6)
-  updated_at                DateTime              @db.Timestamptz(6)
-  organizations             organizations         @relation(fields: [organization_id], references: [id], onDelete: Cascade)
-  reference_list_items_sla_rules_category_item_idToreference_list_items reference_list_items? @relation("sla_rules_category_item_idToreference_list_items", fields: [category_item_id], references: [id])
-  reference_list_items_sla_rules_priority_item_idToreference_list_items reference_list_items? @relation("sla_rules_priority_item_idToreference_list_items", fields: [priority_item_id], references: [id])
-  complaints                complaints[]
-  complaint_escalation_events complaint_escalation_events[]
+  id                                                                    Int                           @id @default(autoincrement())
+  organization_id                                                       Int
+  name                                                                  String                        @db.VarChar(150)
+  complaint_type                                                        enum_complaints_type?
+  category_item_id                                                      Int?
+  priority_item_id                                                      Int?
+  is_sensitive                                                          Boolean?
+  first_response_hours                                                  Int
+  resolution_hours                                                      Int
+  escalation_interval_hours                                             Int
+  max_escalation_level                                                  Int                           @default(3)
+  is_active                                                             Boolean                       @default(true)
+  create_date                                                           DateTime                      @db.Timestamptz(6)
+  write_date                                                            DateTime                      @db.Timestamptz(6)
+  create_uid                                                            Int?
+  write_uid                                                             Int?
+  organizations                                                         organizations                 @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  create_user                                                           users?                        @relation("sla_rules_create_uidTousers", fields: [create_uid], references: [id], onDelete: SetNull)
+  write_user                                                            users?                        @relation("sla_rules_write_uidTousers", fields: [write_uid], references: [id], onDelete: SetNull)
+  reference_list_items_sla_rules_category_item_idToreference_list_items reference_list_items?         @relation("sla_rules_category_item_idToreference_list_items", fields: [category_item_id], references: [id])
+  reference_list_items_sla_rules_priority_item_idToreference_list_items reference_list_items?         @relation("sla_rules_priority_item_idToreference_list_items", fields: [priority_item_id], references: [id])
+  complaints                                                            complaints[]
+  complaint_escalation_events                                           complaint_escalation_events[]
 
   @@index([organization_id], map: "sla_rules_organization_id")
   @@index([organization_id, is_active], map: "sla_rules_organization_active")
@@ -172,16 +184,16 @@ model complaint_escalation_events {
 }
 
 model audit_logs {
-  id              Int           @id @default(autoincrement())
-  organization_id  Int?
-  actor_user_id    Int?
-  action           String        @db.VarChar(100)
-  entity_type      String        @db.VarChar(100)
-  entity_id        Int?
-  metadata         Json?
-  created_at       DateTime      @db.Timestamptz(6)
-  organizations    organizations? @relation(fields: [organization_id], references: [id], onDelete: SetNull)
-  users            users?        @relation(fields: [actor_user_id], references: [id], onDelete: SetNull)
+  id              Int            @id @default(autoincrement())
+  organization_id Int?
+  actor_user_id   Int?
+  action          String         @db.VarChar(100)
+  entity_type     String         @db.VarChar(100)
+  entity_id       Int?
+  metadata        Json?
+  created_at      DateTime       @db.Timestamptz(6)
+  organizations   organizations? @relation(fields: [organization_id], references: [id], onDelete: SetNull)
+  users           users?         @relation(fields: [actor_user_id], references: [id], onDelete: SetNull)
 
   @@index([organization_id, created_at], map: "audit_logs_organization_created_at")
   @@index([entity_type, entity_id, created_at], map: "audit_logs_entity_created_at")
@@ -189,78 +201,80 @@ model audit_logs {
 }
 
 model notifications {
-  id              Int           @id @default(autoincrement())
-  organization_id  Int
-  user_id          Int
-  notification_type String       @db.VarChar(100)
-  title           String        @db.VarChar(200)
-  message         String
-  entity_type     String?       @db.VarChar(100)
-  entity_id       Int?
-  metadata        Json?
-  read_at         DateTime?     @db.Timestamptz(6)
-  created_at      DateTime      @db.Timestamptz(6)
-  organizations   organizations @relation(fields: [organization_id], references: [id], onDelete: Cascade)
-  users           users         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  id                Int           @id @default(autoincrement())
+  organization_id   Int
+  user_id           Int
+  notification_type String        @db.VarChar(100)
+  title             String        @db.VarChar(200)
+  message           String
+  entity_type       String?       @db.VarChar(100)
+  entity_id         Int?
+  metadata          Json?
+  read_at           DateTime?     @db.Timestamptz(6)
+  created_at        DateTime      @db.Timestamptz(6)
+  organizations     organizations @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  users             users         @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@index([organization_id, user_id, read_at, created_at], map: "notifications_user_inbox")
   @@index([organization_id, entity_type, entity_id], map: "notifications_entity")
 }
 
 model complaints {
-  id                                                                     Int                        @id @default(autoincrement())
-  reference_code                                                         String                     @unique @db.VarChar(20)
+  id                                                                     Int                           @id @default(autoincrement())
+  reference_code                                                         String                        @unique @db.VarChar(20)
   type                                                                   enum_complaints_type
-  is_anonymous                                                           Boolean                    @default(false)
+  is_anonymous                                                           Boolean                       @default(false)
   governorate_id                                                         Int
   district_id                                                            Int
-  village                                                                String?                    @db.VarChar(150)
-  is_sensitive                                                           Boolean                    @default(false)
+  village                                                                String?                       @db.VarChar(150)
+  is_sensitive                                                           Boolean                       @default(false)
   description                                                            String
   desired_resolution                                                     String?
-  status                                                                 enum_complaints_status     @default(new)
-  consent_given                                                          Boolean                    @default(false)
+  status                                                                 enum_complaints_status        @default(new)
+  consent_given                                                          Boolean                       @default(false)
   assigned_to_user_id                                                    Int?
   assigned_to_org_unit_id                                                Int?
-  assigned_to_organization_id                                          Int?
+  assigned_to_organization_id                                            Int?
   sla_rule_id                                                            Int?
-  sla_due_at                                                             DateTime?                  @db.Timestamptz(6)
-  sla_first_response_due_at                                              DateTime?                  @db.Timestamptz(6)
-  sla_first_responded_at                                                 DateTime?                  @db.Timestamptz(6)
-  sla_status                                                             String                     @default("none") @db.VarChar(30)
-  escalation_level                                                       Int                        @default(0)
-  last_escalated_at                                                      DateTime?                  @db.Timestamptz(6)
-  created_at                                                             DateTime                   @db.Timestamptz(6)
-  updated_at                                                             DateTime                   @db.Timestamptz(6)
+  sla_due_at                                                             DateTime?                     @db.Timestamptz(6)
+  sla_first_response_due_at                                              DateTime?                     @db.Timestamptz(6)
+  sla_first_responded_at                                                 DateTime?                     @db.Timestamptz(6)
+  sla_status                                                             String                        @default("none") @db.VarChar(30)
+  escalation_level                                                       Int                           @default(0)
+  last_escalated_at                                                      DateTime?                     @db.Timestamptz(6)
+  create_date                                                            DateTime                      @db.Timestamptz(6)
+  write_date                                                             DateTime                      @db.Timestamptz(6)
   category_item_id                                                       Int
   channel_item_id                                                        Int
   priority_item_id                                                       Int?
   organization_id                                                        Int
   complainant_id                                                         Int?
-  tracking_pin_hash                                                      String?                    @db.VarChar(255)
-  created_by_user_id                                                     Int?
-  project_reference_code                                                 String?                    @db.VarChar(150)
-  is_related_to_staff                                                    Boolean                    @default(false)
-  related_staff_name                                                     String?                    @db.VarChar(150)
-  related_staff_position                                                 String?                    @db.VarChar(150)
+  tracking_pin_hash                                                      String?                       @db.VarChar(255)
+  create_uid                                                             Int?
+  write_uid                                                              Int?
+  project_reference_code                                                 String?                       @db.VarChar(150)
+  is_related_to_staff                                                    Boolean                       @default(false)
+  related_staff_name                                                     String?                       @db.VarChar(150)
+  related_staff_position                                                 String?                       @db.VarChar(150)
   staff_incident_details                                                 String?
   workflow_state_id                                                      Int?
   complaint_attachments                                                  complaint_attachments[]
   complaint_status_history                                               complaint_status_history[]
   complaint_escalation_events                                            complaint_escalation_events[]
-  sla_rules                                                              sla_rules?                 @relation(fields: [sla_rule_id], references: [id])
-  users_complaints_assigned_to_user_idTousers                            users?                     @relation("complaints_assigned_to_user_idTousers", fields: [assigned_to_user_id], references: [id])
-  org_units_complaints_assigned_to_org_unit_idToorg_units                org_units?                 @relation("complaints_assigned_to_org_unit_idToorg_units", fields: [assigned_to_org_unit_id], references: [id])
-  organizations_complaints_assigned_to_organization_idToorganizations  organizations?             @relation("ComplaintsAssignedToOrganization", fields: [assigned_to_organization_id], references: [id], onDelete: Restrict)
-  reference_list_items_complaints_category_item_idToreference_list_items reference_list_items       @relation("complaints_category_item_idToreference_list_items", fields: [category_item_id], references: [id])
-  reference_list_items_complaints_channel_item_idToreference_list_items  reference_list_items       @relation("complaints_channel_item_idToreference_list_items", fields: [channel_item_id], references: [id])
-  reference_list_items_complaints_priority_item_idToreference_list_items reference_list_items?      @relation("complaints_priority_item_idToreference_list_items", fields: [priority_item_id], references: [id])
-  complainants                                                           complainants?              @relation(fields: [complainant_id], references: [id])
-  users_complaints_created_by_user_idTousers                             users?                     @relation("complaints_created_by_user_idTousers", fields: [created_by_user_id], references: [id])
-  districts                                                              districts                  @relation(fields: [district_id], references: [id])
-  governorates                                                           governorates               @relation(fields: [governorate_id], references: [id])
-  organizations                                                          organizations              @relation(fields: [organization_id], references: [id])
-  workflow_states                                                        workflow_states?           @relation(fields: [workflow_state_id], references: [id])
+  sla_rules                                                              sla_rules?                    @relation(fields: [sla_rule_id], references: [id])
+  users_complaints_assigned_to_user_idTousers                            users?                        @relation("complaints_assigned_to_user_idTousers", fields: [assigned_to_user_id], references: [id])
+  org_units_complaints_assigned_to_org_unit_idToorg_units                org_units?                    @relation("complaints_assigned_to_org_unit_idToorg_units", fields: [assigned_to_org_unit_id], references: [id])
+  organizations_complaints_assigned_to_organization_idToorganizations    organizations?                @relation("ComplaintsAssignedToOrganization", fields: [assigned_to_organization_id], references: [id], onDelete: Restrict)
+  reference_list_items_complaints_category_item_idToreference_list_items reference_list_items          @relation("complaints_category_item_idToreference_list_items", fields: [category_item_id], references: [id])
+  reference_list_items_complaints_channel_item_idToreference_list_items  reference_list_items          @relation("complaints_channel_item_idToreference_list_items", fields: [channel_item_id], references: [id])
+  reference_list_items_complaints_priority_item_idToreference_list_items reference_list_items?         @relation("complaints_priority_item_idToreference_list_items", fields: [priority_item_id], references: [id])
+  complainants                                                           complainants?                 @relation(fields: [complainant_id], references: [id])
+  create_user                                                            users?                        @relation("complaints_create_uidTousers", fields: [create_uid], references: [id], onDelete: SetNull)
+  write_user                                                             users?                        @relation("complaints_write_uidTousers", fields: [write_uid], references: [id], onDelete: SetNull)
+  districts                                                              districts                     @relation(fields: [district_id], references: [id])
+  governorates                                                           governorates                  @relation(fields: [governorate_id], references: [id])
+  organizations                                                          organizations                 @relation(fields: [organization_id], references: [id])
+  workflow_states                                                        workflow_states?              @relation(fields: [workflow_state_id], references: [id])
 
   @@index([assigned_to_org_unit_id], map: "complaints_assigned_to_org_unit_id")
   @@index([assigned_to_organization_id], map: "complaints_assigned_to_organization_id")
@@ -272,7 +286,7 @@ model complaints {
   @@index([governorate_id], map: "complaints_governorate_id")
   @@index([is_sensitive], map: "complaints_is_sensitive")
   @@index([organization_id], map: "complaints_organization_id")
-  @@index([organization_id, created_at], map: "complaints_organization_id_created_at")
+  @@index([organization_id, create_date], map: "complaints_organization_id_create_date")
   @@index([organization_id, sla_due_at], map: "complaints_organization_sla_due_at")
   @@index([organization_id, sla_status], map: "complaints_organization_sla_status")
   @@index([sla_rule_id], map: "complaints_sla_rule_id")
@@ -287,22 +301,31 @@ model countries {
   name_ar       String          @db.VarChar(150)
   name_en       String          @db.VarChar(150)
   is_active     Boolean         @default(true)
-  created_at    DateTime        @db.Timestamptz(6)
-  updated_at    DateTime        @db.Timestamptz(6)
+  create_date   DateTime        @db.Timestamptz(6)
+  write_date    DateTime        @db.Timestamptz(6)
+  create_uid    Int?
+  write_uid     Int?
+  create_user   users?          @relation("countries_create_uidTousers", fields: [create_uid], references: [id], onDelete: SetNull)
+  write_user    users?          @relation("countries_write_uidTousers", fields: [write_uid], references: [id], onDelete: SetNull)
   governorates  governorates[]
   organizations organizations[]
 }
 
 model districts {
-  id             Int          @id @default(autoincrement())
-  name_en        String       @db.VarChar(150)
-  name_ar        String       @db.VarChar(150)
+  id             Int             @id @default(autoincrement())
+  name_en        String          @db.VarChar(150)
+  name_ar        String          @db.VarChar(150)
   governorate_id Int
-  is_active      Boolean      @default(true)
-  created_at     DateTime     @db.Timestamptz(6)
-  updated_at     DateTime     @db.Timestamptz(6)
+  is_active      Boolean         @default(true)
+  create_date    DateTime        @db.Timestamptz(6)
+  write_date     DateTime        @db.Timestamptz(6)
+  create_uid     Int?
+  write_uid      Int?
+  create_user    users?          @relation("districts_create_uidTousers", fields: [create_uid], references: [id], onDelete: SetNull)
+  write_user     users?          @relation("districts_write_uidTousers", fields: [write_uid], references: [id], onDelete: SetNull)
   complaints     complaints[]
-  governorates   governorates @relation(fields: [governorate_id], references: [id])
+  governorates   governorates    @relation(fields: [governorate_id], references: [id])
+  organizations  organizations[]
 
   @@unique([governorate_id, name_en], map: "districts_gov_name_en_unique")
   @@index([governorate_id], map: "districts_governorate_id")
@@ -313,9 +336,13 @@ model governorates {
   name_en       String          @unique @db.VarChar(150)
   name_ar       String          @db.VarChar(150)
   is_active     Boolean         @default(true)
-  created_at    DateTime        @db.Timestamptz(6)
-  updated_at    DateTime        @db.Timestamptz(6)
+  create_date   DateTime        @db.Timestamptz(6)
+  write_date    DateTime        @db.Timestamptz(6)
+  create_uid    Int?
+  write_uid     Int?
   country_id    Int
+  create_user   users?          @relation("governorates_create_uidTousers", fields: [create_uid], references: [id], onDelete: SetNull)
+  write_user    users?          @relation("governorates_write_uidTousers", fields: [write_uid], references: [id], onDelete: SetNull)
   complaints    complaints[]
   districts     districts[]
   countries     countries       @relation(fields: [country_id], references: [id])
@@ -345,8 +372,12 @@ model groups {
   description     String?
   is_system       Boolean        @default(false)
   is_active       Boolean        @default(true)
-  created_at      DateTime       @db.Timestamptz(6)
-  updated_at      DateTime       @db.Timestamptz(6)
+  create_date     DateTime       @db.Timestamptz(6)
+  write_date      DateTime       @db.Timestamptz(6)
+  create_uid      Int?
+  write_uid       Int?
+  create_user     users?         @relation("groups_create_uidTousers", fields: [create_uid], references: [id], onDelete: SetNull)
+  write_user      users?         @relation("groups_write_uidTousers", fields: [write_uid], references: [id], onDelete: SetNull)
   group_roles     group_roles[]
   organizations   organizations? @relation(fields: [organization_id], references: [id], onDelete: Cascade)
   user_groups     user_groups[]
@@ -364,8 +395,12 @@ model org_unit_types {
   hierarchy_level        Int              @default(1)
   allowed_parent_type_id Int?
   is_active              Boolean          @default(true)
-  created_at             DateTime         @db.Timestamptz(6)
-  updated_at             DateTime         @db.Timestamptz(6)
+  create_date            DateTime         @db.Timestamptz(6)
+  write_date             DateTime         @db.Timestamptz(6)
+  create_uid             Int?
+  write_uid              Int?
+  create_user            users?           @relation("org_unit_types_create_uidTousers", fields: [create_uid], references: [id], onDelete: SetNull)
+  write_user             users?           @relation("org_unit_types_write_uidTousers", fields: [write_uid], references: [id], onDelete: SetNull)
   org_unit_types         org_unit_types?  @relation("org_unit_typesToorg_unit_types", fields: [allowed_parent_type_id], references: [id])
   other_org_unit_types   org_unit_types[] @relation("org_unit_typesToorg_unit_types")
   organizations          organizations    @relation("OrgUnitTypesTenantScope", fields: [organization_id], references: [id], onDelete: Cascade)
@@ -378,30 +413,34 @@ model org_unit_types {
 }
 
 model org_units {
-  id                                     Int            @id @default(autoincrement())
-  organization_id                        Int
-  org_unit_type_id                       Int
-  parent_id                              Int?
-  name                                   String         @db.VarChar(200)
-  code                                   String?        @db.VarChar(60)
-  manager_user_id                        Int?
-  phone                                  String?        @db.VarChar(30)
-  email                                  String?        @db.VarChar(150)
-  address                                String?
-  latitude                               Decimal?       @db.Decimal(10, 7)
-  longitude                              Decimal?       @db.Decimal(10, 7)
-  is_active                              Boolean        @default(true)
-  created_at                             DateTime       @db.Timestamptz(6)
-  updated_at                             DateTime       @db.Timestamptz(6)
-  deleted_at                             DateTime?      @db.Timestamptz(6)
-  users_org_units_manager_user_idTousers users?         @relation("org_units_manager_user_idTousers", fields: [manager_user_id], references: [id])
-  org_unit_types                         org_unit_types @relation(fields: [org_unit_type_id], references: [id])
-  organizations                          organizations  @relation(fields: [organization_id], references: [id], onDelete: Cascade)
-  org_units                              org_units?     @relation("org_unitsToorg_units", fields: [parent_id], references: [id], onDelete: Restrict)
-  other_org_units                        org_units[]    @relation("org_unitsToorg_units")
-  complaints_complaints_assigned_to_org_unit_idToorg_units complaints[] @relation("complaints_assigned_to_org_unit_idToorg_units")
-  user_roles                             user_roles[]
-  users_users_org_unit_idToorg_units     users[]        @relation("users_org_unit_idToorg_units")
+  id                                                       Int            @id @default(autoincrement())
+  organization_id                                          Int
+  org_unit_type_id                                         Int
+  parent_id                                                Int?
+  name                                                     String         @db.VarChar(200)
+  code                                                     String?        @db.VarChar(60)
+  manager_user_id                                          Int?
+  phone                                                    String?        @db.VarChar(30)
+  email                                                    String?        @db.VarChar(150)
+  address                                                  String?
+  latitude                                                 Decimal?       @db.Decimal(10, 7)
+  longitude                                                Decimal?       @db.Decimal(10, 7)
+  is_active                                                Boolean        @default(true)
+  create_date                                              DateTime       @db.Timestamptz(6)
+  write_date                                               DateTime       @db.Timestamptz(6)
+  deleted_at                                               DateTime?      @db.Timestamptz(6)
+  create_uid                                               Int?
+  write_uid                                                Int?
+  create_user                                              users?         @relation("org_units_create_uidTousers", fields: [create_uid], references: [id], onDelete: SetNull)
+  write_user                                               users?         @relation("org_units_write_uidTousers", fields: [write_uid], references: [id], onDelete: SetNull)
+  users_org_units_manager_user_idTousers                   users?         @relation("org_units_manager_user_idTousers", fields: [manager_user_id], references: [id])
+  org_unit_types                                           org_unit_types @relation(fields: [org_unit_type_id], references: [id])
+  organizations                                            organizations  @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  org_units                                                org_units?     @relation("org_unitsToorg_units", fields: [parent_id], references: [id], onDelete: Restrict)
+  other_org_units                                          org_units[]    @relation("org_unitsToorg_units")
+  complaints_complaints_assigned_to_org_unit_idToorg_units complaints[]   @relation("complaints_assigned_to_org_unit_idToorg_units")
+  user_roles                                               user_roles[]
+  users_users_org_unit_idToorg_units                       users[]        @relation("users_org_unit_idToorg_units")
 
   @@index([org_unit_type_id], map: "org_units_org_unit_type_id")
   @@index([organization_id], map: "org_units_organization_id")
@@ -412,68 +451,74 @@ model org_units {
 /// which requires additional setup for migrations and cannot be represented
 /// with @@unique. Visit https://pris.ly/d/expression-indexes for more info.
 model organizations {
-  id                          Int                                            @id @default(autoincrement())
-  parent_id                   Int?
-  org_unit_type_id            Int?
-  root_organization_id        Int?
-  code                        String?                                        @db.VarChar(60)
-  deleted_at                  DateTime?                                      @db.Timestamptz(6)
-  legal_name                  String                                         @db.VarChar(200)
-  short_name                  String?                                        @db.VarChar(80)
-  logo_url                    String?                                        @db.VarChar(500)
-  favicon_url                 String?                                        @db.VarChar(500)
-  description                 String?
-  vision                      String?
-  mission                     String?
-  phone                       String?                                        @db.VarChar(30)
-  email                       String?                                        @db.VarChar(150)
-  website                     String?                                        @db.VarChar(255)
-  country                     String                                         @default("Yemen") @db.VarChar(100)
-  country_id                  Int?
-  governorate_id              Int?
-  city                        String?                                        @db.VarChar(150)
-  address                     String?
-  latitude                    Decimal?                                       @db.Decimal(10, 7)
-  longitude                   Decimal?                                       @db.Decimal(10, 7)
-  default_language            String                                         @default("ar") @db.VarChar(10)
-  timezone                    String                                         @default("Asia/Aden") @db.VarChar(60)
-  date_format                 String                                         @default("DD/MM/YYYY") @db.VarChar(30)
-  primary_color               String                                         @default("#0e5f66") @db.VarChar(20)
-  secondary_color             String                                         @default("#0a464b") @db.VarChar(20)
-  accent_color                String                                         @default("#c77b3f") @db.VarChar(20)
-  anonymous_complaints_policy enum_organizations_anonymous_complaints_policy @default(allowed)
-  notification_settings       Json                                           @default("{}")
-  is_active                   Boolean                                        @default(true)
-  created_at                  DateTime                                       @db.Timestamptz(6)
-  updated_at                  DateTime                                       @db.Timestamptz(6)
-  slug                        String                                         @db.VarChar(80)
-  parent                      organizations?                                 @relation("OrgHierarchy", fields: [parent_id], references: [id], onDelete: Restrict)
-  children                    organizations[]                                @relation("OrgHierarchy")
-  root_organization           organizations?                                 @relation("OrgTenantRoot", fields: [root_organization_id], references: [id], onDelete: Restrict)
-  tenant_nodes                organizations[]                                @relation("OrgTenantRoot")
-  org_unit_type               org_unit_types?                                @relation("OrganizationHierarchyNodeType", fields: [org_unit_type_id], references: [id], onDelete: Restrict)
-  complainants                complainants[]
-  complaints                  complaints[]
-  complaints_assigned_to_organization complaints[]                         @relation("ComplaintsAssignedToOrganization")
-  groups                      groups[]
-  org_unit_types              org_unit_types[]                               @relation("OrgUnitTypesTenantScope")
-  org_unit_types_root         org_unit_types[]                               @relation("OrgUnitTypeRootOrganization")
-  org_units                   org_units[]
-  country_ref                 countries?                                     @relation(fields: [country_id], references: [id], onDelete: Restrict)
-  governorates                governorates?                                  @relation(fields: [governorate_id], references: [id])
-  reference_lists             reference_lists[]
-  roles                       roles[]
-  user_groups                 user_groups[]
-  user_organizations          user_organizations[]
-  user_roles                  user_roles[]
-  user_roles_organization_node user_roles[]                                  @relation("UserRoleOrganizationNode")
-  users                       users[]
-  users_primary_organization_node users[]                                    @relation("UserPrimaryOrganizationNode")
-  workflow_definitions        workflow_definitions[]
-  audit_logs                  audit_logs[]
-  notifications               notifications[]
-  sla_rules                   sla_rules[]
-  complaint_escalation_events complaint_escalation_events[]
+  id                                  Int                                            @id @default(autoincrement())
+  parent_id                           Int?
+  org_unit_type_id                    Int?
+  root_organization_id                Int?
+  code                                String?                                        @db.VarChar(60)
+  deleted_at                          DateTime?                                      @db.Timestamptz(6)
+  legal_name                          String                                         @db.VarChar(200)
+  short_name                          String?                                        @db.VarChar(80)
+  logo_url                            String?                                        @db.VarChar(500)
+  favicon_url                         String?                                        @db.VarChar(500)
+  description                         String?
+  vision                              String?
+  mission                             String?
+  phone                               String?                                        @db.VarChar(30)
+  email                               String?                                        @db.VarChar(150)
+  website                             String?                                        @db.VarChar(255)
+  country                             String                                         @default("Yemen") @db.VarChar(100)
+  country_id                          Int?
+  governorate_id                      Int?
+  district_id                         Int?
+  city                                String?                                        @db.VarChar(150)
+  address                             String?
+  latitude                            Decimal?                                       @db.Decimal(10, 7)
+  longitude                           Decimal?                                       @db.Decimal(10, 7)
+  default_language                    String                                         @default("ar") @db.VarChar(10)
+  timezone                            String                                         @default("Asia/Aden") @db.VarChar(60)
+  date_format                         String                                         @default("DD/MM/YYYY") @db.VarChar(30)
+  primary_color                       String                                         @default("#0e5f66") @db.VarChar(20)
+  secondary_color                     String                                         @default("#0a464b") @db.VarChar(20)
+  accent_color                        String                                         @default("#c77b3f") @db.VarChar(20)
+  anonymous_complaints_policy         enum_organizations_anonymous_complaints_policy @default(allowed)
+  notification_settings               Json                                           @default("{}")
+  is_active                           Boolean                                        @default(true)
+  create_date                         DateTime                                       @db.Timestamptz(6)
+  write_date                          DateTime                                       @db.Timestamptz(6)
+  create_uid                          Int?
+  write_uid                           Int?
+  slug                                String                                         @db.VarChar(80)
+  parent                              organizations?                                 @relation("OrgHierarchy", fields: [parent_id], references: [id], onDelete: Restrict)
+  children                            organizations[]                                @relation("OrgHierarchy")
+  root_organization                   organizations?                                 @relation("OrgTenantRoot", fields: [root_organization_id], references: [id], onDelete: Restrict)
+  tenant_nodes                        organizations[]                                @relation("OrgTenantRoot")
+  org_unit_type                       org_unit_types?                                @relation("OrganizationHierarchyNodeType", fields: [org_unit_type_id], references: [id], onDelete: Restrict)
+  create_user                         users?                                         @relation("organizations_create_uidTousers", fields: [create_uid], references: [id], onDelete: SetNull)
+  write_user                          users?                                         @relation("organizations_write_uidTousers", fields: [write_uid], references: [id], onDelete: SetNull)
+  complainants                        complainants[]
+  complaints                          complaints[]
+  complaints_assigned_to_organization complaints[]                                   @relation("ComplaintsAssignedToOrganization")
+  groups                              groups[]
+  org_unit_types                      org_unit_types[]                               @relation("OrgUnitTypesTenantScope")
+  org_unit_types_root                 org_unit_types[]                               @relation("OrgUnitTypeRootOrganization")
+  org_units                           org_units[]
+  country_ref                         countries?                                     @relation(fields: [country_id], references: [id], onDelete: Restrict)
+  governorates                        governorates?                                  @relation(fields: [governorate_id], references: [id])
+  districts                           districts?                                     @relation(fields: [district_id], references: [id])
+  reference_lists                     reference_lists[]
+  roles                               roles[]
+  user_groups                         user_groups[]
+  user_organizations                  user_organizations[]
+  user_roles                          user_roles[]
+  user_roles_organization_node        user_roles[]                                   @relation("UserRoleOrganizationNode")
+  users                               users[]
+  users_primary_organization_node     users[]                                        @relation("UserPrimaryOrganizationNode")
+  workflow_definitions                workflow_definitions[]
+  audit_logs                          audit_logs[]
+  notifications                       notifications[]
+  sla_rules                           sla_rules[]
+  complaint_escalation_events         complaint_escalation_events[]
 
   @@index([country_id], map: "organizations_country_id")
   @@index([parent_id], map: "organizations_parent_id")
@@ -488,8 +533,12 @@ model permissions {
   code             String             @unique @db.VarChar(100)
   module           String             @db.VarChar(60)
   description_ar   String?            @db.VarChar(255)
-  created_at       DateTime           @db.Timestamptz(6)
-  updated_at       DateTime           @db.Timestamptz(6)
+  create_date      DateTime           @db.Timestamptz(6)
+  write_date       DateTime           @db.Timestamptz(6)
+  create_uid       Int?
+  write_uid        Int?
+  create_user      users?             @relation("permissions_create_uidTousers", fields: [create_uid], references: [id], onDelete: SetNull)
+  write_user       users?             @relation("permissions_write_uidTousers", fields: [write_uid], references: [id], onDelete: SetNull)
   role_permissions role_permissions[]
 
   @@index([module], map: "permissions_module")
@@ -505,8 +554,12 @@ model reference_list_items {
   is_active                                                    Boolean         @default(true)
   is_default                                                   Boolean         @default(false)
   meta                                                         Json?
-  created_at                                                   DateTime        @db.Timestamptz(6)
-  updated_at                                                   DateTime        @db.Timestamptz(6)
+  create_date                                                  DateTime        @db.Timestamptz(6)
+  write_date                                                   DateTime        @db.Timestamptz(6)
+  create_uid                                                   Int?
+  write_uid                                                    Int?
+  create_user                                                  users?          @relation("reference_list_items_create_uidTousers", fields: [create_uid], references: [id], onDelete: SetNull)
+  write_user                                                   users?          @relation("reference_list_items_write_uidTousers", fields: [write_uid], references: [id], onDelete: SetNull)
   complaints_complaints_category_item_idToreference_list_items complaints[]    @relation("complaints_category_item_idToreference_list_items")
   complaints_complaints_channel_item_idToreference_list_items  complaints[]    @relation("complaints_channel_item_idToreference_list_items")
   complaints_complaints_priority_item_idToreference_list_items complaints[]    @relation("complaints_priority_item_idToreference_list_items")
@@ -526,9 +579,13 @@ model reference_lists {
   name_en              String?                @db.VarChar(150)
   description          String?
   is_system            Boolean                @default(false)
-  created_at           DateTime               @db.Timestamptz(6)
-  updated_at           DateTime               @db.Timestamptz(6)
+  create_date          DateTime               @db.Timestamptz(6)
+  write_date           DateTime               @db.Timestamptz(6)
+  create_uid           Int?
+  write_uid            Int?
   organization_id      Int?
+  create_user          users?                 @relation("reference_lists_create_uidTousers", fields: [create_uid], references: [id], onDelete: SetNull)
+  write_user           users?                 @relation("reference_lists_write_uidTousers", fields: [write_uid], references: [id], onDelete: SetNull)
   reference_list_items reference_list_items[]
   organizations        organizations?         @relation(fields: [organization_id], references: [id], onDelete: Cascade)
 
@@ -555,9 +612,13 @@ model roles {
   description      String?
   is_system        Boolean            @default(false)
   is_active        Boolean            @default(true)
-  created_at       DateTime           @db.Timestamptz(6)
-  updated_at       DateTime           @db.Timestamptz(6)
+  create_date      DateTime           @db.Timestamptz(6)
+  write_date       DateTime           @db.Timestamptz(6)
+  create_uid       Int?
+  write_uid        Int?
   organization_id  Int?
+  create_user      users?             @relation("roles_create_uidTousers", fields: [create_uid], references: [id], onDelete: SetNull)
+  write_user       users?             @relation("roles_write_uidTousers", fields: [write_uid], references: [id], onDelete: SetNull)
   group_roles      group_roles[]
   role_permissions role_permissions[]
   organizations    organizations?     @relation(fields: [organization_id], references: [id], onDelete: Cascade)
@@ -571,8 +632,12 @@ model user_groups {
   user_id         Int
   group_id        Int
   organization_id Int
-  created_at      DateTime      @db.Timestamptz(6)
-  updated_at      DateTime      @db.Timestamptz(6)
+  create_date     DateTime      @db.Timestamptz(6)
+  write_date      DateTime      @db.Timestamptz(6)
+  create_uid      Int?
+  write_uid       Int?
+  create_user     users?        @relation("user_groups_create_uidTousers", fields: [create_uid], references: [id], onDelete: SetNull)
+  write_user      users?        @relation("user_groups_write_uidTousers", fields: [write_uid], references: [id], onDelete: SetNull)
   groups          groups        @relation(fields: [group_id], references: [id], onDelete: Cascade)
   organizations   organizations @relation(fields: [organization_id], references: [id], onDelete: Cascade)
   users           users         @relation(fields: [user_id], references: [id], onDelete: Cascade)
@@ -587,8 +652,12 @@ model user_organizations {
   organization_id Int
   is_primary      Boolean       @default(false)
   is_active       Boolean       @default(true)
-  created_at      DateTime      @db.Timestamptz(6)
-  updated_at      DateTime      @db.Timestamptz(6)
+  create_date     DateTime      @db.Timestamptz(6)
+  write_date      DateTime      @db.Timestamptz(6)
+  create_uid      Int?
+  write_uid       Int?
+  create_user     users?        @relation("user_organizations_create_uidTousers", fields: [create_uid], references: [id], onDelete: SetNull)
+  write_user      users?        @relation("user_organizations_write_uidTousers", fields: [write_uid], references: [id], onDelete: SetNull)
   organizations   organizations @relation(fields: [organization_id], references: [id], onDelete: Cascade)
   users           users         @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
@@ -602,9 +671,13 @@ model user_roles {
   role_id              Int
   org_unit_id          Int?
   organization_node_id Int?
-  created_at           DateTime       @db.Timestamptz(6)
-  updated_at           DateTime       @db.Timestamptz(6)
+  create_date          DateTime       @db.Timestamptz(6)
+  write_date           DateTime       @db.Timestamptz(6)
+  create_uid           Int?
+  write_uid            Int?
   organization_id      Int
+  create_user          users?         @relation("user_roles_create_uidTousers", fields: [create_uid], references: [id], onDelete: SetNull)
+  write_user           users?         @relation("user_roles_write_uidTousers", fields: [write_uid], references: [id], onDelete: SetNull)
   org_units            org_units?     @relation(fields: [org_unit_id], references: [id], onDelete: Cascade)
   organization_node    organizations? @relation("UserRoleOrganizationNode", fields: [organization_node_id], references: [id], onDelete: Cascade)
   organizations        organizations  @relation(fields: [organization_id], references: [id], onDelete: Cascade)
@@ -617,29 +690,76 @@ model user_roles {
 }
 
 model users {
-  id                                               Int                        @id @default(autoincrement())
-  full_name                                        String                     @db.VarChar(150)
-  email                                            String                     @unique @db.VarChar(150)
-  password_hash                                    String                     @db.VarChar(255)
-  is_active                                        Boolean                    @default(true)
-  created_at                                       DateTime                   @db.Timestamptz(6)
-  updated_at                                       DateTime                   @db.Timestamptz(6)
+  id                                               Int                           @id @default(autoincrement())
+  full_name                                        String                        @db.VarChar(150)
+  email                                            String                        @unique @db.VarChar(150)
+  password_hash                                    String                        @db.VarChar(255)
+  is_active                                        Boolean                       @default(true)
+  create_date                                      DateTime                      @db.Timestamptz(6)
+  write_date                                       DateTime                      @db.Timestamptz(6)
+  create_uid                                       Int?
+  write_uid                                        Int?
   org_unit_id                                      Int?
   primary_organization_node_id                     Int?
   default_organization_id                          Int?
+  create_user                                      users?                        @relation("users_create_uidTousers", fields: [create_uid], references: [id], onDelete: SetNull)
+  write_user                                       users?                        @relation("users_write_uidTousers", fields: [write_uid], references: [id], onDelete: SetNull)
+  users_created                                    users[]                       @relation("users_create_uidTousers")
+  users_written                                    users[]                       @relation("users_write_uidTousers")
+  complainants_created                             complainants[]                @relation("complainants_create_uidTousers")
+  complainants_written                             complainants[]                @relation("complainants_write_uidTousers")
+  complaint_attachments_created                    complaint_attachments[]       @relation("complaint_attachments_create_uidTousers")
+  complaint_attachments_written                    complaint_attachments[]       @relation("complaint_attachments_write_uidTousers")
+  complaints_created                               complaints[]                  @relation("complaints_create_uidTousers")
+  complaints_written                               complaints[]                  @relation("complaints_write_uidTousers")
+  countries_created                                countries[]                   @relation("countries_create_uidTousers")
+  countries_written                                countries[]                   @relation("countries_write_uidTousers")
+  districts_created                                districts[]                   @relation("districts_create_uidTousers")
+  districts_written                                districts[]                   @relation("districts_write_uidTousers")
+  governorates_created                             governorates[]                @relation("governorates_create_uidTousers")
+  governorates_written                             governorates[]                @relation("governorates_write_uidTousers")
+  groups_created                                   groups[]                      @relation("groups_create_uidTousers")
+  groups_written                                   groups[]                      @relation("groups_write_uidTousers")
+  org_unit_types_created                           org_unit_types[]              @relation("org_unit_types_create_uidTousers")
+  org_unit_types_written                           org_unit_types[]              @relation("org_unit_types_write_uidTousers")
+  org_units_created                                org_units[]                   @relation("org_units_create_uidTousers")
+  org_units_written                                org_units[]                   @relation("org_units_write_uidTousers")
+  organizations_created                            organizations[]               @relation("organizations_create_uidTousers")
+  organizations_written                            organizations[]               @relation("organizations_write_uidTousers")
+  permissions_created                              permissions[]                 @relation("permissions_create_uidTousers")
+  permissions_written                              permissions[]                 @relation("permissions_write_uidTousers")
+  reference_list_items_created                     reference_list_items[]        @relation("reference_list_items_create_uidTousers")
+  reference_list_items_written                     reference_list_items[]        @relation("reference_list_items_write_uidTousers")
+  reference_lists_created                          reference_lists[]             @relation("reference_lists_create_uidTousers")
+  reference_lists_written                          reference_lists[]             @relation("reference_lists_write_uidTousers")
+  roles_created                                    roles[]                       @relation("roles_create_uidTousers")
+  roles_written                                    roles[]                       @relation("roles_write_uidTousers")
+  sla_rules_created                                sla_rules[]                   @relation("sla_rules_create_uidTousers")
+  sla_rules_written                                sla_rules[]                   @relation("sla_rules_write_uidTousers")
+  user_groups_created                              user_groups[]                 @relation("user_groups_create_uidTousers")
+  user_groups_written                              user_groups[]                 @relation("user_groups_write_uidTousers")
+  user_organizations_created                       user_organizations[]          @relation("user_organizations_create_uidTousers")
+  user_organizations_written                       user_organizations[]          @relation("user_organizations_write_uidTousers")
+  user_roles_created                               user_roles[]                  @relation("user_roles_create_uidTousers")
+  user_roles_written                               user_roles[]                  @relation("user_roles_write_uidTousers")
+  workflow_definitions_created                     workflow_definitions[]        @relation("workflow_definitions_create_uidTousers")
+  workflow_definitions_written                     workflow_definitions[]        @relation("workflow_definitions_write_uidTousers")
+  workflow_states_created                          workflow_states[]             @relation("workflow_states_create_uidTousers")
+  workflow_states_written                          workflow_states[]             @relation("workflow_states_write_uidTousers")
+  workflow_transitions_created                     workflow_transitions[]        @relation("workflow_transitions_create_uidTousers")
+  workflow_transitions_written                     workflow_transitions[]        @relation("workflow_transitions_write_uidTousers")
   complaint_status_history                         complaint_status_history[]
-  complaints_complaints_assigned_to_user_idTousers complaints[]               @relation("complaints_assigned_to_user_idTousers")
-  complaints_complaints_created_by_user_idTousers  complaints[]               @relation("complaints_created_by_user_idTousers")
-  org_units_org_units_manager_user_idTousers       org_units[]                @relation("org_units_manager_user_idTousers")
+  complaints_complaints_assigned_to_user_idTousers complaints[]                  @relation("complaints_assigned_to_user_idTousers")
+  org_units_org_units_manager_user_idTousers       org_units[]                   @relation("org_units_manager_user_idTousers")
   user_groups                                      user_groups[]
   user_organizations                               user_organizations[]
   user_roles                                       user_roles[]
   audit_logs                                       audit_logs[]
   notifications                                    notifications[]
   complaint_escalation_events                      complaint_escalation_events[]
-  organizations                                    organizations?             @relation(fields: [default_organization_id], references: [id])
-  primary_organization_node                        organizations?             @relation("UserPrimaryOrganizationNode", fields: [primary_organization_node_id], references: [id])
-  org_units_users_org_unit_idToorg_units           org_units?                 @relation("users_org_unit_idToorg_units", fields: [org_unit_id], references: [id])
+  organizations                                    organizations?                @relation(fields: [default_organization_id], references: [id])
+  primary_organization_node                        organizations?                @relation("UserPrimaryOrganizationNode", fields: [primary_organization_node_id], references: [id])
+  org_units_users_org_unit_idToorg_units           org_units?                    @relation("users_org_unit_idToorg_units", fields: [org_unit_id], references: [id])
 
   @@index([default_organization_id], map: "users_default_organization_id")
   @@index([primary_organization_node_id], map: "users_primary_organization_node_id")
@@ -664,8 +784,12 @@ model workflow_definitions {
   name_en              String?                @db.VarChar(100)
   entity_type          String                 @db.VarChar(60)
   is_active            Boolean                @default(true)
-  created_at           DateTime               @db.Timestamptz(6)
-  updated_at           DateTime               @db.Timestamptz(6)
+  create_date          DateTime               @db.Timestamptz(6)
+  write_date           DateTime               @db.Timestamptz(6)
+  create_uid           Int?
+  write_uid            Int?
+  create_user          users?                 @relation("workflow_definitions_create_uidTousers", fields: [create_uid], references: [id], onDelete: SetNull)
+  write_user           users?                 @relation("workflow_definitions_write_uidTousers", fields: [write_uid], references: [id], onDelete: SetNull)
   organizations        organizations?         @relation(fields: [organization_id], references: [id], onDelete: Cascade)
   workflow_states      workflow_states[]
   workflow_transitions workflow_transitions[]
@@ -683,8 +807,12 @@ model workflow_states {
   is_initial                                                               Boolean                @default(false)
   is_final                                                                 Boolean                @default(false)
   sort_order                                                               Int                    @default(0)
-  created_at                                                               DateTime               @db.Timestamptz(6)
-  updated_at                                                               DateTime               @db.Timestamptz(6)
+  create_date                                                              DateTime               @db.Timestamptz(6)
+  write_date                                                               DateTime               @db.Timestamptz(6)
+  create_uid                                                               Int?
+  write_uid                                                                Int?
+  create_user                                                              users?                 @relation("workflow_states_create_uidTousers", fields: [create_uid], references: [id], onDelete: SetNull)
+  write_user                                                               users?                 @relation("workflow_states_write_uidTousers", fields: [write_uid], references: [id], onDelete: SetNull)
   complaints                                                               complaints[]
   workflow_definitions                                                     workflow_definitions   @relation(fields: [workflow_definition_id], references: [id], onDelete: Cascade)
   workflow_transitions_workflow_transitions_from_state_idToworkflow_states workflow_transitions[] @relation("workflow_transitions_from_state_idToworkflow_states")
@@ -703,8 +831,12 @@ model workflow_transitions {
   name_ar                                                             String               @db.VarChar(100)
   name_en                                                             String?              @db.VarChar(100)
   requires_permission                                                 String?              @db.VarChar(100)
-  created_at                                                          DateTime             @db.Timestamptz(6)
-  updated_at                                                          DateTime             @db.Timestamptz(6)
+  create_date                                                         DateTime             @db.Timestamptz(6)
+  write_date                                                          DateTime             @db.Timestamptz(6)
+  create_uid                                                          Int?
+  write_uid                                                           Int?
+  create_user                                                         users?               @relation("workflow_transitions_create_uidTousers", fields: [create_uid], references: [id], onDelete: SetNull)
+  write_user                                                          users?               @relation("workflow_transitions_write_uidTousers", fields: [write_uid], references: [id], onDelete: SetNull)
   workflow_states_workflow_transitions_from_state_idToworkflow_states workflow_states?     @relation("workflow_transitions_from_state_idToworkflow_states", fields: [from_state_id], references: [id], onDelete: Cascade)
   workflow_states_workflow_transitions_to_state_idToworkflow_states   workflow_states      @relation("workflow_transitions_to_state_idToworkflow_states", fields: [to_state_id], references: [id], onDelete: Cascade)
   workflow_definitions                                                workflow_definitions @relation(fields: [workflow_definition_id], references: [id], onDelete: Cascade)

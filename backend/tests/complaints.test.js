@@ -31,8 +31,8 @@ describe('Complaints API (Public Portal)', () => {
         anonymous_complaints_policy: 'allowed',
         notification_settings: {},
         is_active: true,
-        created_at: new Date(),
-        updated_at: new Date(),
+        create_date: new Date(),
+        write_date: new Date(),
       },
     });
 

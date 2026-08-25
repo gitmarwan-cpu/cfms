@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client';
 import prisma from '../prisma/client';
 import ApiError from '../utils/ApiError';
 
@@ -30,6 +31,10 @@ export interface OrgUnitTypeResponse {
   hierarchyLevel: number;
   allowedParentTypeId: number | null;
   isActive: boolean;
+  createDate?: Date;
+  writeDate?: Date;
+  createUid?: number | null;
+  writeUid?: number | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -37,14 +42,17 @@ export interface OrgUnitTypeResponse {
 const TYPE_SELECT = {
   id: true,
   organization_id: true,
+  root_organization_id: true,
   code: true,
   name_ar: true,
   name_en: true,
   hierarchy_level: true,
   allowed_parent_type_id: true,
   is_active: true,
-  created_at: true,
-  updated_at: true,
+  create_date: true,
+  write_date: true,
+  create_uid: true,
+  write_uid: true,
 } as const;
 
 const TYPE_NOT_FOUND = 'نوع الوحدة التنظيمية غير موجود';
@@ -58,23 +66,17 @@ const toSafeInteger = (value: OrganizationId | OrgUnitTypeId): number | null => 
 };
 
 const toHierarchyLevel = (value: number | string | undefined): number => {
-  if (value === undefined) return 1;
-  const parsed = Number(value);
-  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : 1;
+  if (typeof value === 'number') return Number.isInteger(value) && value >= 1 ? value : 1;
+  if (typeof value === 'string' && /^\d+$/.test(value)) {
+    const parsed = Number.parseInt(value, 10);
+    return parsed >= 1 ? parsed : 1;
+  }
+  return 1;
 };
 
-const mapType = (type: {
-  id: number;
-  organization_id: number;
-  code: string;
-  name_ar: string;
-  name_en: string | null;
-  hierarchy_level: number;
-  allowed_parent_type_id: number | null;
-  is_active: boolean;
-  created_at: Date;
-  updated_at: Date;
-}): OrgUnitTypeResponse => ({
+type TypeRecord = Prisma.org_unit_typesGetPayload<{ select: typeof TYPE_SELECT }>;
+
+const mapType = (type: TypeRecord): OrgUnitTypeResponse => ({
   id: type.id,
   organizationId: type.organization_id,
   code: type.code,
@@ -83,8 +85,12 @@ const mapType = (type: {
   hierarchyLevel: type.hierarchy_level,
   allowedParentTypeId: type.allowed_parent_type_id,
   isActive: type.is_active,
-  createdAt: type.created_at,
-  updatedAt: type.updated_at,
+  createDate: type.create_date,
+  writeDate: type.write_date,
+  createUid: type.create_uid,
+  writeUid: type.write_uid,
+  createdAt: type.create_date,
+  updatedAt: type.write_date,
 });
 
 export const listTypes = async (organizationId: OrganizationId): Promise<OrgUnitTypeResponse[]> => {
@@ -136,8 +142,8 @@ export const createType = async (
       hierarchy_level: toHierarchyLevel(payload.hierarchyLevel),
       allowed_parent_type_id: parsedParentTypeId,
       is_active: payload.isActive !== undefined ? payload.isActive : true,
-      created_at: new Date(),
-      updated_at: new Date(),
+      create_date: new Date(),
+      write_date: new Date(),
     },
     select: TYPE_SELECT,
   });
@@ -173,7 +179,7 @@ export const updateType = async (
     parsedParentTypeId = null;
   }
 
-  const data: Record<string, unknown> = { updated_at: new Date() };
+  const data: Record<string, unknown> = { write_date: new Date() };
   if (payload.nameAr !== undefined) data.name_ar = payload.nameAr;
   if (payload.nameEn !== undefined) data.name_en = payload.nameEn;
   if (payload.hierarchyLevel !== undefined) data.hierarchy_level = toHierarchyLevel(payload.hierarchyLevel);

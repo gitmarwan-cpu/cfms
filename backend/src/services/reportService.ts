@@ -17,13 +17,13 @@ const toIsoDate = (value: Date | undefined): string | null => (value ? value.toI
 export const getComplaintSummary = async (organizationId: number, filters: ComplaintReportFilters = {}) => {
   const from = parseDate(filters.from);
   const to = parseDate(filters.to, true);
-  const createdAt: Prisma.DateTimeFilter = {};
-  if (from) createdAt.gte = from;
-  if (to) createdAt.lte = to;
+  const createDate: Prisma.DateTimeFilter = {};
+  if (from) createDate.gte = from;
+  if (to) createDate.lte = to;
 
   const where: Prisma.complaintsWhereInput = {
     organization_id: organizationId,
-    ...(Object.keys(createdAt).length ? { created_at: createdAt } : {}),
+    ...(Object.keys(createDate).length ? { create_date: createDate } : {}),
   };
 
   const [total, assigned, sensitive, statusGroups, categoryGroups, monthRows] = await Promise.all([
@@ -31,19 +31,23 @@ export const getComplaintSummary = async (organizationId: number, filters: Compl
     prisma.complaints.count({
       where: {
         ...where,
-        OR: [{ assigned_to_user_id: { not: null } }, { assigned_to_org_unit_id: { not: null } }],
+        OR: [
+          { assigned_to_user_id: { not: null } },
+          { assigned_to_organization_id: { not: null } },
+          { assigned_to_org_unit_id: { not: null } },
+        ],
       },
     }),
     prisma.complaints.count({ where: { ...where, is_sensitive: true } }),
     prisma.complaints.groupBy({ by: ['status'], where, _count: { _all: true } }),
     prisma.complaints.groupBy({ by: ['category_item_id'], where, _count: { _all: true } }),
     prisma.$queryRaw<Array<{ period: Date; total: bigint }>>(Prisma.sql`
-      SELECT date_trunc('month', created_at) AS period, COUNT(*)::bigint AS total
+      SELECT date_trunc('month', create_date) AS period, COUNT(*)::bigint AS total
       FROM complaints
       WHERE organization_id = ${organizationId}
-        ${from ? Prisma.sql`AND created_at >= ${from}` : Prisma.empty}
-        ${to ? Prisma.sql`AND created_at <= ${to}` : Prisma.empty}
-      GROUP BY date_trunc('month', created_at)
+        ${from ? Prisma.sql`AND create_date >= ${from}` : Prisma.empty}
+        ${to ? Prisma.sql`AND create_date <= ${to}` : Prisma.empty}
+      GROUP BY date_trunc('month', create_date)
       ORDER BY period ASC
     `),
   ]);

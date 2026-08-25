@@ -20,8 +20,8 @@ const organizationData = (slug, is_active = true) => ({
   anonymous_complaints_policy: 'allowed',
   notification_settings: {},
   is_active,
-  created_at: new Date(),
-  updated_at: new Date(),
+  create_date: new Date(),
+  write_date: new Date(),
 });
 
 describe('Prisma tenant middleware', () => {
@@ -42,8 +42,8 @@ describe('Prisma tenant middleware', () => {
         password_hash: 'not-used',
         is_active: true,
         default_organization_id: activeOrganization.id,
-        created_at: new Date(),
-        updated_at: new Date(),
+        create_date: new Date(),
+        write_date: new Date(),
       },
     });
     await prisma.user_organizations.create({
@@ -52,8 +52,8 @@ describe('Prisma tenant middleware', () => {
         organization_id: activeOrganization.id,
         is_primary: true,
         is_active: true,
-        created_at: new Date(),
-        updated_at: new Date(),
+        create_date: new Date(),
+        write_date: new Date(),
       },
     });
   });
@@ -109,8 +109,8 @@ describe('Prisma tenant middleware', () => {
         organization_id: otherOrganization.id,
         is_primary: false,
         is_active: true,
-        created_at: new Date(),
-        updated_at: new Date(),
+        create_date: new Date(),
+        write_date: new Date(),
       },
     });
     expect(

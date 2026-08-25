@@ -24,7 +24,7 @@ const ensureReferenceList = async (prisma: PrismaClient, key: string, nameAr: st
   const now = new Date();
   let list = await prisma.reference_lists.findFirst({ where: { key, organization_id: null } });
   if (!list) {
-    list = await prisma.reference_lists.create({ data: { key, name_ar: nameAr, name_en: nameEn, is_system: true, organization_id: null, created_at: now, updated_at: now } });
+    list = await prisma.reference_lists.create({ data: { key, name_ar: nameAr, name_en: nameEn, is_system: true, organization_id: null, create_date: now, write_date: now } });
   }
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
@@ -32,7 +32,7 @@ const ensureReferenceList = async (prisma: PrismaClient, key: string, nameAr: st
       const existing = await prisma.reference_list_items.findFirst({ where: { reference_list_id: list.id, code: item.code } });
       if (!existing) {
         await prisma.reference_list_items.create({
-          data: { reference_list_id: list.id, code: item.code, label_ar: item.labelAr, label_en: item.labelEn, sort_order: i + 1, is_active: true, is_default: i === 0, created_at: now, updated_at: now }
+          data: { reference_list_id: list.id, code: item.code, label_ar: item.labelAr, label_en: item.labelEn, sort_order: i + 1, is_active: true, is_default: i === 0, create_date: now, write_date: now }
         });
       }
     }
@@ -63,15 +63,15 @@ const main = async (): Promise<void> => {
     // 2. Geography
     let country = await prisma.countries.findUnique({ where: { iso2: 'YE' } });
     if (!country) {
-      country = await prisma.countries.create({ data: { iso2: 'YE', iso3: 'YEM', name_ar: 'اليمن', name_en: 'Yemen', is_active: true, created_at: now, updated_at: now } });
+      country = await prisma.countries.create({ data: { iso2: 'YE', iso3: 'YEM', name_ar: 'اليمن', name_en: 'Yemen', is_active: true, create_date: now, write_date: now } });
     }
     let gov = await prisma.governorates.findFirst({ where: { name_en: 'Sanaa' } });
     if (!gov) {
-      gov = await prisma.governorates.create({ data: { country_id: country.id, name_ar: 'صنعاء', name_en: 'Sanaa', is_active: true, created_at: now, updated_at: now } });
+      gov = await prisma.governorates.create({ data: { country_id: country.id, name_ar: 'صنعاء', name_en: 'Sanaa', is_active: true, create_date: now, write_date: now } });
     }
     let dist = await prisma.districts.findFirst({ where: { name_en: 'Maain' } });
     if (!dist) {
-      dist = await prisma.districts.create({ data: { governorate_id: gov.id, name_ar: 'معين', name_en: 'Maain', is_active: true, created_at: now, updated_at: now } });
+      dist = await prisma.districts.create({ data: { governorate_id: gov.id, name_ar: 'معين', name_en: 'Maain', is_active: true, create_date: now, write_date: now } });
     }
 
     // 3. Organization
@@ -87,8 +87,8 @@ const main = async (): Promise<void> => {
       date_format: 'DD/MM/YYYY',
       primary_color: '#0e5f66',
       is_active: true,
-      created_at: now,
-      updated_at: now,
+      create_date: now,
+      write_date: now,
     };
 
     if (!org) {
@@ -101,13 +101,13 @@ const main = async (): Promise<void> => {
     const permissions = ['organization.view', 'complaints.view_all', 'complaints.assign', 'complaints.escalate'];
     for (const code of permissions) {
       let p = await prisma.permissions.findUnique({ where: { code } });
-      if (!p) p = await prisma.permissions.create({ data: { code, module: 'complaints', description_ar: code, created_at: now, updated_at: now } });
+      if (!p) p = await prisma.permissions.create({ data: { code, module: 'complaints', description_ar: code, create_date: now, write_date: now } });
     }
 
     let adminRole = await prisma.roles.findFirst({ where: { code: 'admin', organization_id: null } });
     if (!adminRole) {
       adminRole = await prisma.roles.create({
-        data: { code: 'admin', name_ar: 'مدير', name_en: 'Admin', description: 'Admin role', is_system: true, is_active: true, created_at: now, updated_at: now }
+        data: { code: 'admin', name_ar: 'مدير', name_en: 'Admin', description: 'Admin role', is_system: true, is_active: true, create_date: now, write_date: now }
       });
     }
     const allPerms = await prisma.permissions.findMany();
@@ -117,11 +117,11 @@ const main = async (): Promise<void> => {
         await prisma.role_permissions.create({ data: { roles: { connect: { id: adminRole.id } }, permissions: { connect: { id: p.id } }, created_at: now } });
       }
     }
-    
+
     let staffRole = await prisma.roles.findFirst({ where: { code: 'staff', organization_id: null } });
     if (!staffRole) {
       staffRole = await prisma.roles.create({
-        data: { code: 'staff', name_ar: 'موظف', name_en: 'Staff', description: 'Staff role', is_system: true, is_active: true, created_at: now, updated_at: now }
+        data: { code: 'staff', name_ar: 'موظف', name_en: 'Staff', description: 'Staff role', is_system: true, is_active: true, create_date: now, write_date: now }
       });
     }
 
@@ -129,14 +129,31 @@ const main = async (): Promise<void> => {
     let orgUnitType = await prisma.org_unit_types.findFirst({ where: { organization_id: org.id, code: 'branch' } });
     if (!orgUnitType) {
       orgUnitType = await prisma.org_unit_types.create({
-        data: { organization_id: org.id, code: 'branch', name_ar: 'فرع', name_en: 'Branch', hierarchy_level: 1, is_active: true, created_at: now, updated_at: now }
+        data: { organization_id: org.id, code: 'branch', name_ar: 'فرع', name_en: 'Branch', hierarchy_level: 1, is_active: true, create_date: now, write_date: now }
       });
     }
 
     let orgUnit = await prisma.org_units.findFirst({ where: { organization_id: org.id, code: 'main-branch' } });
     if (!orgUnit) {
       orgUnit = await prisma.org_units.create({
-        data: { organization_id: org.id, org_unit_type_id: orgUnitType.id, code: 'main-branch', name: 'الفرع الرئيسي', is_active: true, created_at: now, updated_at: now }
+        data: { organization_id: org.id, org_unit_type_id: orgUnitType.id, code: 'main-branch', name: 'الفرع الرئيسي', is_active: true, create_date: now, write_date: now }
+      });
+    }
+
+    let subOrgNode = await prisma.organizations.findFirst({ where: { parent_id: org.id, code: 'main-branch' } });
+    if (!subOrgNode) {
+      subOrgNode = await prisma.organizations.create({
+        data: {
+          legal_name: 'الفرع الرئيسي',
+          code: 'main-branch',
+          slug: `main-branch-${org.id}`,
+          parent_id: org.id,
+          root_organization_id: org.id,
+          org_unit_type_id: orgUnitType.id,
+          is_active: true,
+          create_date: now,
+          write_date: now,
+        },
       });
     }
 
@@ -144,7 +161,7 @@ const main = async (): Promise<void> => {
     let group = await prisma.groups.findFirst({ where: { organization_id: org.id, code: 'test-team' } });
     if (!group) {
       group = await prisma.groups.create({
-        data: { organization_id: org.id, code: 'test-team', name_ar: 'فريق الاختبار', name_en: 'Test Team', is_active: true, created_at: now, updated_at: now }
+        data: { organization_id: org.id, code: 'test-team', name_ar: 'فريق الاختبار', name_en: 'Test Team', is_active: true, create_date: now, write_date: now }
       });
     }
     let groupRole = await prisma.group_roles.findFirst({ where: { group_id: group.id, role_id: staffRole.id } });
@@ -156,42 +173,42 @@ const main = async (): Promise<void> => {
     let adminUser = await prisma.users.findUnique({ where: { email: 'admin@test.local' } });
     if (!adminUser) {
       adminUser = await prisma.users.create({
-        data: { full_name: 'Test Admin', email: 'admin@test.local', password_hash: passwordHash, is_active: true, default_organization_id: org.id, created_at: now, updated_at: now }
+        data: { full_name: 'Test Admin', email: 'admin@test.local', password_hash: passwordHash, is_active: true, default_organization_id: org.id, create_date: now, write_date: now }
       });
     }
     let adminOrg = await prisma.user_organizations.findFirst({ where: { user_id: adminUser.id, organization_id: org.id } });
     if (!adminOrg) {
-      await prisma.user_organizations.create({ data: { users: { connect: { id: adminUser.id } }, organizations: { connect: { id: org.id } }, is_primary: true, is_active: true, created_at: now, updated_at: now } });
+      await prisma.user_organizations.create({ data: { users: { connect: { id: adminUser.id } }, organizations: { connect: { id: org.id } }, is_primary: true, is_active: true, create_date: now, write_date: now } });
     }
     let adminUserRole = await prisma.user_roles.findFirst({ where: { user_id: adminUser.id, role_id: adminRole.id, organization_id: org.id } });
     if (!adminUserRole) {
-      await prisma.user_roles.create({ data: { users: { connect: { id: adminUser.id } }, roles: { connect: { id: adminRole.id } }, organizations: { connect: { id: org.id } }, created_at: now, updated_at: now } });
+      await prisma.user_roles.create({ data: { users: { connect: { id: adminUser.id } }, roles: { connect: { id: adminRole.id } }, organizations: { connect: { id: org.id } }, create_date: now, write_date: now } });
     }
 
     let staffUser = await prisma.users.findUnique({ where: { email: 'staff@test.local' } });
     if (!staffUser) {
       staffUser = await prisma.users.create({
-        data: { full_name: 'Test Staff', email: 'staff@test.local', password_hash: passwordHash, is_active: true, default_organization_id: org.id, created_at: now, updated_at: now }
+        data: { full_name: 'Test Staff', email: 'staff@test.local', password_hash: passwordHash, is_active: true, default_organization_id: org.id, create_date: now, write_date: now }
       });
     }
     let staffOrg = await prisma.user_organizations.findFirst({ where: { user_id: staffUser.id, organization_id: org.id } });
     if (!staffOrg) {
-      await prisma.user_organizations.create({ data: { users: { connect: { id: staffUser.id } }, organizations: { connect: { id: org.id } }, is_primary: true, is_active: true, created_at: now, updated_at: now } });
+      await prisma.user_organizations.create({ data: { users: { connect: { id: staffUser.id } }, organizations: { connect: { id: org.id } }, is_primary: true, is_active: true, create_date: now, write_date: now } });
     }
     let staffUserRole = await prisma.user_roles.findFirst({ where: { user_id: staffUser.id, role_id: staffRole.id, organization_id: org.id } });
     if (!staffUserRole) {
-      await prisma.user_roles.create({ data: { users: { connect: { id: staffUser.id } }, roles: { connect: { id: staffRole.id } }, organizations: { connect: { id: org.id } }, created_at: now, updated_at: now } });
+      await prisma.user_roles.create({ data: { users: { connect: { id: staffUser.id } }, roles: { connect: { id: staffRole.id } }, organizations: { connect: { id: org.id } }, create_date: now, write_date: now } });
     }
     let staffUserGroup = await prisma.user_groups.findFirst({ where: { user_id: staffUser.id, group_id: group.id } });
     if (!staffUserGroup) {
-      await prisma.user_groups.create({ data: { users: { connect: { id: staffUser.id } }, groups: { connect: { id: group.id } }, organizations: { connect: { id: org.id } }, created_at: now, updated_at: now } });
+      await prisma.user_groups.create({ data: { users: { connect: { id: staffUser.id } }, groups: { connect: { id: group.id } }, organizations: { connect: { id: org.id } }, create_date: now, write_date: now } });
     }
 
     // 8. SLA Rule
     let slaRule = await prisma.sla_rules.findFirst({ where: { organization_id: org.id } });
     if (!slaRule) {
       slaRule = await prisma.sla_rules.create({
-        data: { organization_id: org.id, name: '72h Rule', first_response_hours: 24, resolution_hours: 72, escalation_interval_hours: 24, is_active: true, created_at: now, updated_at: now }
+        data: { organization_id: org.id, name: '72h Rule', first_response_hours: 24, resolution_hours: 72, escalation_interval_hours: 24, is_active: true, create_date: now, write_date: now }
       });
     }
 
@@ -199,12 +216,12 @@ const main = async (): Promise<void> => {
     let workflow = await prisma.workflow_definitions.findFirst({ where: { entity_type: 'complaint' } });
     if (!workflow) {
       workflow = await prisma.workflow_definitions.create({
-        data: { code: 'test_workflow', name_ar: 'مسار تجريبي', name_en: 'Test Workflow', entity_type: 'complaint', is_active: true, created_at: now, updated_at: now }
+        data: { code: 'test_workflow', name_ar: 'مسار تجريبي', name_en: 'Test Workflow', entity_type: 'complaint', is_active: true, create_date: now, write_date: now }
       });
       await prisma.workflow_states.createMany({
         data: [
-          { workflow_definition_id: workflow.id, code: 'new', name_ar: 'جديدة', name_en: 'New', is_initial: true, is_final: false, sort_order: 1, created_at: now, updated_at: now },
-          { workflow_definition_id: workflow.id, code: 'in_review', name_ar: 'قيد المراجعة', name_en: 'In Review', is_initial: false, is_final: false, sort_order: 2, created_at: now, updated_at: now },
+          { workflow_definition_id: workflow.id, code: 'new', name_ar: 'جديدة', name_en: 'New', is_initial: true, is_final: false, sort_order: 1, create_date: now, write_date: now },
+          { workflow_definition_id: workflow.id, code: 'in_review', name_ar: 'قيد المراجعة', name_en: 'In Review', is_initial: false, is_final: false, sort_order: 2, create_date: now, write_date: now },
         ]
       });
     }
@@ -229,8 +246,8 @@ const main = async (): Promise<void> => {
           phone: '777000111',
           relationship_item_id: relationshipItem.id,
           gender_item_id: genderItem.id,
-          created_at: now,
-          updated_at: now,
+          create_date: now,
+          write_date: now,
         }
       });
     }
@@ -253,8 +270,8 @@ const main = async (): Promise<void> => {
           category_item_id: categoryItem.id,
           channel_item_id: channelItem.id,
           priority_item_id: priorityItem.id,
-          created_at: now,
-          updated_at: now,
+          create_date: now,
+          write_date: now,
         }
       });
     }
@@ -268,8 +285,8 @@ const main = async (): Promise<void> => {
           phone: '777000222',
           relationship_item_id: relationshipItem.id,
           gender_item_id: genderItem.id,
-          created_at: now,
-          updated_at: now,
+          create_date: now,
+          write_date: now,
         }
       });
     }
@@ -286,14 +303,15 @@ const main = async (): Promise<void> => {
           sla_rule_id: slaRule.id,
           sla_due_at: new Date(now.getTime() + 72 * 60 * 60 * 1000),
           assigned_to_org_unit_id: orgUnit.id,
+          assigned_to_organization_id: subOrgNode.id,
           governorate_id: gov.id,
           district_id: dist.id,
           complainant_id: complainant2.id,
           category_item_id: categoryItem.id,
           channel_item_id: channelItem.id,
           priority_item_id: priorityItem.id,
-          created_at: now,
-          updated_at: now,
+          create_date: now,
+          write_date: now,
         }
       });
     }

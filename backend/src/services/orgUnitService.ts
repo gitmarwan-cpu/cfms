@@ -47,6 +47,10 @@ export interface OrgUnitResponse {
   latitude: Prisma.Decimal | null;
   longitude: Prisma.Decimal | null;
   isActive: boolean;
+  createDate?: Date;
+  writeDate?: Date;
+  createUid?: number | null;
+  writeUid?: number | null;
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;
@@ -78,8 +82,10 @@ const UNIT_SELECT = {
   latitude: true,
   longitude: true,
   is_active: true,
-  created_at: true,
-  updated_at: true,
+  create_date: true,
+  write_date: true,
+  create_uid: true,
+  write_uid: true,
   deleted_at: true,
 } as const;
 
@@ -133,8 +139,12 @@ const mapUnit = (unit: UnitRecord | UnitWithRelations): OrgUnitResponse => {
     latitude: record.latitude,
     longitude: record.longitude,
     isActive: record.is_active,
-    createdAt: record.created_at,
-    updatedAt: record.updated_at,
+    createDate: record.create_date,
+    writeDate: record.write_date,
+    createUid: record.create_uid,
+    writeUid: record.write_uid,
+    createdAt: record.create_date,
+    updatedAt: record.write_date,
     deletedAt: record.deleted_at,
     ...(record.org_unit_types === undefined
       ? {}
@@ -248,8 +258,8 @@ export const createUnit = async (
       latitude: payload.latitude || null,
       longitude: payload.longitude || null,
       is_active: payload.isActive !== undefined ? payload.isActive : true,
-      created_at: new Date(),
-      updated_at: new Date(),
+      create_date: new Date(),
+      write_date: new Date(),
     },
     select: UNIT_SELECT,
   });
@@ -288,7 +298,7 @@ export const updateUnit = async (
     await validateManagerBelongsToOrganization(nextManagerId, parsedOrganizationId as number);
   }
 
-  const data: Record<string, unknown> = { updated_at: new Date() };
+  const data: Record<string, unknown> = { write_date: new Date() };
   if (payload.orgUnitTypeId !== undefined) data.org_unit_type_id = nextTypeId;
   if (payload.parentId !== undefined) data.parent_id = nextParentId;
   if (payload.name !== undefined) data.name = payload.name;
@@ -332,7 +342,7 @@ export const deactivateUnit = async (
 
   const deactivated = await prisma.org_units.update({
     where: { id: parsedUnitId as number },
-    data: { is_active: false, deleted_at: new Date(), updated_at: new Date() },
+    data: { is_active: false, deleted_at: new Date(), write_date: new Date() },
     select: UNIT_SELECT,
   });
 

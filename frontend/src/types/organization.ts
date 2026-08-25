@@ -1,30 +1,13 @@
-import type { OrgUnit } from '../api/adminApi';
+import type { OrganizationNodeDto } from '../api/adminApi';
 
-export interface OrganizationNode {
-  id: number;
-  name: string;
-  code: string | null;
-  parentId: number | null;
-  isActive: boolean;
-  organizationId: number;
-  orgUnitTypeId: number;
-  unitType: { id: number; code: string; nameAr: string; nameEn: string | null } | null;
-  manager: { id: number; fullName: string; email: string } | null;
+export interface OrganizationNode extends OrganizationNodeDto {
   children: OrganizationNode[];
   depth: number;
 }
 
-export function fromOrgUnitDto(dto: OrgUnit): OrganizationNode {
+export function fromOrganizationNodeDto(dto: OrganizationNodeDto): OrganizationNode {
   return {
-    id: dto.id,
-    name: dto.name,
-    code: dto.code,
-    parentId: dto.parentId,
-    isActive: dto.isActive,
-    organizationId: dto.organizationId,
-    orgUnitTypeId: dto.orgUnitTypeId,
-    unitType: dto.unitType ?? null,
-    manager: dto.manager ?? null,
+    ...dto,
     children: [],
     depth: 0,
   };

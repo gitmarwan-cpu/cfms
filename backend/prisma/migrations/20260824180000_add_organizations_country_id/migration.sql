@@ -28,22 +28,22 @@ ON "organizations"("country_id");
 DO $$
 BEGIN
 
-  -- Validate deterministic country mapping.
-  IF NOT EXISTS (
-    SELECT 1
-    FROM countries
-    WHERE id = 1
-      AND name_en = 'Yemen'
-  ) THEN
-    RAISE EXCEPTION
-      'Backfill aborted: countries.id=1 is not Yemen';
-  END IF;
+  -- Backfill existing organizations only if any exist.
+  IF EXISTS (SELECT 1 FROM organizations WHERE country = 'Yemen') THEN
+    IF NOT EXISTS (
+      SELECT 1
+      FROM countries
+      WHERE id = 1
+        AND name_en = 'Yemen'
+    ) THEN
+      RAISE EXCEPTION
+        'Backfill aborted: countries.id=1 is not Yemen';
+    END IF;
 
-  -- Backfill existing organizations only.
-  -- If no matching organization exists, nothing is updated.
-  UPDATE organizations
-  SET country_id = 1
-  WHERE country = 'Yemen';
+    UPDATE organizations
+    SET country_id = 1
+    WHERE country = 'Yemen';
+  END IF;
 
 END;
 $$;

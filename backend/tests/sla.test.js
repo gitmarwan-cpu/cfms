@@ -153,7 +153,7 @@ describe('SLA and escalation API', () => {
 
   it('creates priority-based SLA rules and applies them via public API', async () => {
     const priorityItem = await prisma.reference_list_items.findFirst({
-      where: { code: 'high', reference_lists: { key: 'complaint_priority' } },
+      where: { code: 'high', reference_lists: { key: 'priority' } },
     });
     const ruleRes = await request(app)
       .post('/api/sla-rules')

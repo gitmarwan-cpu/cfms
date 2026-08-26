@@ -6,7 +6,7 @@ Phase B (SLA & Escalation) is fully implemented, hardened, and verified on the b
 
 1. **SLA Architecture & Priority Support**:
    - `sla_rules` model created with matching fields (`complaint_type`, `category_item_id`, `priority_item_id`, `is_sensitive`).
-   - Priority matching integrated into complaint submission and SLA rule resolution via `complaint_priority` reference list (`low`, `medium`, `high`, `urgent`).
+   - Priority matching integrated into complaint submission and SLA rule resolution via `priority` reference list (`low`, `medium`, `high`, `urgent`).
    - Rule specificity scoring algorithm ensures exact matches take precedence over generic fallback rules.
 
 2. **Automated Escalation & Idempotency**:

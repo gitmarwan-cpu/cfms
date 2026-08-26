@@ -70,7 +70,7 @@ const REFERENCE_SEED = [
     ],
   },
   {
-    key: 'complaint_priority',
+    key: 'priority',
     nameAr: 'أولوية الشكوى',
     items: [
       { code: 'low', labelAr: 'منخفضة' },

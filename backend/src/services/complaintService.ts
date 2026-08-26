@@ -411,12 +411,12 @@ const resolveComplaintItems = async (payload: ComplaintPayload, organizationId: 
     referenceDataService.resolveActiveItem('complaint_category', payload.category, organizationId),
     referenceDataService.resolveActiveItem('channel', payload.channel || 'website', organizationId),
     payload.priority
-      ? referenceDataService.resolveActiveItem('complaint_priority', payload.priority, organizationId)
+      ? referenceDataService.resolveActiveItem('priority', payload.priority, organizationId)
       : prisma.reference_list_items.findFirst({
           where: {
             is_active: true,
             is_default: true,
-            reference_lists: { key: 'complaint_priority', OR: [{ organization_id: null }, { organization_id: organizationId }] },
+            reference_lists: { key: 'priority', OR: [{ organization_id: null }, { organization_id: organizationId }] },
           },
         }),
   ]);

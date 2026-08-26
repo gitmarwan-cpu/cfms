@@ -268,10 +268,10 @@ describe('Prisma SLA service', () => {
 
   it('matches priority-specific SLA rules over generic rules', async () => {
     const urgentPriority = await prisma.reference_list_items.findFirst({
-      where: { code: 'urgent', reference_lists: { key: 'complaint_priority' } },
+      where: { code: 'urgent', reference_lists: { key: 'priority' } },
     });
     const lowPriority = await prisma.reference_list_items.findFirst({
-      where: { code: 'low', reference_lists: { key: 'complaint_priority' } },
+      where: { code: 'low', reference_lists: { key: 'priority' } },
     });
 
     const urgentRule = await slaService.createSlaRule(

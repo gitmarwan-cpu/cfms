@@ -239,7 +239,7 @@ const validatePriorityItem = async (client: DatabaseClient, organizationId: numb
       id: priorityItemId,
       is_active: true,
       reference_lists: {
-        key: 'complaint_priority',
+        key: 'priority',
         OR: [{ organization_id: null }, { organization_id: organizationId }],
       },
     },

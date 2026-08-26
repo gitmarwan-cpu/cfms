@@ -47,6 +47,7 @@ export default function OrgStructurePage() {
     Promise.all([fetchOrganizationNodes(), fetchOrgUnitTypes()])
       .then(([n, t]) => {
         setNodes(n);
+        setTypes(t);
         const firstNode = n[0];
         if (firstNode && selectedNodeId === null) {
           setSelectedNodeId(firstNode.id);

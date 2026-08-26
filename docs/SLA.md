@@ -15,7 +15,7 @@ SLA enforcement consists of three core components:
    - Core fields:
      - `complaint_type`: `'complaint'` | `'proposal'` | `null` (matches any)
      - `category_item_id`: Reference list item for `complaint_category` | `null`
-     - `priority_item_id`: Reference list item for `complaint_priority` | `null`
+     - `priority_item_id`: Reference list item for `priority` | `null`
      - `is_sensitive`: `boolean` | `null`
      - `first_response_hours`: Target hours for initial action/response.
      - `resolution_hours`: Target hours for complaint resolution (`sla_due_at`).

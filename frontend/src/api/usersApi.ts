@@ -151,10 +151,10 @@ export const fetchUserRoles = (userId: number): Promise<UserRoleAssignment[]> =>
 export const assignUserRole = (
   userId: number,
   roleId: number,
-  orgUnitId?: number | null
+  organizationNodeId?: number | null
 ): Promise<UserRoleAssignment> =>
   unwrap<UserRoleAssignment>(
-    axiosClient.post(`/users/${userId}/roles`, { roleId, orgUnitId: orgUnitId ?? undefined })
+    axiosClient.post(`/users/${userId}/roles`, { roleId, organizationNodeId: organizationNodeId ?? undefined })
   );
 
 /** Revokes a user's role assignment. */

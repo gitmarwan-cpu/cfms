@@ -11,7 +11,6 @@ export interface RegisterPayload {
   password: string;
   fullName: string;
   roleCode?: string;
-  orgUnitId?: number | string | null;
   defaultOrganizationId?: number | string | null;
 }
 
@@ -26,7 +25,6 @@ export interface UserResponse {
   writeUid: number | null;
   createdAt: Date;
   updatedAt: Date;
-  orgUnitId: number | null;
   primaryOrganizationNodeId: number | null;
   defaultOrganizationId: number | null;
 }
@@ -41,7 +39,6 @@ const USER_WITH_PASSWORD_SELECT = {
   write_date: true,
   create_uid: true,
   write_uid: true,
-  org_unit_id: true,
   primary_organization_node_id: true,
   default_organization_id: true,
 } as const;
@@ -55,7 +52,6 @@ const USER_SAFE_SELECT = {
   write_date: true,
   create_uid: true,
   write_uid: true,
-  org_unit_id: true,
   primary_organization_node_id: true,
   default_organization_id: true,
 } as const;
@@ -79,7 +75,6 @@ const mapUser = (user: any): UserResponse => ({
   writeUid: user.write_uid ?? null,
   createdAt: user.create_date,
   updatedAt: user.write_date,
-  orgUnitId: user.org_unit_id ?? null,
   primaryOrganizationNodeId: user.primary_organization_node_id ?? null,
   defaultOrganizationId: user.default_organization_id,
 });
@@ -122,7 +117,6 @@ export const login = async (email: string, password: string) => {
 
 export const register = async (organizationId: string | number, payload: RegisterPayload): Promise<UserResponse> => {
   const parsedOrganizationId = toSafeInteger(organizationId);
-  const parsedOrgUnitId = toSafeInteger(payload.orgUnitId);
   if (parsedOrganizationId === null) throw new ApiError(400, 'المؤسسة غير موجودة');
 
   const passwordHash = await bcrypt.hash(payload.password, 10);
@@ -149,7 +143,6 @@ export const register = async (organizationId: string | number, payload: Registe
           email: payload.email,
           password_hash: passwordHash,
           is_active: true,
-          org_unit_id: parsedOrgUnitId,
           default_organization_id: parsedOrganizationId,
           create_date: now,
           write_date: now,
@@ -172,7 +165,6 @@ export const register = async (organizationId: string | number, payload: Registe
           user_id: createdUser.id,
           role_id: role.id,
           organization_id: parsedOrganizationId,
-          org_unit_id: parsedOrgUnitId,
           create_date: now,
           write_date: now,
         },

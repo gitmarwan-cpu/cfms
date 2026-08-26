@@ -27,7 +27,7 @@ export interface UserRef {
   email: string;
 }
 
-export interface OrgUnitRef {
+export interface OrganizationRef {
   id: number;
   name: string;
   code: string;
@@ -121,7 +121,7 @@ export interface AdminComplaint {
   staffIncidentDetails: string | null;
   status: ComplaintStatus;
   assignedToUserId: number | null;
-  assignedToOrgUnitId: number | null;
+  assignedToOrganizationId: number | null;
   slaRuleId: number | null;
   slaDueAt: string | null;
   slaFirstResponseDueAt: string | null;
@@ -137,7 +137,7 @@ export interface AdminComplaint {
   district: LocationRef | null;
   attachments: Attachment[];
   assignedTo: UserRef | null;
-  assignedToOrgUnit: OrgUnitRef | null;
+  assignedToOrganization: OrganizationRef | null;
   categoryItem: ReferenceItem | null;
   channelItem: ReferenceItem | null;
   priorityItem: ReferenceItem | null;
@@ -217,11 +217,11 @@ export const updateComplaintStatus = async (
 export const updateComplaintAssignment = async (
   id: number,
   assigneeUserId: number | null,
-  assigneeOrgUnitId: number | null
+  assigneeOrganizationId: number | null
 ): Promise<AdminComplaintDetail> => {
   const res = await axiosClient.patch<{ success: boolean; data: AdminComplaintDetail }>(
     `/complaints/${id}/assignment`,
-    { assigneeUserId, assigneeOrgUnitId }
+    { assigneeUserId, assigneeOrganizationId }
   );
   return res.data.data;
 };

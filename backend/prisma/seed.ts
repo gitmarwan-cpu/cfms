@@ -331,7 +331,7 @@ const seedBootstrapOrganization = async (db: Db, adminRoleId: number): Promise<v
   if (existingUser) fail(`Bootstrap email '${email}' already belongs to an existing user`);
   const user = await db.users.create({ data: { full_name: 'مدير المنصة', email, password_hash: passwordHash, is_active: true, default_organization_id: organization.id, create_date: now, write_date: now } });
   await db.user_organizations.create({ data: { user_id: user.id, organization_id: organization.id, is_primary: true, is_active: true, create_date: now, write_date: now } });
-  await db.user_roles.create({ data: { user_id: user.id, role_id: adminRoleId, organization_id: organization.id, org_unit_id: null, create_date: now, write_date: now } });
+  await db.user_roles.create({ data: { user_id: user.id, role_id: adminRoleId, organization_id: organization.id, create_date: now, write_date: now } });
 };
 
 const seedOrgUnitTypes = async (db: Db): Promise<void> => {

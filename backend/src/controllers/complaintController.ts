@@ -42,7 +42,7 @@ const assignComplaint = catchAsync(async (req: AppRequest, res: AppResponse) => 
     req.params.id,
     {
       assigneeUserId: req.body.assigneeUserId,
-      assigneeOrgUnitId: req.body.assigneeOrgUnitId,
+      assigneeOrganizationId: req.body.assigneeOrganizationId,
     },
     req.user!.id
   );

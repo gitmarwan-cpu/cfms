@@ -4,15 +4,12 @@ const prisma = require('../src/prisma/client');
 const { prepareTestDatabase, closeTestDatabase } = require('./testDatabase');
 const organizationService = require('../src/services/organizationService.ts');
 const orgUnitTypeService = require('../src/services/orgUnitTypeService.ts');
-const orgUnitService = require('../src/services/orgUnitService.ts');
 
 describe('Prisma organization services', () => {
   let organization;
   let member;
   let parentType;
   let childType;
-  let parentUnit;
-  let childUnit;
 
   beforeAll(async () => {
     await prepareTestDatabase();
@@ -114,58 +111,5 @@ describe('Prisma organization services', () => {
       nameAr: 'Updated Child',
     });
     expect(updated.nameAr).toBe('Updated Child');
-  });
-
-  it('enforces managers, parent compatibility, mapped relations, and soft deactivation', async () => {
-    parentUnit = await orgUnitService.createUnit(String(organization.id), {
-      orgUnitTypeId: String(parentType.id),
-      name: 'Parent Unit',
-      managerUserId: String(member.id),
-    });
-
-    childUnit = await orgUnitService.createUnit(organization.id, {
-      orgUnitTypeId: childType.id,
-      parentId: String(parentUnit.id),
-      name: 'Child Unit',
-    });
-
-    const units = await orgUnitService.listUnits(String(organization.id));
-    const listedParent = units.find((unit) => unit.id === parentUnit.id);
-    expect(listedParent).toMatchObject({
-      organizationId: organization.id,
-      name: 'Parent Unit',
-      unitType: { code: 'parent' },
-      manager: { id: member.id, fullName: 'Organization Member' },
-    });
-
-    await expect(
-      orgUnitService.createUnit(organization.id, {
-        orgUnitTypeId: parentType.id,
-        name: 'Invalid Manager',
-        managerUserId: '999999',
-      })
-    ).rejects.toMatchObject({ statusCode: 422 });
-
-    await expect(
-      orgUnitService.createUnit(organization.id, {
-        orgUnitTypeId: childType.id,
-        name: 'Missing Parent',
-      })
-    ).rejects.toMatchObject({ statusCode: 422 });
-
-    await expect(
-      orgUnitService.updateUnit(organization.id, String(parentUnit.id), { parentId: parentUnit.id })
-    ).rejects.toMatchObject({ statusCode: 422 });
-
-    await expect(
-      orgUnitService.deactivateUnit(organization.id, String(parentUnit.id))
-    ).rejects.toMatchObject({ statusCode: 409 });
-
-    const deactivatedChild = await orgUnitService.deactivateUnit(organization.id, childUnit.id);
-    expect(deactivatedChild).toMatchObject({ id: childUnit.id, isActive: false });
-
-    const deactivatedParent = await orgUnitService.deactivateUnit(organization.id, parentUnit.id);
-    expect(deactivatedParent).toMatchObject({ id: parentUnit.id, isActive: false });
-    expect(await orgUnitService.listUnits(organization.id)).toEqual([]);
   });
 });

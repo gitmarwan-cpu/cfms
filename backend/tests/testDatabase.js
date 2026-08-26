@@ -17,7 +17,6 @@ const TEST_TABLES = [
   'reference_lists',
   'reference_list_items',
   'org_unit_types',
-  'org_units',
   'users',
   'roles',
   'permissions',

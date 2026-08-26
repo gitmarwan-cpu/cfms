@@ -177,8 +177,8 @@ export default function ComplaintListPage() {
                       <td>
                         {item.assignedTo
                           ? item.assignedTo.fullName
-                          : item.assignedToOrgUnit
-                            ? `قسم: ${item.assignedToOrgUnit.name}`
+                          : item.assignedToOrganization
+                            ? `قسم: ${item.assignedToOrganization.name}`
                             : <span style={{ color: 'var(--color-text-muted)' }}>غير معيّن</span>}
                       </td>
                       <td>

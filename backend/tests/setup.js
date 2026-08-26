@@ -311,7 +311,7 @@ const createOrganization = async (overrides = {}) => prisma.organizations.create
 });
 
 const createUserWithRole = async (
-  { fullName, email, roleCode = 'staff', organizationId = null, orgUnitId = null },
+  { fullName, email, roleCode = 'staff', organizationId = null },
   rawPassword = 'Password123'
 ) => {
   const targetOrgId = organizationId || global.__defaultOrg.id;
@@ -321,7 +321,6 @@ const createUserWithRole = async (
       full_name: fullName,
       email,
       password_hash: passwordHash,
-      org_unit_id: orgUnitId,
       default_organization_id: targetOrgId,
       create_date: timestamp(),
       write_date: timestamp(),
@@ -333,7 +332,7 @@ const createUserWithRole = async (
     data: { user_id: user.id, organization_id: targetOrgId, is_primary: true, is_active: true, create_date: timestamp(), write_date: timestamp() },
   });
   await prisma.user_roles.create({
-    data: { user_id: user.id, role_id: role.id, organization_id: targetOrgId, org_unit_id: orgUnitId, create_date: timestamp(), write_date: timestamp() },
+    data: { user_id: user.id, role_id: role.id, organization_id: targetOrgId, create_date: timestamp(), write_date: timestamp() },
   });
 
   return { user, rawPassword, organizationId: targetOrgId };

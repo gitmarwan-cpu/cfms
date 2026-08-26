@@ -133,13 +133,6 @@ const main = async (): Promise<void> => {
       });
     }
 
-    let orgUnit = await prisma.org_units.findFirst({ where: { organization_id: org.id, code: 'main-branch' } });
-    if (!orgUnit) {
-      orgUnit = await prisma.org_units.create({
-        data: { organization_id: org.id, org_unit_type_id: orgUnitType.id, code: 'main-branch', name: 'الفرع الرئيسي', is_active: true, create_date: now, write_date: now }
-      });
-    }
-
     let subOrgNode = await prisma.organizations.findFirst({ where: { parent_id: org.id, code: 'main-branch' } });
     if (!subOrgNode) {
       subOrgNode = await prisma.organizations.create({
@@ -302,7 +295,6 @@ const main = async (): Promise<void> => {
           status: 'in_review',
           sla_rule_id: slaRule.id,
           sla_due_at: new Date(now.getTime() + 72 * 60 * 60 * 1000),
-          assigned_to_org_unit_id: orgUnit.id,
           assigned_to_organization_id: subOrgNode.id,
           governorate_id: gov.id,
           district_id: dist.id,

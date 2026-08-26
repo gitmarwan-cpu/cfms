@@ -76,25 +76,6 @@ describe('Security fixes verification', () => {
     expect(res.status).toBe(403);
   });
 
-  it('يرفض تعيين managerUserId لمستخدم لا ينتمي لنفس المؤسسة', async () => {
-    const { user: staffA } = await createUserWithRole(
-      { fullName: 'موظف أ', email: 'staff.sec.a@cfms.local', roleCode: 'staff', organizationId: orgA.id },
-      'Password123'
-    );
-
-    const branchTypeRes = await request(app)
-      .post('/api/org-structure/unit-types')
-      .set('Authorization', `Bearer ${adminAToken}`)
-      .send({ code: 'branch_a', nameAr: 'فرع أ', hierarchyLevel: 1 });
-
-    const res = await request(app)
-      .post('/api/org-structure/units')
-      .set('Authorization', `Bearer ${adminAToken}`)
-      .send({ orgUnitTypeId: branchTypeRes.body.data.id, name: 'فرع تجريبي', managerUserId: staffA.id + 99999 });
-
-    expect(res.status).toBe(422);
-  });
-
   it('يرفض ربط allowedParentTypeId بنوع وحدة من مؤسسة أخرى عند التحديث', async () => {
     const ownTypeRes = await request(app)
       .post('/api/org-structure/unit-types')

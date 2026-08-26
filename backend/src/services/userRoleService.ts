@@ -23,14 +23,12 @@ const USER_ROLE_SELECT = {
   user_id: true,
   role_id: true,
   organization_id: true,
-  org_unit_id: true,
   organization_node_id: true,
   create_date: true,
   write_date: true,
   create_uid: true,
   write_uid: true,
   roles: { select: { id: true, code: true, name_ar: true, name_en: true } },
-  org_units: { select: { id: true, name: true, code: true } },
   organization_node: { select: { id: true, legal_name: true, short_name: true, code: true } },
 } as const;
 
@@ -39,7 +37,6 @@ const mapUserRole = (entry: any) => ({
   userId: entry.user_id,
   roleId: entry.role_id,
   organizationId: entry.organization_id,
-  orgUnitId: entry.org_unit_id,
   organizationNodeId: entry.organization_node_id,
   createDate: entry.create_date,
   writeDate: entry.write_date,
@@ -53,9 +50,6 @@ const mapUserRole = (entry: any) => ({
     nameAr: entry.roles.name_ar,
     nameEn: entry.roles.name_en,
   },
-  orgUnit: entry.org_units
-    ? { id: entry.org_units.id, name: entry.org_units.name, code: entry.org_units.code }
-    : null,
   organizationNode: entry.organization_node
     ? {
         id: entry.organization_node.id,
@@ -83,13 +77,12 @@ export const listUserRoles = async (organizationId: OrganizationId, userId: User
 
 export const assignRole = async (
   organizationId: OrganizationId,
-  payload: { userId: UserId; roleId: RoleId; orgUnitId?: string | number | null; organizationNodeId?: string | number | null },
+  payload: { userId: UserId; roleId: RoleId; organizationNodeId?: string | number | null },
   authUserId?: number | null
 ) => {
   const parsedOrganizationId = toSafeInteger(organizationId);
   const parsedUserId = toSafeInteger(payload.userId);
   const parsedRoleId = toSafeInteger(payload.roleId);
-  const parsedOrgUnitId = optionalId(payload.orgUnitId);
   const parsedOrganizationNodeId = optionalId(payload.organizationNodeId);
   const [user, role] = parsedUserId && parsedRoleId
     ? await Promise.all([
@@ -121,7 +114,6 @@ export const assignRole = async (
       user_id: parsedUserId as number,
       role_id: parsedRoleId as number,
       organization_id: parsedOrganizationId as number,
-      org_unit_id: parsedOrgUnitId,
       organization_node_id: parsedOrganizationNodeId,
     },
   });
@@ -133,7 +125,6 @@ export const assignRole = async (
       user_id: parsedUserId as number,
       role_id: parsedRoleId as number,
       organization_id: parsedOrganizationId as number,
-      org_unit_id: parsedOrgUnitId,
       organization_node_id: parsedOrganizationNodeId,
       create_date: now,
       write_date: now,

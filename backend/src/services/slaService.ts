@@ -483,35 +483,12 @@ const notifyEscalation = async (
   complaint: {
     id: number;
     assigned_to_user_id: number | null;
-    assigned_to_org_unit_id: number | null;
     assigned_to_organization_id?: number | null;
   },
   toLevel: number,
   reason: EscalationReason
 ) => {
   let userId = complaint.assigned_to_user_id;
-  if (userId === null && complaint.assigned_to_org_unit_id !== null) {
-    const orgUnit = await client.org_units.findFirst({
-      where: {
-        id: complaint.assigned_to_org_unit_id,
-        organization_id: organizationId,
-        is_active: true,
-        deleted_at: null,
-      },
-      select: { manager_user_id: true },
-    });
-    if (orgUnit?.manager_user_id) {
-      const manager = await client.users.findFirst({
-        where: {
-          id: orgUnit.manager_user_id,
-          is_active: true,
-          user_organizations: { some: { organization_id: organizationId, is_active: true } },
-        },
-        select: { id: true },
-      });
-      if (manager) userId = manager.id;
-    }
-  }
   if (userId === null) return;
   await createNotification(client, {
     organizationId,
@@ -532,7 +509,6 @@ const persistEscalation = async (
     id: number;
     sla_rule_id: number | null;
     assigned_to_user_id: number | null;
-    assigned_to_org_unit_id: number | null;
   },
   fromLevel: number,
   toLevel: number,
@@ -603,7 +579,6 @@ export const evaluateOrganizationSla = async (
         sla_status: true,
         escalation_level: true,
         assigned_to_user_id: true,
-        assigned_to_org_unit_id: true,
         assigned_to_organization_id: true,
         sla_rules: {
           select: { escalation_interval_hours: true, max_escalation_level: true },
@@ -692,7 +667,6 @@ export const escalateComplaint = async (
         sla_status: true,
         escalation_level: true,
         assigned_to_user_id: true,
-        assigned_to_org_unit_id: true,
         assigned_to_organization_id: true,
         sla_rules: { select: { max_escalation_level: true } },
       },

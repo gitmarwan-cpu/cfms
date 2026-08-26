@@ -15,7 +15,6 @@ const registerValidation = [
     .matches(/\d/)
     .withMessage('يجب أن تحتوي كلمة المرور على رقم واحد على الأقل'),
   body('roleCode').optional().isLength({ min: 2, max: 60 }),
-  body('orgUnitId').optional({ checkFalsy: true }).isInt({ min: 1 }),
 ];
 
 module.exports = { loginValidation, registerValidation };

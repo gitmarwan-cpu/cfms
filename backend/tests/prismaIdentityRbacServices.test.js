@@ -117,7 +117,6 @@ describe('Prisma identity and RBAC services', () => {
         user_id: admin.id,
         role_id: adminRole.id,
         organization_id: organization.id,
-        org_unit_id: null,
         create_date: now,
         write_date: now,
       },

@@ -236,16 +236,16 @@ describe('Prisma complaint service', () => {
       assignee.id
     );
     expect(assigned.assignedToUserId).toBe(assignee.id);
-    expect(assigned.assignedToOrgUnitId).toBeNull();
+    expect(assigned.assignedToOrganizationId).toBeNull();
 
     const unassigned = await complaintService.assignComplaint(
       organization.id,
       created.complaint.id,
-      { assigneeUserId: null, assigneeOrgUnitId: null },
+      { assigneeUserId: null, assigneeOrganizationId: null },
       assignee.id
     );
     expect(unassigned.assignedToUserId).toBeNull();
-    expect(unassigned.assignedToOrgUnitId).toBeNull();
+    expect(unassigned.assignedToOrganizationId).toBeNull();
     await expect(
       prisma.audit_logs.findMany({ where: { organization_id: organization.id, entity_id: created.complaint.id, action: 'complaint.assigned' } })
     ).resolves.toHaveLength(1);
@@ -254,7 +254,7 @@ describe('Prisma complaint service', () => {
     ).resolves.toHaveLength(1);
   });
 
-  it('assigns complaints to active tenant org units and rejects cross-tenant or inactive units', async () => {
+  it('assigns complaints to active tenant organization nodes and rejects cross-tenant or inactive nodes', async () => {
     const actor = await makeUser('team-assigner');
     await prisma.user_organizations.create({
       data: {
@@ -267,75 +267,44 @@ describe('Prisma complaint service', () => {
       },
     });
 
-    const unitType = await prisma.org_unit_types.create({
-      data: {
-        organization_id: organization.id,
-        code: `team-${Date.now()}`,
-        name_ar: 'فريق',
-        name_en: 'Team',
-        hierarchy_level: 1,
-        create_date: new Date(),
-        write_date: new Date(),
-      },
-    });
-    const orgUnit = await prisma.org_units.create({
-      data: {
-        organization_id: organization.id,
-        org_unit_type_id: unitType.id,
-        name: 'Complaints Team',
-        code: `CT-${Date.now()}`,
-        manager_user_id: actor.id,
-        is_active: true,
-        create_date: new Date(),
-        write_date: new Date(),
-      },
-    });
+    const makeOrgNode = async (suffix) => {
+      const governorate = await prisma.governorates.findUnique({ where: { name_en: 'Ibb' } });
+      return prisma.organizations.create({
+        data: {
+          legal_name: suffix,
+          slug: `prisma-complaint-team-${suffix}-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+          country: 'Yemen',
+          governorate_id: governorate.id,
+          default_language: 'ar',
+          timezone: 'Asia/Aden',
+          date_format: 'DD/MM/YYYY',
+          anonymous_complaints_policy: 'allowed',
+          parent_id: organization.id,
+          root_organization_id: organization.id,
+          create_date: new Date(),
+          write_date: new Date(),
+        },
+      });
+    };
 
+    const orgNode = await makeOrgNode('Complaints Team');
     const otherOrganization = await makeOrganization('team-other');
-    const foreignUnitType = await prisma.org_unit_types.create({
-      data: {
-        organization_id: otherOrganization.id,
-        code: `foreign-${Date.now()}`,
-        name_ar: 'أجنبي',
-        name_en: 'Foreign',
-        hierarchy_level: 1,
-        create_date: new Date(),
-        write_date: new Date(),
-      },
-    });
-    const foreignUnit = await prisma.org_units.create({
-      data: {
-        organization_id: otherOrganization.id,
-        org_unit_type_id: foreignUnitType.id,
-        name: 'Foreign Team',
-        code: `FT-${Date.now()}`,
-        is_active: true,
-        create_date: new Date(),
-        write_date: new Date(),
-      },
-    });
-    const inactiveUnit = await prisma.org_units.create({
-      data: {
-        organization_id: organization.id,
-        org_unit_type_id: unitType.id,
-        name: 'Inactive Team',
-        code: `IT-${Date.now()}`,
-        is_active: false,
-        create_date: new Date(),
-        write_date: new Date(),
-      },
-    });
+    const foreignNode = await makeOrgNode('Foreign Team');
+    await prisma.organizations.update({ where: { id: foreignNode.id }, data: { root_organization_id: otherOrganization.id } });
+    const inactiveNode = await makeOrgNode('Inactive Team');
+    await prisma.organizations.update({ where: { id: inactiveNode.id }, data: { is_active: false } });
+
 
     const created = await complaintService.createComplaint(organization.id, makePayload(locations));
     const teamAssigned = await complaintService.assignComplaint(
       organization.id,
       created.complaint.id,
-      { assigneeOrgUnitId: orgUnit.id },
+      { assigneeOrganizationId: orgNode.id },
       actor.id
     );
-    expect(teamAssigned.assignedToOrgUnitId).toBe(orgUnit.id);
+    expect(teamAssigned.assignedToOrganizationId).toBe(orgNode.id);
     expect(teamAssigned.assignedToUserId).toBeNull();
-    expect(teamAssigned.assignedToOrgUnit).toMatchObject({ id: orgUnit.id, name: 'Complaints Team' });
+    expect(teamAssigned.assignedToOrganization).toMatchObject({ id: orgNode.id, name: 'Complaints Team' });
 
     const assignee = await makeUser('team-member');
     await prisma.user_organizations.create({
@@ -351,17 +320,17 @@ describe('Prisma complaint service', () => {
     const bothAssigned = await complaintService.assignComplaint(
       organization.id,
       created.complaint.id,
-      { assigneeUserId: assignee.id, assigneeOrgUnitId: orgUnit.id },
+      { assigneeUserId: assignee.id, assigneeOrganizationId: orgNode.id },
       actor.id
     );
     expect(bothAssigned.assignedToUserId).toBe(assignee.id);
-    expect(bothAssigned.assignedToOrgUnitId).toBe(orgUnit.id);
+    expect(bothAssigned.assignedToOrganizationId).toBe(orgNode.id);
 
     await expect(
       complaintService.assignComplaint(
         organization.id,
         created.complaint.id,
-        { assigneeOrgUnitId: foreignUnit.id },
+        { assigneeOrganizationId: foreignNode.id },
         actor.id
       )
     ).rejects.toMatchObject({ statusCode: 422 });
@@ -369,7 +338,7 @@ describe('Prisma complaint service', () => {
       complaintService.assignComplaint(
         organization.id,
         created.complaint.id,
-        { assigneeOrgUnitId: inactiveUnit.id },
+        { assigneeOrganizationId: inactiveNode.id },
         actor.id
       )
     ).rejects.toMatchObject({ statusCode: 422 });
@@ -381,14 +350,14 @@ describe('Prisma complaint service', () => {
       actor.id
     );
     expect(cleared.assignedToUserId).toBeNull();
-    expect(cleared.assignedToOrgUnitId).toBeNull();
+    expect(cleared.assignedToOrganizationId).toBeNull();
 
     const assignedAudits = await prisma.audit_logs.findMany({
       where: { organization_id: organization.id, entity_id: created.complaint.id, action: 'complaint.assigned' },
       orderBy: { id: 'asc' },
     });
     expect(assignedAudits.length).toBeGreaterThanOrEqual(2);
-    expect(assignedAudits.some((row) => row.metadata?.assigneeOrgUnitId === orgUnit.id)).toBe(true);
+    expect(assignedAudits.some((row) => row.metadata?.assigneeOrganizationId === orgNode.id)).toBe(true);
 
     await expect(
       prisma.notifications.findMany({
@@ -396,7 +365,7 @@ describe('Prisma complaint service', () => {
           organization_id: organization.id,
           entity_id: created.complaint.id,
           notification_type: 'complaint.assigned',
-          user_id: actor.id,
+          user_id: assignee.id,
         },
       })
     ).resolves.toHaveLength(1);

@@ -97,40 +97,6 @@ describe('Organizational Structure API (flexible hierarchy)', () => {
     expect(res.status).toBe(201);
     departmentTypeId = res.body.data.id;
   });
-
-  it('ينشئ وحدة من نوع فرع مباشرة تحت المؤسسة', async () => {
-    const res = await request(app)
-      .post('/api/org-structure/units')
-      .set('Authorization', `Bearer ${adminToken}`)
-      .send({ orgUnitTypeId: branchTypeId, name: 'فرع صنعاء' });
-
-    expect(res.status).toBe(201);
-  });
-
-  it('يرفض إنشاء وحدة قسم بدون تحديد وحدة أم من النوع المسموح', async () => {
-    const res = await request(app)
-      .post('/api/org-structure/units')
-      .set('Authorization', `Bearer ${adminToken}`)
-      .send({ orgUnitTypeId: departmentTypeId, name: 'قسم الشكاوى' });
-
-    expect(res.status).toBe(422);
-  });
-
-  it('ينشئ وحدة قسم بنجاح عندما تكون تابعة لفرع', async () => {
-    const branchRes = await request(app)
-      .post('/api/org-structure/units')
-      .set('Authorization', `Bearer ${adminToken}`)
-      .send({ orgUnitTypeId: branchTypeId, name: 'فرع عدن' });
-    const branchUnitId = branchRes.body.data.id;
-
-    const res = await request(app)
-      .post('/api/org-structure/units')
-      .set('Authorization', `Bearer ${adminToken}`)
-      .send({ orgUnitTypeId: departmentTypeId, name: 'قسم الشكاوى', parentId: branchUnitId });
-
-    expect(res.status).toBe(201);
-    expect(res.body.data.parentId).toBe(branchUnitId);
-  });
 });
 
 describe('Organization Hierarchy Nodes API (Unified organizations table)', () => {

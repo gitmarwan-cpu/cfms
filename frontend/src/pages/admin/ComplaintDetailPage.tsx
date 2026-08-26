@@ -366,9 +366,9 @@ export default function ComplaintDetailPage() {
                 <div className="admin-assignment-badge admin-assignment-badge--user">
                   معين للموظف: <strong>{data.assignedTo.fullName}</strong>
                 </div>
-              ) : data.assignedToOrgUnit ? (
+              ) : data.assignedToOrganization ? (
                 <div className="admin-assignment-badge admin-assignment-badge--unit">
-                  معين للقسم: <strong>{data.assignedToOrgUnit.name}</strong>
+                  معين للقسم: <strong>{data.assignedToOrganization.name}</strong>
                 </div>
               ) : (
                 <div style={{ marginBottom: '16px', color: 'var(--color-text-muted)' }}>غير معين</div>

@@ -19,7 +19,7 @@ interface DirectAssignment {
 
 const ROLE_ASSIGNMENT_SELECT = {
   organization_id: true,
-  org_unit_id: true,
+  organization_node_id: true,
   roles: {
     select: {
       code: true,
@@ -36,7 +36,7 @@ const getUserRoleAssignments = async (userId: number): Promise<DirectAssignment[
 
   return assignments.map((assignment) => ({
     organizationId: assignment.organization_id,
-    orgUnitId: assignment.org_unit_id,
+    orgUnitId: assignment.organization_node_id,
     role: {
       code: assignment.roles.code,
       permissions: assignment.roles.role_permissions.map(({ permissions }) => permissions),

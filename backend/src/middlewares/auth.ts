@@ -20,7 +20,6 @@ const mapUser = (user: {
   write_date: Date;
   create_uid?: number | null;
   write_uid?: number | null;
-  org_unit_id: number | null;
   primary_organization_node_id?: number | null;
   default_organization_id: number | null;
 }) => ({
@@ -34,7 +33,6 @@ const mapUser = (user: {
   writeUid: user.write_uid ?? null,
   createdAt: user.create_date,
   updatedAt: user.write_date,
-  orgUnitId: user.org_unit_id,
   primaryOrganizationNodeId: user.primary_organization_node_id ?? null,
   defaultOrganizationId: user.default_organization_id,
 });
@@ -67,7 +65,6 @@ export const authenticate = async (req: any, res: any, next: (error?: unknown) =
             write_date: true,
             create_uid: true,
             write_uid: true,
-            org_unit_id: true,
             primary_organization_node_id: true,
             default_organization_id: true,
           },

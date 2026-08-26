@@ -43,7 +43,6 @@ const USER_SAFE_SELECT = {
   write_date: true,
   create_uid: true,
   write_uid: true,
-  org_unit_id: true,
   default_organization_id: true,
   primary_organization_node_id: true,
   primary_organization_node: {
@@ -80,7 +79,6 @@ const mapUser = (user: SelectedUser) => ({
   writeUid: user.write_uid,
   createdAt: user.create_date,
   updatedAt: user.write_date,
-  orgUnitId: user.org_unit_id,
   defaultOrganizationId: user.default_organization_id,
   primaryOrganizationNodeId: user.primary_organization_node_id,
   primaryOrganizationNode: user.primary_organization_node

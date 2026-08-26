@@ -86,7 +86,7 @@ const BASE_COMPLAINT_SELECT = {
   status: true,
   consent_given: true,
   assigned_to_user_id: true,
-  assigned_to_org_unit_id: true,
+  assigned_to_organization_id: true,
   sla_rule_id: true,
   sla_due_at: true,
   sla_first_response_due_at: true,
@@ -137,8 +137,8 @@ const BASE_COMPLAINT_SELECT = {
   users_complaints_assigned_to_user_idTousers: {
     select: { id: true, full_name: true, email: true },
   },
-  org_units_complaints_assigned_to_org_unit_idToorg_units: {
-    select: { id: true, name: true, code: true, organization_id: true, is_active: true, deleted_at: true },
+  organizations_complaints_assigned_to_organization_idToorganizations: {
+    select: { id: true, legal_name: true, code: true, is_active: true, deleted_at: true },
   },
   reference_list_items_complaints_category_item_idToreference_list_items: {
     select: REF_ITEM_SELECT,
@@ -312,7 +312,7 @@ const mapComplaint = (complaint: ComplaintRecord, referenceItems: Map<number, Re
     workflowStateId: complaint.workflow_state_id,
     consentGiven: complaint.consent_given,
     assignedToUserId: complaint.assigned_to_user_id,
-    assignedToOrgUnitId: complaint.assigned_to_org_unit_id,
+    assignedToOrganizationId: complaint.assigned_to_organization_id,
     slaRuleId: complaint.sla_rule_id,
     slaDueAt: complaint.sla_due_at,
     slaFirstResponseDueAt: complaint.sla_first_response_due_at,
@@ -356,11 +356,11 @@ const mapComplaint = (complaint: ComplaintRecord, referenceItems: Map<number, Re
           email: complaint.users_complaints_assigned_to_user_idTousers.email,
         }
       : null,
-    assignedToOrgUnit: complaint.org_units_complaints_assigned_to_org_unit_idToorg_units
+    assignedToOrganization: complaint.organizations_complaints_assigned_to_organization_idToorganizations
       ? {
-          id: complaint.org_units_complaints_assigned_to_org_unit_idToorg_units.id,
-          name: complaint.org_units_complaints_assigned_to_org_unit_idToorg_units.name,
-          code: complaint.org_units_complaints_assigned_to_org_unit_idToorg_units.code,
+          id: complaint.organizations_complaints_assigned_to_organization_idToorganizations.id,
+          name: complaint.organizations_complaints_assigned_to_organization_idToorganizations.legal_name,
+          code: complaint.organizations_complaints_assigned_to_organization_idToorganizations.code,
         }
       : null,
     categoryItem,
@@ -746,7 +746,7 @@ export const updateComplaintStatus = async (
 
 export interface ComplaintAssignmentInput {
   assigneeUserId?: IdInput;
-  assigneeOrgUnitId?: IdInput;
+  assigneeOrganizationId?: IdInput;
 }
 
 const parseOptionalAssigneeId = (value: IdInput, invalidMessage: string): number | null => {
@@ -765,8 +765,8 @@ export const assignComplaint = async (
   const parsedOrganizationId = requireOrganizationId(organizationId);
   const parsedId = requireComplaintId(id);
   const parsedAssigneeUserId = parseOptionalAssigneeId(assignment?.assigneeUserId, 'المستخدم المعيّن غير صالح');
-  const parsedAssigneeOrgUnitId = parseOptionalAssigneeId(
-    assignment?.assigneeOrgUnitId,
+  const parsedAssigneeOrgNodeId = parseOptionalAssigneeId(
+    assignment?.assigneeOrganizationId,
     'الوحدة التنظيمية المعيّنة غير صالحة'
   );
   const parsedAssignedByUserId = toPositiveInteger(assignedByUserId);
@@ -774,7 +774,7 @@ export const assignComplaint = async (
   return prisma.$transaction(async (tx) => {
     const complaint = await tx.complaints.findFirst({
       where: { id: parsedId, organization_id: parsedOrganizationId },
-      select: { id: true, assigned_to_user_id: true, assigned_to_org_unit_id: true },
+      select: { id: true, assigned_to_user_id: true, assigned_to_organization_id: true },
     });
     if (!complaint) throw new ApiError(404, NOT_FOUND_ERROR);
 
@@ -790,30 +790,18 @@ export const assignComplaint = async (
       if (!assignee) throw new ApiError(422, 'المستخدم المعيّن غير نشط أو لا ينتمي إلى مؤسستك');
     }
 
-    let notifyManagerUserId: number | null = null;
-    if (parsedAssigneeOrgUnitId !== null) {
-      const orgUnit = await tx.org_units.findFirst({
+    if (parsedAssigneeOrgNodeId !== null) {
+      const orgNode = await tx.organizations.findFirst({
         where: {
-          id: parsedAssigneeOrgUnitId,
-          organization_id: parsedOrganizationId,
+          id: parsedAssigneeOrgNodeId,
           is_active: true,
           deleted_at: null,
+          OR: [{ id: parsedOrganizationId }, { root_organization_id: parsedOrganizationId }],
         },
-        select: { id: true, manager_user_id: true },
+        select: { id: true },
       });
-      if (!orgUnit) {
+      if (!orgNode) {
         throw new ApiError(422, 'الوحدة التنظيمية المعيّنة غير نشطة أو لا تنتمي إلى مؤسستك');
-      }
-      if (parsedAssigneeUserId === null && orgUnit.manager_user_id !== null) {
-        const manager = await tx.users.findFirst({
-          where: {
-            id: orgUnit.manager_user_id,
-            is_active: true,
-            user_organizations: { some: { organization_id: parsedOrganizationId, is_active: true } },
-          },
-          select: { id: true },
-        });
-        if (manager) notifyManagerUserId = manager.id;
       }
     }
 
@@ -822,17 +810,17 @@ export const assignComplaint = async (
         id: complaint.id,
         organization_id: parsedOrganizationId,
         assigned_to_user_id: complaint.assigned_to_user_id,
-        assigned_to_org_unit_id: complaint.assigned_to_org_unit_id,
+        assigned_to_organization_id: complaint.assigned_to_organization_id,
       },
       data: {
         assigned_to_user_id: parsedAssigneeUserId,
-        assigned_to_org_unit_id: parsedAssigneeOrgUnitId,
+        assigned_to_organization_id: parsedAssigneeOrgNodeId,
         write_date: new Date(),
       },
     });
     if (updated.count !== 1) throw new ApiError(409, 'تغير تعيين الشكوى قبل إتمام العملية');
 
-    const isUnassigned = parsedAssigneeUserId === null && parsedAssigneeOrgUnitId === null;
+    const isUnassigned = parsedAssigneeUserId === null && parsedAssigneeOrgNodeId === null;
     await recordAuditEvent(tx, {
       organizationId: parsedOrganizationId,
       actorUserId: parsedAssignedByUserId,
@@ -842,28 +830,24 @@ export const assignComplaint = async (
       metadata: {
         previousAssigneeId: complaint.assigned_to_user_id,
         assigneeUserId: parsedAssigneeUserId,
-        previousAssigneeOrgUnitId: complaint.assigned_to_org_unit_id,
-        assigneeOrgUnitId: parsedAssigneeOrgUnitId,
+        previousAssigneeOrganizationId: complaint.assigned_to_organization_id,
+        assigneeOrganizationId: parsedAssigneeOrgNodeId,
       },
     });
 
-    const notifyUserId = parsedAssigneeUserId ?? notifyManagerUserId;
-    if (notifyUserId !== null) {
+    if (parsedAssigneeUserId !== null) {
       await createNotification(tx, {
         organizationId: parsedOrganizationId,
-        userId: notifyUserId,
+        userId: parsedAssigneeUserId,
         notificationType: 'complaint.assigned',
-        title: parsedAssigneeUserId !== null ? 'تم تعيين شكوى لك' : 'تم تعيين شكوى لوحدتك التنظيمية',
-        message:
-          parsedAssigneeUserId !== null
-            ? 'تم تعيين شكوى جديدة لك للمتابعة'
-            : 'تم تعيين شكوى جديدة لوحدتك التنظيمية للمتابعة',
+        title: 'تم تعيين شكوى لك',
+        message: 'تم تعيين شكوى جديدة لك للمتابعة',
         entityType: 'complaint',
         entityId: complaint.id,
         metadata: {
           previousAssigneeId: complaint.assigned_to_user_id,
-          previousAssigneeOrgUnitId: complaint.assigned_to_org_unit_id,
-          assigneeOrgUnitId: parsedAssigneeOrgUnitId,
+          previousAssigneeOrganizationId: complaint.assigned_to_organization_id,
+          assigneeOrganizationId: parsedAssigneeOrgNodeId,
         },
       });
     }

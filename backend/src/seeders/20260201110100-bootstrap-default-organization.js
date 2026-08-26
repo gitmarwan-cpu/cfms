@@ -76,8 +76,8 @@ module.exports = {
 
     await queryInterface.sequelize.query(
       `
-      INSERT INTO user_roles (user_id, role_id, organization_id, org_unit_id, created_at, updated_at)
-      VALUES (:userId, :adminRoleId, :organizationId, NULL, :now, :now);
+      INSERT INTO user_roles (user_id, role_id, organization_id, created_at, updated_at)
+      VALUES (:userId, :adminRoleId, :organizationId, :now, :now);
       `,
       { replacements: { userId, adminRoleId, organizationId, now } }
     );

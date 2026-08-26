@@ -233,7 +233,6 @@ model complaints {
   status                                                                 enum_complaints_status        @default(new)
   consent_given                                                          Boolean                       @default(false)
   assigned_to_user_id                                                    Int?
-  assigned_to_org_unit_id                                                Int?
   assigned_to_organization_id                                            Int?
   sla_rule_id                                                            Int?
   sla_due_at                                                             DateTime?                     @db.Timestamptz(6)
@@ -263,7 +262,6 @@ model complaints {
   complaint_escalation_events                                            complaint_escalation_events[]
   sla_rules                                                              sla_rules?                    @relation(fields: [sla_rule_id], references: [id])
   users_complaints_assigned_to_user_idTousers                            users?                        @relation("complaints_assigned_to_user_idTousers", fields: [assigned_to_user_id], references: [id])
-  org_units_complaints_assigned_to_org_unit_idToorg_units                org_units?                    @relation("complaints_assigned_to_org_unit_idToorg_units", fields: [assigned_to_org_unit_id], references: [id])
   organizations_complaints_assigned_to_organization_idToorganizations    organizations?                @relation("ComplaintsAssignedToOrganization", fields: [assigned_to_organization_id], references: [id], onDelete: Restrict)
   reference_list_items_complaints_category_item_idToreference_list_items reference_list_items          @relation("complaints_category_item_idToreference_list_items", fields: [category_item_id], references: [id])
   reference_list_items_complaints_channel_item_idToreference_list_items  reference_list_items          @relation("complaints_channel_item_idToreference_list_items", fields: [channel_item_id], references: [id])
@@ -276,7 +274,6 @@ model complaints {
   organizations                                                          organizations                 @relation(fields: [organization_id], references: [id])
   workflow_states                                                        workflow_states?              @relation(fields: [workflow_state_id], references: [id])
 
-  @@index([assigned_to_org_unit_id], map: "complaints_assigned_to_org_unit_id")
   @@index([assigned_to_organization_id], map: "complaints_assigned_to_organization_id")
   @@index([category_item_id], map: "complaints_category_item_id")
   @@index([channel_item_id], map: "complaints_channel_item_id")
@@ -406,45 +403,9 @@ model org_unit_types {
   organizations          organizations    @relation("OrgUnitTypesTenantScope", fields: [organization_id], references: [id], onDelete: Cascade)
   root_organization      organizations?   @relation("OrgUnitTypeRootOrganization", fields: [root_organization_id], references: [id], onDelete: Cascade)
   hierarchy_nodes        organizations[]  @relation("OrganizationHierarchyNodeType")
-  org_units              org_units[]
 
   @@unique([organization_id, code], map: "org_unit_types_org_code_unique")
   @@index([root_organization_id], map: "org_unit_types_root_organization_id")
-}
-
-model org_units {
-  id                                                       Int            @id @default(autoincrement())
-  organization_id                                          Int
-  org_unit_type_id                                         Int
-  parent_id                                                Int?
-  name                                                     String         @db.VarChar(200)
-  code                                                     String?        @db.VarChar(60)
-  manager_user_id                                          Int?
-  phone                                                    String?        @db.VarChar(30)
-  email                                                    String?        @db.VarChar(150)
-  address                                                  String?
-  latitude                                                 Decimal?       @db.Decimal(10, 7)
-  longitude                                                Decimal?       @db.Decimal(10, 7)
-  is_active                                                Boolean        @default(true)
-  create_date                                              DateTime       @db.Timestamptz(6)
-  write_date                                               DateTime       @db.Timestamptz(6)
-  deleted_at                                               DateTime?      @db.Timestamptz(6)
-  create_uid                                               Int?
-  write_uid                                                Int?
-  create_user                                              users?         @relation("org_units_create_uidTousers", fields: [create_uid], references: [id], onDelete: SetNull)
-  write_user                                               users?         @relation("org_units_write_uidTousers", fields: [write_uid], references: [id], onDelete: SetNull)
-  users_org_units_manager_user_idTousers                   users?         @relation("org_units_manager_user_idTousers", fields: [manager_user_id], references: [id])
-  org_unit_types                                           org_unit_types @relation(fields: [org_unit_type_id], references: [id])
-  organizations                                            organizations  @relation(fields: [organization_id], references: [id], onDelete: Cascade)
-  org_units                                                org_units?     @relation("org_unitsToorg_units", fields: [parent_id], references: [id], onDelete: Restrict)
-  other_org_units                                          org_units[]    @relation("org_unitsToorg_units")
-  complaints_complaints_assigned_to_org_unit_idToorg_units complaints[]   @relation("complaints_assigned_to_org_unit_idToorg_units")
-  user_roles                                               user_roles[]
-  users_users_org_unit_idToorg_units                       users[]        @relation("users_org_unit_idToorg_units")
-
-  @@index([org_unit_type_id], map: "org_units_org_unit_type_id")
-  @@index([organization_id], map: "org_units_organization_id")
-  @@index([parent_id], map: "org_units_parent_id")
 }
 
 /// This model contains a partial unique index (organizations_slug_root_unique)
@@ -502,7 +463,6 @@ model organizations {
   groups                              groups[]
   org_unit_types                      org_unit_types[]                               @relation("OrgUnitTypesTenantScope")
   org_unit_types_root                 org_unit_types[]                               @relation("OrgUnitTypeRootOrganization")
-  org_units                           org_units[]
   country_ref                         countries?                                     @relation(fields: [country_id], references: [id], onDelete: Restrict)
   governorates                        governorates?                                  @relation(fields: [governorate_id], references: [id])
   districts                           districts?                                     @relation(fields: [district_id], references: [id])
@@ -669,7 +629,6 @@ model user_roles {
   id                   Int            @id @default(autoincrement())
   user_id              Int
   role_id              Int
-  org_unit_id          Int?
   organization_node_id Int?
   create_date          DateTime       @db.Timestamptz(6)
   write_date           DateTime       @db.Timestamptz(6)
@@ -678,7 +637,6 @@ model user_roles {
   organization_id      Int
   create_user          users?         @relation("user_roles_create_uidTousers", fields: [create_uid], references: [id], onDelete: SetNull)
   write_user           users?         @relation("user_roles_write_uidTousers", fields: [write_uid], references: [id], onDelete: SetNull)
-  org_units            org_units?     @relation(fields: [org_unit_id], references: [id], onDelete: Cascade)
   organization_node    organizations? @relation("UserRoleOrganizationNode", fields: [organization_node_id], references: [id], onDelete: Cascade)
   organizations        organizations  @relation(fields: [organization_id], references: [id], onDelete: Cascade)
   roles                roles          @relation(fields: [role_id], references: [id], onDelete: Cascade)
@@ -699,7 +657,6 @@ model users {
   write_date                                       DateTime                      @db.Timestamptz(6)
   create_uid                                       Int?
   write_uid                                        Int?
-  org_unit_id                                      Int?
   primary_organization_node_id                     Int?
   default_organization_id                          Int?
   create_user                                      users?                        @relation("users_create_uidTousers", fields: [create_uid], references: [id], onDelete: SetNull)
@@ -722,8 +679,6 @@ model users {
   groups_written                                   groups[]                      @relation("groups_write_uidTousers")
   org_unit_types_created                           org_unit_types[]              @relation("org_unit_types_create_uidTousers")
   org_unit_types_written                           org_unit_types[]              @relation("org_unit_types_write_uidTousers")
-  org_units_created                                org_units[]                   @relation("org_units_create_uidTousers")
-  org_units_written                                org_units[]                   @relation("org_units_write_uidTousers")
   organizations_created                            organizations[]               @relation("organizations_create_uidTousers")
   organizations_written                            organizations[]               @relation("organizations_write_uidTousers")
   permissions_created                              permissions[]                 @relation("permissions_create_uidTousers")
@@ -750,7 +705,6 @@ model users {
   workflow_transitions_written                     workflow_transitions[]        @relation("workflow_transitions_write_uidTousers")
   complaint_status_history                         complaint_status_history[]
   complaints_complaints_assigned_to_user_idTousers complaints[]                  @relation("complaints_assigned_to_user_idTousers")
-  org_units_org_units_manager_user_idTousers       org_units[]                   @relation("org_units_manager_user_idTousers")
   user_groups                                      user_groups[]
   user_organizations                               user_organizations[]
   user_roles                                       user_roles[]
@@ -759,20 +713,9 @@ model users {
   complaint_escalation_events                      complaint_escalation_events[]
   organizations                                    organizations?                @relation(fields: [default_organization_id], references: [id])
   primary_organization_node                        organizations?                @relation("UserPrimaryOrganizationNode", fields: [primary_organization_node_id], references: [id])
-  org_units_users_org_unit_idToorg_units           org_units?                    @relation("users_org_unit_idToorg_units", fields: [org_unit_id], references: [id])
 
   @@index([default_organization_id], map: "users_default_organization_id")
   @@index([primary_organization_node_id], map: "users_primary_organization_node_id")
-}
-
-/// Phase 1 migration mapping table — populated in Phase 3+. Must remain empty during Phase 1.
-model legacy_org_unit_map {
-  legacy_org_unit_id   Int      @id
-  new_organization_id  Int      @unique
-  root_organization_id Int
-  migrated_at          DateTime @default(now()) @db.Timestamptz(6)
-
-  @@map("_legacy_org_unit_map")
 }
 
 /// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.

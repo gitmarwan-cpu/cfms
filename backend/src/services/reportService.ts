@@ -34,7 +34,6 @@ export const getComplaintSummary = async (organizationId: number, filters: Compl
         OR: [
           { assigned_to_user_id: { not: null } },
           { assigned_to_organization_id: { not: null } },
-          { assigned_to_org_unit_id: { not: null } },
         ],
       },
     }),

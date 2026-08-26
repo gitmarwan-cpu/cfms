@@ -61,7 +61,7 @@ const updateStatusValidation = [
 const assignmentValidation = [
   param('id').isInt({ min: 1 }).withMessage('معرّف الشكوى غير صالح'),
   body('assigneeUserId').optional({ nullable: true }).isInt({ min: 1 }).withMessage('المستخدم المعيّن غير صالح'),
-  body('assigneeOrgUnitId').optional({ nullable: true }).isInt({ min: 1 }).withMessage('الوحدة التنظيمية المعيّنة غير صالحة'),
+  body('assigneeOrganizationId').optional({ nullable: true }).isInt({ min: 1 }).withMessage('الوحدة التنظيمية المعيّنة غير صالحة'),
 ];
 const escalateComplaintValidation = [
   param('id').isInt({ min: 1 }).withMessage('معرّف الشكوى غير صالح'),

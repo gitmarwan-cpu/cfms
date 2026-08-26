@@ -1,6 +1,7 @@
 import { Prisma, enum_organizations_anonymous_complaints_policy } from '@prisma/client';
 import prisma from '../prisma/client';
 import ApiError from '../utils/ApiError';
+import { recordAuditEvent } from './auditService';
 
 export type OrganizationId = string | number;
 
@@ -266,27 +267,46 @@ export const updateOrganization = async (
   } as const;
 
   const idFields = ['country_id', 'governorate_id', 'district_id'];
+  const idLabels: Record<string, string> = {
+    country_id: 'الدولة',
+    governorate_id: 'المحافظة',
+    district_id: 'المديرية',
+  };
 
   for (const [field, databaseField] of Object.entries(fields)) {
     const value = payload[field as keyof OrganizationUpdatePayload];
     if (value !== undefined) {
       if (idFields.includes(databaseField)) {
-        if (value === null || value === '' || value === undefined) {
-          data[databaseField] = null;
-        } else {
-          const parsedId = typeof value === 'number' ? value : Number(value);
-          data[databaseField] = Number.isSafeInteger(parsedId) && parsedId > 0 ? parsedId : null;
-        }
+        data[databaseField] = parseNullableLocationId(
+          value as number | string | null | undefined,
+          idLabels[databaseField]
+        );
       } else {
         data[databaseField] = value;
       }
     }
   }
 
+  if (idFields.some((field) => Object.prototype.hasOwnProperty.call(data, field))) {
+    const nextCountryId = data.country_id === undefined ? organization.country_id : data.country_id as number | null;
+    const nextGovernorateId = data.governorate_id === undefined ? organization.governorate_id : data.governorate_id as number | null;
+    const nextDistrictId = data.district_id === undefined ? organization.district_id : data.district_id as number | null;
+    await validateLocationCombination(nextCountryId, nextGovernorateId, nextDistrictId);
+  }
+
   const updated = await prisma.organizations.update({
     where: { id: parsedOrganizationId as number },
     data: data as Prisma.organizationsUpdateInput,
     select: ORGANIZATION_SELECT,
+  });
+
+  await recordAuditEvent(prisma, {
+    organizationId: parsedOrganizationId,
+    actorUserId: authUserId ?? null,
+    action: 'organization.updated',
+    entityType: 'organization',
+    entityId: updated.id,
+    metadata: { fields: Object.keys(payload) },
   });
 
   return mapOrganization(updated);
@@ -468,6 +488,47 @@ const isDescendantNode = async (possibleAncestorId: number, targetNodeId: number
   return false;
 };
 
+const parseNullableLocationId = (value: number | string | null | undefined, label: string): number | null => {
+  if (value === undefined || value === null || value === '') return null;
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed <= 0) throw new ApiError(422, `${label} المحددة غير صالحة`);
+  return parsed;
+};
+
+const validateLocationCombination = async (
+  countryId: number | null,
+  governorateId: number | null,
+  districtId: number | null
+): Promise<void> => {
+  if (governorateId !== null && countryId === null) {
+    throw new ApiError(422, 'يجب تحديد الدولة مع المحافظة');
+  }
+  if (districtId !== null && governorateId === null) {
+    throw new ApiError(422, 'يجب تحديد المحافظة مع المديرية');
+  }
+
+  if (countryId !== null) {
+    const country = await prisma.countries.findFirst({ where: { id: countryId, is_active: true }, select: { id: true } });
+    if (!country) throw new ApiError(422, 'الدولة المحددة غير صالحة');
+  }
+
+  if (governorateId !== null) {
+    const governorate = await prisma.governorates.findFirst({
+      where: { id: governorateId, country_id: countryId as number, is_active: true },
+      select: { id: true },
+    });
+    if (!governorate) throw new ApiError(422, 'المحافظة المحددة لا تنتمي إلى الدولة المحددة');
+  }
+
+  if (districtId !== null) {
+    const district = await prisma.districts.findFirst({
+      where: { id: districtId, governorate_id: governorateId as number, is_active: true },
+      select: { id: true },
+    });
+    if (!district) throw new ApiError(422, 'المديرية المحددة لا تنتمي إلى المحافظة المحددة');
+  }
+};
+
 export const listOrganizationNodes = async (
   tenantOrgId: OrganizationId
 ): Promise<OrganizationNodeResponse[]> => {
@@ -530,23 +591,10 @@ export const createOrganizationNode = async (
     effectiveParentId = rootOrgId;
   }
 
-  if (payload.countryId) {
-    const cid = Number(payload.countryId);
-    const country = await prisma.countries.findFirst({ where: { id: cid, is_active: true } });
-    if (!country) throw new ApiError(422, 'الدولة المحددة غير صالحة');
-  }
-
-  if (payload.governorateId) {
-    const gid = Number(payload.governorateId);
-    const gov = await prisma.governorates.findFirst({ where: { id: gid, is_active: true } });
-    if (!gov) throw new ApiError(422, 'المحافظة المحددة غير صالحة');
-  }
-
-  if (payload.districtId) {
-    const did = Number(payload.districtId);
-    const dist = await prisma.districts.findFirst({ where: { id: did, is_active: true } });
-    if (!dist) throw new ApiError(422, 'المديرية المحددة غير صالحة');
-  }
+  const countryId = parseNullableLocationId(payload.countryId, 'الدولة');
+  const governorateId = parseNullableLocationId(payload.governorateId, 'المحافظة');
+  const districtId = parseNullableLocationId(payload.districtId, 'المديرية');
+  await validateLocationCombination(countryId, governorateId, districtId);
 
   const now = new Date();
   const slug = `node-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
@@ -559,9 +607,9 @@ export const createOrganizationNode = async (
       parent_id: effectiveParentId,
       root_organization_id: rootOrgId,
       org_unit_type_id: parsedTypeId,
-      country_id: payload.countryId ? Number(payload.countryId) : null,
-      governorate_id: payload.governorateId ? Number(payload.governorateId) : null,
-      district_id: payload.districtId ? Number(payload.districtId) : null,
+      country_id: countryId,
+      governorate_id: governorateId,
+      district_id: districtId,
       phone: payload.phone || null,
       email: payload.email || null,
       address: payload.address || null,
@@ -575,6 +623,15 @@ export const createOrganizationNode = async (
       slug,
     },
     select: NODE_SELECT,
+  });
+
+  await recordAuditEvent(prisma, {
+    organizationId: rootOrgId,
+    actorUserId: authUserId ?? null,
+    action: 'organization_node.created',
+    entityType: 'organization_node',
+    entityId: created.id,
+    metadata: { parentId: created.parent_id, orgUnitTypeId: created.org_unit_type_id },
   });
 
   return mapNode(created);
@@ -595,11 +652,14 @@ export const updateOrganizationNode = async (
 
   const node = await prisma.organizations.findFirst({
     where: { id: parsedNodeId, deleted_at: null },
-    select: { id: true, root_organization_id: true, parent_id: true },
+    select: { id: true, root_organization_id: true, parent_id: true, country_id: true, governorate_id: true, district_id: true },
   });
 
   if (!node || (node.root_organization_id || node.id) !== rootOrgId) {
     throw new ApiError(404, 'الوحدة التنظيمية غير موجودة');
+  }
+  if (parsedNodeId === rootOrgId && payload.isActive === false) {
+    throw new ApiError(400, 'لا يمكن تعطيل المؤسسة الجذرية من مسار الهيكل التنظيمي');
   }
 
   const updateData: Record<string, unknown> = { write_date: new Date() };
@@ -667,43 +727,34 @@ export const updateOrganizationNode = async (
     }
   }
 
-  if (payload.countryId !== undefined) {
-    if (payload.countryId === null || payload.countryId === '') {
-      updateData.country_id = null;
-    } else {
-      const cid = Number(payload.countryId);
-      const country = await prisma.countries.findFirst({ where: { id: cid, is_active: true } });
-      if (!country) throw new ApiError(422, 'الدولة المحددة غير صالحة');
-      updateData.country_id = cid;
-    }
-  }
+  const nextCountryId = payload.countryId !== undefined
+    ? parseNullableLocationId(payload.countryId, 'الدولة')
+    : node.country_id;
+  const nextGovernorateId = payload.governorateId !== undefined
+    ? parseNullableLocationId(payload.governorateId, 'المحافظة')
+    : node.governorate_id;
+  const nextDistrictId = payload.districtId !== undefined
+    ? parseNullableLocationId(payload.districtId, 'المديرية')
+    : node.district_id;
+  await validateLocationCombination(nextCountryId, nextGovernorateId, nextDistrictId);
 
-  if (payload.governorateId !== undefined) {
-    if (payload.governorateId === null || payload.governorateId === '') {
-      updateData.governorate_id = null;
-    } else {
-      const gid = Number(payload.governorateId);
-      const gov = await prisma.governorates.findFirst({ where: { id: gid, is_active: true } });
-      if (!gov) throw new ApiError(422, 'المحافظة المحددة غير صالحة');
-      updateData.governorate_id = gid;
-    }
-  }
-
-  if (payload.districtId !== undefined) {
-    if (payload.districtId === null || payload.districtId === '') {
-      updateData.district_id = null;
-    } else {
-      const did = Number(payload.districtId);
-      const dist = await prisma.districts.findFirst({ where: { id: did, is_active: true } });
-      if (!dist) throw new ApiError(422, 'المديرية المحددة غير صالحة');
-      updateData.district_id = did;
-    }
-  }
+  if (payload.countryId !== undefined) updateData.country_id = nextCountryId;
+  if (payload.governorateId !== undefined) updateData.governorate_id = nextGovernorateId;
+  if (payload.districtId !== undefined) updateData.district_id = nextDistrictId;
 
   const updated = await prisma.organizations.update({
     where: { id: node.id },
     data: updateData,
     select: NODE_SELECT,
+  });
+
+  await recordAuditEvent(prisma, {
+    organizationId: rootOrgId,
+    actorUserId: authUserId ?? null,
+    action: 'organization_node.updated',
+    entityType: 'organization_node',
+    entityId: updated.id,
+    metadata: { fields: Object.keys(payload) },
   });
 
   return mapNode(updated);
@@ -729,6 +780,9 @@ export const deactivateOrganizationNode = async (
   if (!node || (node.root_organization_id || node.id) !== rootOrgId) {
     throw new ApiError(404, 'الوحدة التنظيمية غير موجودة');
   }
+  if (parsedNodeId === rootOrgId) {
+    throw new ApiError(400, 'لا يمكن تعطيل المؤسسة الجذرية من مسار الهيكل التنظيمي');
+  }
 
   const updated = await prisma.organizations.update({
     where: { id: node.id },
@@ -741,6 +795,13 @@ export const deactivateOrganizationNode = async (
     select: NODE_SELECT,
   });
 
+  await recordAuditEvent(prisma, {
+    organizationId: rootOrgId,
+    actorUserId: authUserId ?? null,
+    action: 'organization_node.deactivated',
+    entityType: 'organization_node',
+    entityId: updated.id,
+  });
+
   return mapNode(updated);
 };
-

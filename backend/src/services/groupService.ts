@@ -1,5 +1,7 @@
 import prisma from '../prisma/client';
 import ApiError from '../utils/ApiError';
+import { recordAuditEvent } from './auditService';
+import { throwGroupsFrozen } from './groupLifecycle';
 
 export type OrganizationId = string | number;
 export type GroupId = string | number;
@@ -145,7 +147,12 @@ export const getGroupById = async (organizationId: OrganizationId, id: GroupId):
   return loadGroup(parsedOrganizationId, parsedId);
 };
 
-export const createGroup = async (organizationId: OrganizationId, payload: GroupPayload): Promise<GroupResponse> => {
+export const createGroup = async (
+  organizationId: OrganizationId,
+  payload: GroupPayload,
+  actorUserId?: number | null
+): Promise<GroupResponse> => {
+  throwGroupsFrozen();
   const parsedOrganizationId = toSafeInteger(organizationId);
   if (parsedOrganizationId === null) throw new ApiError(422, 'المؤسسة غير موجودة');
   const existing = await prisma.groups.findFirst({ where: { code: payload.code, organization_id: parsedOrganizationId } });
@@ -169,14 +176,24 @@ export const createGroup = async (organizationId: OrganizationId, payload: Group
   if (Array.isArray(payload.roleIds) && payload.roleIds.length) {
     await assignRolesToGroup(parsedOrganizationId, group.id, payload.roleIds);
   }
+  await recordAuditEvent(prisma, {
+    organizationId: parsedOrganizationId,
+    actorUserId: actorUserId ?? null,
+    action: 'group.created',
+    entityType: 'group',
+    entityId: group.id,
+    metadata: { code: group.code },
+  });
   return loadGroup(parsedOrganizationId, group.id);
 };
 
 export const updateGroup = async (
   organizationId: OrganizationId,
   id: GroupId,
-  payload: GroupUpdatePayload
+  payload: GroupUpdatePayload,
+  actorUserId?: number | null
 ): Promise<GroupResponse> => {
+  throwGroupsFrozen();
   const parsedOrganizationId = toSafeInteger(organizationId);
   const parsedId = toSafeInteger(id);
   const group = parsedId ? await prisma.groups.findUnique({ where: { id: parsedId }, select: GROUP_SELECT }) : null;
@@ -193,10 +210,23 @@ export const updateGroup = async (
   await prisma.groups.update({ where: { id: parsedId as number }, data: data as any });
 
   if (Array.isArray(payload.roleIds)) await assignRolesToGroup(parsedOrganizationId as number, parsedId as number, payload.roleIds);
+  await recordAuditEvent(prisma, {
+    organizationId: parsedOrganizationId,
+    actorUserId: actorUserId ?? null,
+    action: payload.isActive === false ? 'group.deactivated' : 'group.updated',
+    entityType: 'group',
+    entityId: parsedId,
+    metadata: { fields: Object.keys(payload) },
+  });
   return loadGroup(parsedOrganizationId as number, parsedId as number);
 };
 
-export const deleteGroup = async (organizationId: OrganizationId, id: GroupId): Promise<void> => {
+export const deleteGroup = async (
+  organizationId: OrganizationId,
+  id: GroupId,
+  actorUserId?: number | null
+): Promise<void> => {
+  throwGroupsFrozen();
   const parsedOrganizationId = toSafeInteger(organizationId);
   const parsedId = toSafeInteger(id);
   const group = parsedId ? await prisma.groups.findUnique({ where: { id: parsedId }, select: GROUP_SELECT }) : null;
@@ -207,6 +237,13 @@ export const deleteGroup = async (organizationId: OrganizationId, id: GroupId): 
   const membersCount = await prisma.user_groups.count({ where: { group_id: parsedId as number } });
   if (membersCount > 0) throw new ApiError(400, 'لا يمكن حذف مجموعة بها أعضاء حالياً؛ أزل الأعضاء أولاً');
   await prisma.groups.delete({ where: { id: parsedId as number } });
+  await recordAuditEvent(prisma, {
+    organizationId: parsedOrganizationId,
+    actorUserId: actorUserId ?? null,
+    action: 'group.deleted',
+    entityType: 'group',
+    entityId: parsedId,
+  });
 };
 
 export const assignRolesToGroup = async (
@@ -214,6 +251,7 @@ export const assignRolesToGroup = async (
   groupId: GroupId,
   roleIds: Array<string | number>
 ): Promise<GroupResponse> => {
+  throwGroupsFrozen();
   const parsedOrganizationId = toSafeInteger(organizationId);
   const parsedGroupId = toSafeInteger(groupId);
   if (parsedOrganizationId === null || parsedGroupId === null) throw new ApiError(404, 'المجموعة غير موجودة');

@@ -336,11 +336,15 @@ describe('User Administration API', () => {
 
   it('لا يمكن إسناد عقدة تنظيمية تنتمي لمؤسسة أخرى لمستخدم', async () => {
     const orgE = await createOrganization({ legalName: 'مؤسسة عقدة', slug: `tenant-node-org-${Date.now()}` });
-    // orgE.id is a node in another tenant — try to assign it to staffUser
+    const rolesRes = await request(app)
+      .get('/api/roles')
+      .set('Authorization', `Bearer ${adminToken}`);
+    const staffRoleId = rolesRes.body.data.find((role) => role.code === 'staff').id;
+
     const res = await request(app)
-      .put(`/api/users/${staffUser.id}`)
+      .post(`/api/users/${staffUser.id}/roles`)
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ primaryOrganizationNodeId: orgE.id });
+      .send({ roleId: staffRoleId, organizationNodeId: orgE.id });
 
     expect(res.status).toBe(404);
   });

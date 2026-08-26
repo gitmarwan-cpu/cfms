@@ -648,6 +648,42 @@ export const getComplaintById = async (organizationId: IdInput, id: IdInput) => 
   return mapComplaint(complaint, referenceItems);
 };
 
+export const getComplaintTransitions = async (organizationId: IdInput, id: IdInput) => {
+  const parsedOrganizationId = requireOrganizationId(organizationId);
+  const parsedId = requireComplaintId(id);
+  const complaint = await prisma.complaints.findFirst({
+    where: { id: parsedId, organization_id: parsedOrganizationId },
+    select: { id: true, status: true },
+  });
+  if (!complaint) throw new ApiError(404, NOT_FOUND_ERROR);
+
+  const currentWorkflowState = await getWorkflowState(prisma, complaint.status);
+  const transitions = await prisma.workflow_transitions.findMany({
+    where: {
+      workflow_definition_id: currentWorkflowState.definitionId,
+      from_state_id: currentWorkflowState.stateId,
+    },
+    orderBy: { id: 'asc' },
+    select: {
+      id: true,
+      code: true,
+      name_ar: true,
+      name_en: true,
+      workflow_states_workflow_transitions_to_state_idToworkflow_states: {
+        select: { code: true },
+      },
+    },
+  });
+
+  return transitions.map((transition) => ({
+    id: transition.id,
+    code: transition.code,
+    nameAr: transition.name_ar,
+    nameEn: transition.name_en,
+    toStatus: transition.workflow_states_workflow_transitions_to_state_idToworkflow_states.code,
+  }));
+};
+
 export const updateComplaintStatus = async (
   organizationId: IdInput,
   id: IdInput,

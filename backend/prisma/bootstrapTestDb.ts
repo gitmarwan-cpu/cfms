@@ -150,19 +150,7 @@ const main = async (): Promise<void> => {
       });
     }
 
-    // 6. Group / Team
-    let group = await prisma.groups.findFirst({ where: { organization_id: org.id, code: 'test-team' } });
-    if (!group) {
-      group = await prisma.groups.create({
-        data: { organization_id: org.id, code: 'test-team', name_ar: 'فريق الاختبار', name_en: 'Test Team', is_active: true, create_date: now, write_date: now }
-      });
-    }
-    let groupRole = await prisma.group_roles.findFirst({ where: { group_id: group.id, role_id: staffRole.id } });
-    if (!groupRole) {
-      await prisma.group_roles.create({ data: { groups: { connect: { id: group.id } }, roles: { connect: { id: staffRole.id } }, created_at: now } });
-    }
-
-    // 7. Users
+    // 6. Users — direct UserRole assignments are the only RBAC bootstrap path.
     let adminUser = await prisma.users.findUnique({ where: { email: 'admin@test.local' } });
     if (!adminUser) {
       adminUser = await prisma.users.create({
@@ -192,12 +180,7 @@ const main = async (): Promise<void> => {
     if (!staffUserRole) {
       await prisma.user_roles.create({ data: { users: { connect: { id: staffUser.id } }, roles: { connect: { id: staffRole.id } }, organizations: { connect: { id: org.id } }, create_date: now, write_date: now } });
     }
-    let staffUserGroup = await prisma.user_groups.findFirst({ where: { user_id: staffUser.id, group_id: group.id } });
-    if (!staffUserGroup) {
-      await prisma.user_groups.create({ data: { users: { connect: { id: staffUser.id } }, groups: { connect: { id: group.id } }, organizations: { connect: { id: org.id } }, create_date: now, write_date: now } });
-    }
-
-    // 8. SLA Rule
+    // 7. SLA Rule
     let slaRule = await prisma.sla_rules.findFirst({ where: { organization_id: org.id } });
     if (!slaRule) {
       slaRule = await prisma.sla_rules.create({

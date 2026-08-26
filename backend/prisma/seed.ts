@@ -345,14 +345,6 @@ const seedOrgUnitTypes = async (db: Db): Promise<void> => {
   else assertSame({ name_ar: 'قسم', name_en: 'Department', hierarchy_level: 2, allowed_parent_type_id: branch.id, is_active: true }, { name_ar: department.name_ar, name_en: department.name_en, hierarchy_level: department.hierarchy_level, allowed_parent_type_id: department.allowed_parent_type_id, is_active: department.is_active }, 'org unit type department');
 };
 
-const seedSystemGroups = async (db: Db, staffRoleId: number): Promise<void> => {
-  const existing = await db.groups.findFirst({ where: { code: 'complaint_officers', organization_id: null } });
-  const group = existing || await db.groups.create({ data: { code: 'complaint_officers', organization_id: null, name_ar: 'موظفو معالجة الشكاوى', name_en: 'Complaint Officers', description: 'مجموعة جاهزة لفريق استقبال ومعالجة الشكاوى', is_system: true, is_active: true, create_date: now, write_date: now } });
-  if (existing) assertSame({ name_ar: 'موظفو معالجة الشكاوى', name_en: 'Complaint Officers', is_system: true, is_active: true }, { name_ar: existing.name_ar, name_en: existing.name_en, is_system: existing.is_system, is_active: existing.is_active }, 'system group complaint_officers');
-  const mapping = await db.group_roles.findFirst({ where: { group_id: group.id, role_id: staffRoleId } });
-  if (!mapping) await db.group_roles.create({ data: { group_id: group.id, role_id: staffRoleId, created_at: now } });
-};
-
 const seedWorkflow = async (db: Db): Promise<void> => {
   let definition = await db.workflow_definitions.findFirst({ where: { code: 'complaint_default', organization_id: null } });
   if (definition) assertSame({ name_ar: 'سير عمل الشكاوى الافتراضي', name_en: 'Default Complaint Workflow', entity_type: 'complaint', is_active: true }, { name_ar: definition.name_ar, name_en: definition.name_en, entity_type: definition.entity_type, is_active: definition.is_active }, 'workflow complaint_default');
@@ -384,7 +376,6 @@ const runSeed = async (db: Db): Promise<void> => {
   await seedPermissions(db, roles);
   await seedBootstrapOrganization(db, roles.adminId);
   await seedOrgUnitTypes(db);
-  await seedSystemGroups(db, roles.staffId);
   await seedWorkflow(db);
 };
 

@@ -16,7 +16,7 @@
 
 يوفر الـ Core الخدمات والبنية المشتركة التي تعتمد عليها وحدات الأعمال، مثل:
 
-* المؤسسات والفروع والوحدات التنظيمية.
+* المؤسسات والعقد التنظيمية الهرمية.
 * المستخدمين والأدوار والصلاحيات.
 * العزل بين المؤسسات.
 * البيانات المرجعية.
@@ -36,8 +36,8 @@
 * **Backend:** Node.js, Express, TypeScript.
 * **ORM:** Prisma.
 * **Database:** PostgreSQL (`cfms_db`).
-* **Validation:** Zod.
-* **Frontend:** React, TypeScript, Vite, Tailwind CSS, Zustand, React Router.
+* **Validation:** express-validator.
+* **Frontend:** React, TypeScript, Vite, React Router, React Context, and CSS.
 
 ## Multi-Tenant Architecture
 
@@ -118,20 +118,18 @@ Prisma هي طبقة الوصول إلى قاعدة البيانات والـ OR
 
 ## RBAC
 
-تدعم المنصة مسارين لإسناد الصلاحيات:
+يعتمد التفويض الفعّال في المنصة مساراً واحداً لإسناد الصلاحيات:
 
 ```text
 User → Role
 ```
 
-و:
-
 ```text
-User → Group → Role
+User → UserRole → Role → Permission
 ```
 
-ويُستخدم نموذج **Template + Override** للسماح بأدوار وصلاحيات مشتركة مع
-إمكانية تخصيصها على مستوى المؤسسة.
+تظل جداول Groups وGroupRoles وUserGroups محفوظة مؤقتاً كبيانات توافقية
+مجمّدة للقراءة والتدقيق والترحيل، ولا تدخل في حساب الصلاحيات.
 
 التفاصيل الكاملة لقواعد RBAC موجودة في:
 
@@ -249,7 +247,6 @@ CFMS
 * Notification Engine.
 * Dashboard/Reporting Engine.
 * Assignment متقدم للأقسام والفرق.
-* Group inheritance.
 * Refresh Tokens.
 * Audit Trail عام كامل.
 

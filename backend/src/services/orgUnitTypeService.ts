@@ -1,6 +1,7 @@
 import type { Prisma } from '@prisma/client';
 import prisma from '../prisma/client';
 import ApiError from '../utils/ApiError';
+import { recordAuditEvent } from './auditService';
 
 export type OrganizationId = string | number;
 export type OrgUnitTypeId = string | number;
@@ -108,7 +109,8 @@ export const listTypes = async (organizationId: OrganizationId): Promise<OrgUnit
 
 export const createType = async (
   organizationId: OrganizationId,
-  payload: OrgUnitTypePayload
+  payload: OrgUnitTypePayload,
+  authUserId?: number | null
 ): Promise<OrgUnitTypeResponse> => {
   const parsedOrganizationId = toSafeInteger(organizationId);
   if (parsedOrganizationId === null) throw new ApiError(422, TYPE_NOT_FOUND);
@@ -148,13 +150,23 @@ export const createType = async (
     select: TYPE_SELECT,
   });
 
+  await recordAuditEvent(prisma, {
+    organizationId: parsedOrganizationId,
+    actorUserId: authUserId ?? null,
+    action: 'org_unit_type.created',
+    entityType: 'org_unit_type',
+    entityId: type.id,
+    metadata: { code: type.code },
+  });
+
   return mapType(type);
 };
 
 export const updateType = async (
   organizationId: OrganizationId,
   typeId: OrgUnitTypeId,
-  payload: OrgUnitTypeUpdatePayload
+  payload: OrgUnitTypeUpdatePayload,
+  authUserId?: number | null
 ): Promise<OrgUnitTypeResponse> => {
   const parsedOrganizationId = toSafeInteger(organizationId);
   const parsedTypeId = toSafeInteger(typeId);
@@ -190,6 +202,15 @@ export const updateType = async (
     where: { id: parsedTypeId as number },
     data: data as Parameters<typeof prisma.org_unit_types.update>[0]['data'],
     select: TYPE_SELECT,
+  });
+
+  await recordAuditEvent(prisma, {
+    organizationId: parsedOrganizationId,
+    actorUserId: authUserId ?? null,
+    action: payload.isActive === false ? 'org_unit_type.deactivated' : 'org_unit_type.updated',
+    entityType: 'org_unit_type',
+    entityId: updated.id,
+    metadata: { fields: Object.keys(payload) },
   });
 
   return mapType(updated);

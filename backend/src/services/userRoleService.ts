@@ -103,10 +103,15 @@ export const assignRole = async (
 
   if (payload.organizationNodeId) {
     const node = await prisma.organizations.findFirst({
-      where: { id: parsedOrganizationNodeId as number, deleted_at: null },
+      where: {
+        id: parsedOrganizationNodeId as number,
+        is_active: true,
+        deleted_at: null,
+        OR: [{ id: parsedOrganizationId as number }, { root_organization_id: parsedOrganizationId as number }],
+      },
       select: { id: true },
     });
-    if (!node) throw new ApiError(404, 'الوحدة التنظيمية غير موجودة ضمن مؤسستك');
+    if (!node) throw new ApiError(404, 'الوحدة التنظيمية غير موجودة أو غير مفعّلة ضمن مؤسستك');
   }
 
   const existing = await prisma.user_roles.findFirst({

@@ -1,5 +1,6 @@
 import prisma from '../prisma/client';
 import ApiError from '../utils/ApiError';
+import { recordAuditEvent } from './auditService';
 
 export type OrganizationId = string | number;
 export type RoleId = string | number;
@@ -167,7 +168,11 @@ export const getRoleById = async (organizationId: OrganizationId, id: RoleId): P
   return loadRole(parsedOrganizationId, parsedId);
 };
 
-export const createRole = async (organizationId: OrganizationId, payload: RolePayload): Promise<RoleResponse> => {
+export const createRole = async (
+  organizationId: OrganizationId,
+  payload: RolePayload,
+  actorUserId?: number | null
+): Promise<RoleResponse> => {
   const parsedOrganizationId = toSafeInteger(organizationId);
   if (parsedOrganizationId === null) throw new ApiError(422, 'المؤسسة غير موجودة');
   const existing = await prisma.roles.findFirst({ where: { code: payload.code, organization_id: parsedOrganizationId } });
@@ -191,13 +196,22 @@ export const createRole = async (organizationId: OrganizationId, payload: RolePa
   if (Array.isArray(payload.permissionIds) && payload.permissionIds.length) {
     await replaceRolePermissions(role.id, payload.permissionIds.map((id) => toSafeInteger(id) as number));
   }
+  await recordAuditEvent(prisma, {
+    organizationId: parsedOrganizationId,
+    actorUserId: actorUserId ?? null,
+    action: 'role.created',
+    entityType: 'role',
+    entityId: role.id,
+    metadata: { code: role.code },
+  });
   return loadRole(parsedOrganizationId, role.id);
 };
 
 export const updateRole = async (
   organizationId: OrganizationId,
   id: RoleId,
-  payload: RoleUpdatePayload
+  payload: RoleUpdatePayload,
+  actorUserId?: number | null
 ): Promise<RoleResponse> => {
   const parsedOrganizationId = toSafeInteger(organizationId);
   const parsedId = toSafeInteger(id);
@@ -219,10 +233,22 @@ export const updateRole = async (
   if (Array.isArray(payload.permissionIds)) {
     await replaceRolePermissions(parsedId as number, payload.permissionIds.map((permissionId) => toSafeInteger(permissionId) as number));
   }
+  await recordAuditEvent(prisma, {
+    organizationId: parsedOrganizationId,
+    actorUserId: actorUserId ?? null,
+    action: payload.isActive === false ? 'role.deactivated' : 'role.updated',
+    entityType: 'role',
+    entityId: parsedId,
+    metadata: { fields: Object.keys(payload) },
+  });
   return loadRole(parsedOrganizationId as number, parsedId as number);
 };
 
-export const deleteRole = async (organizationId: OrganizationId, id: RoleId): Promise<void> => {
+export const deleteRole = async (
+  organizationId: OrganizationId,
+  id: RoleId,
+  actorUserId?: number | null
+): Promise<void> => {
   const parsedOrganizationId = toSafeInteger(organizationId);
   const parsedId = toSafeInteger(id);
   const role = parsedId ? await prisma.roles.findUnique({ where: { id: parsedId }, select: ROLE_SELECT }) : null;
@@ -236,6 +262,13 @@ export const deleteRole = async (organizationId: OrganizationId, id: RoleId): Pr
     throw new ApiError(400, 'لا يمكن حذف دور مُسند حالياً لمستخدمين؛ ألغِ التعيينات أولاً');
   }
   await prisma.roles.delete({ where: { id: parsedId as number } });
+  await recordAuditEvent(prisma, {
+    organizationId: parsedOrganizationId,
+    actorUserId: actorUserId ?? null,
+    action: 'role.deleted',
+    entityType: 'role',
+    entityId: parsedId,
+  });
 };
 
 export const listPermissions = async (): Promise<PermissionResponse[]> => {

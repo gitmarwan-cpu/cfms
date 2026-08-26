@@ -4,6 +4,7 @@ require('./setup');
 const request = require('supertest');
 const app = require('../src/app');
 const prisma = require('../src/prisma/client');
+const { createUserWithRole, createOrganization } = require('./setup');
 
 describe('Complaints API (Public Portal)', () => {
   let governorateId;
@@ -225,5 +226,106 @@ describe('Complaints API (Public Portal)', () => {
     expect(okRes.status).toBe(200);
     expect(okRes.body.data.status).toBe('new');
     expect(okRes.body.data).not.toHaveProperty('assignedTo');
+  });
+});
+
+describe('Complaint assignment API', () => {
+  let organization;
+  let adminToken;
+  let unauthorizedToken;
+  let complaintId;
+  let assigneeUserId;
+  let organizationNodeId;
+
+  beforeAll(async () => {
+    organization = await createOrganization({ legalName: 'مؤسسة اختبار التعيين', slug: `test-org-assignment-${Date.now()}` });
+
+    const { user: adminUser } = await createUserWithRole(
+      { fullName: 'مدير التعيين', email: `assignment.admin.${Date.now()}@cfms.local`, roleCode: 'admin', organizationId: organization.id },
+      'Password123'
+    );
+    const { user: assigneeUser } = await createUserWithRole(
+      { fullName: 'موظف التعيين', email: `assignment.staff.${Date.now()}@cfms.local`, roleCode: 'staff', organizationId: organization.id },
+      'Password123'
+    );
+    const { user: unauthorizedUser } = await createUserWithRole(
+      { fullName: 'مستخدم بلا صلاحية تعيين', email: `assignment.unauthorized.${Date.now()}@cfms.local`, roleCode: 'staff', organizationId: organization.id },
+      'Password123'
+    );
+    assigneeUserId = assigneeUser.id;
+
+    const adminLogin = await request(app).post('/api/auth/login').send({ email: adminUser.email, password: 'Password123' });
+    adminToken = adminLogin.body.data.token;
+    const unauthorizedLogin = await request(app).post('/api/auth/login').send({ email: unauthorizedUser.email, password: 'Password123' });
+    unauthorizedToken = unauthorizedLogin.body.data.token;
+
+    const typeResponse = await request(app)
+      .post('/api/org-structure/unit-types')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ code: `assignment_node_${Date.now()}`, nameAr: 'وحدة التعيين', hierarchyLevel: 1 });
+    const nodeResponse = await request(app)
+      .post('/api/organization/nodes')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ name: 'وحدة معالجة الشكاوى', orgUnitTypeId: typeResponse.body.data.id });
+    organizationNodeId = nodeResponse.body.data.id;
+
+    const district = await prisma.districts.findFirst({ where: { governorate_id: organization.governorate_id } });
+    const complaintResponse = await request(app)
+      .post(`/api/public/${organization.slug}/complaints`)
+      .field('type', 'complaint')
+      .field('isAnonymous', 'true')
+      .field('governorateId', String(organization.governorate_id))
+      .field('districtId', String(district.id))
+      .field('category', 'service_quality')
+      .field('description', 'شكوى اختبارية لمسار التعيين الإداري')
+      .field('consentGiven', 'true');
+    complaintId = complaintResponse.body.data.id;
+  });
+
+  it('يعيد الانتقالات المسموحة فعلياً للحالة الحالية فقط', async () => {
+    const response = await request(app)
+      .get(`/api/complaints/${complaintId}/transitions`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.map((transition) => transition.toStatus)).toEqual(['in_review', 'rejected']);
+    expect(response.body.data.every((transition) => transition.nameAr && transition.code)).toBe(true);
+  });
+
+  it('يرفض قراءة الانتقالات لمن لا يملك صلاحية تغيير الحالة', async () => {
+    const response = await request(app)
+      .get(`/api/complaints/${complaintId}/transitions`)
+      .set('Authorization', `Bearer ${unauthorizedToken}`);
+
+    expect(response.status).toBe(403);
+  });
+
+  it('يسمح للمستخدم المخول بتعيين الشكوى لمستخدم', async () => {
+    const response = await request(app)
+      .patch(`/api/complaints/${complaintId}/assignment`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ assigneeUserId, assigneeOrganizationId: null });
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.assignedTo.id).toBe(assigneeUserId);
+  });
+
+  it('يسمح للمستخدم المخول بتعيين الشكوى لوحدة تنظيمية canonical', async () => {
+    const response = await request(app)
+      .patch(`/api/complaints/${complaintId}/assignment`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ assigneeUserId: null, assigneeOrganizationId: organizationNodeId });
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.assignedToOrganization.id).toBe(organizationNodeId);
+  });
+
+  it('يرفض التعيين لمستخدم لا يملك صلاحية complaints.assign', async () => {
+    const response = await request(app)
+      .patch(`/api/complaints/${complaintId}/assignment`)
+      .set('Authorization', `Bearer ${unauthorizedToken}`)
+      .send({ assigneeUserId, assigneeOrganizationId: null });
+
+    expect(response.status).toBe(403);
   });
 });

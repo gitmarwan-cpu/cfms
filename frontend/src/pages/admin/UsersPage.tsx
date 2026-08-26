@@ -51,19 +51,22 @@ export default function UsersPage() {
   const canView = orgId !== null && hasPermission('users.view', orgId);
   const canManage = orgId !== null && hasPermission('users.manage', orgId);
 
-  // ── Reference data (roles / groups) ───────────────────────────────────────
+  const canViewGroups = orgId !== null && hasPermission('groups.view', orgId);
+
+  // ── Reference data (roles / legacy groups) ────────────────────────────────
   const [roles, setRoles] = useState<Role[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
 
   useEffect(() => {
     let mounted = true;
-    Promise.all([fetchRoles(), fetchGroups()])
-      .then(([r, g]) => {
-        if (mounted) { setRoles(r); setGroups(g); }
-      })
-      .catch(() => { /* non-fatal: panels remain empty */ });
+    fetchRoles().then((r) => { if (mounted) setRoles(r); }).catch(() => { /* detail access reports failures */ });
+    if (canViewGroups) {
+      fetchGroups().then((g) => { if (mounted) setGroups(g); }).catch(() => { /* legacy panel remains empty */ });
+    } else {
+      setGroups([]);
+    }
     return () => { mounted = false; };
-  }, []);
+  }, [canViewGroups]);
 
   // ── User list state ────────────────────────────────────────────────────────
   const [users, setUsers] = useState<ManagedUser[]>([]);
@@ -128,7 +131,10 @@ export default function UsersPage() {
     setAccessError('');
     setMobileDetailOpen(true);
     setAccessLoading(true);
-    Promise.all([fetchUserRoles(u.id), fetchUserGroups(u.id)])
+    Promise.all([
+      fetchUserRoles(u.id),
+      canViewGroups ? fetchUserGroups(u.id) : Promise.resolve([]),
+    ])
       .then(([r, g]) => { setUserRoles(r); setUserGroups(g); })
       .catch((err: ApiClientError) => {
         setUserRoles([]);
@@ -136,7 +142,7 @@ export default function UsersPage() {
         setAccessError(err.message || 'تعذر تحميل أدوار المستخدم ومجموعاته.');
       })
       .finally(() => setAccessLoading(false));
-  }, []);
+  }, [canViewGroups]);
 
   const refreshSelectedUser = useCallback((userId: number) => {
     fetchUser(userId)
@@ -150,11 +156,14 @@ export default function UsersPage() {
   const refreshAccess = useCallback((userId: number) => {
     setAccessLoading(true);
     setAccessError('');
-    Promise.all([fetchUserRoles(userId), fetchUserGroups(userId)])
+    Promise.all([
+      fetchUserRoles(userId),
+      canViewGroups ? fetchUserGroups(userId) : Promise.resolve([]),
+    ])
       .then(([r, g]) => { setUserRoles(r); setUserGroups(g); })
       .catch((err: ApiClientError) => setAccessError(err.message || 'تعذر تحميل أدوار المستخدم.'))
       .finally(() => setAccessLoading(false));
-  }, []);
+  }, [canViewGroups]);
 
   const clearSelection = () => {
     setSelectedUser(null);
@@ -439,6 +448,7 @@ export default function UsersPage() {
               user={selectedUser}
               roles={roles}
               groups={groups}
+              canViewGroups={canViewGroups}
               userRoles={userRoles}
               userGroups={userGroups}
               accessLoading={accessLoading}
@@ -504,6 +514,7 @@ interface UserDetailPanelProps {
   user: ManagedUser;
   roles: Role[];
   groups: Group[];
+  canViewGroups: boolean;
   userRoles: UserRoleAssignment[];
   userGroups: UserGroupAssignment[];
   accessLoading: boolean;
@@ -525,6 +536,7 @@ function UserDetailPanel({
   user,
   roles,
   groups,
+  canViewGroups,
   userRoles,
   userGroups,
   accessLoading,
@@ -619,7 +631,7 @@ function UserDetailPanel({
         </div>
       </div>
 
-      {/* Roles and Groups */}
+      {/* Direct roles plus the legacy Groups compatibility panel */}
       {accessLoading ? (
         <div className="admin-detail-grid">
           {[0, 1].map((i) => (
@@ -641,7 +653,7 @@ function UserDetailPanel({
             onAssign={onAssignRole}
             onRevoke={onRevokeRole}
           />
-          <UserGroupsPanel
+          {canViewGroups && <UserGroupsPanel
             key={`groups-${user.id}`}
             groups={groups}
             assignments={userGroups}
@@ -650,7 +662,7 @@ function UserDetailPanel({
             canManage={canManage}
             onAdd={onAddGroup}
             onRemove={onRemoveGroup}
-          />
+          />}
         </div>
       )}
     </div>

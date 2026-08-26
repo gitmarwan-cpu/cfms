@@ -1,5 +1,6 @@
 import prisma from '../prisma/client';
 import ApiError from '../utils/ApiError';
+import { throwGroupsFrozen } from './groupLifecycle';
 
 export type OrganizationId = string | number;
 export type UserId = string | number;
@@ -63,6 +64,7 @@ export const addUserToGroup = async (
   organizationId: OrganizationId,
   payload: { userId: UserId; groupId: GroupId }
 ) => {
+  throwGroupsFrozen();
   const parsedOrganizationId = toSafeInteger(organizationId);
   const parsedUserId = toSafeInteger(payload.userId);
   const parsedGroupId = toSafeInteger(payload.groupId);
@@ -103,6 +105,7 @@ export const addUserToGroup = async (
 };
 
 export const removeUserFromGroup = async (organizationId: OrganizationId, userGroupId: UserGroupId): Promise<void> => {
+  throwGroupsFrozen();
   const parsedOrganizationId = toSafeInteger(organizationId);
   const parsedUserGroupId = toSafeInteger(userGroupId);
   const userGroup = parsedOrganizationId && parsedUserGroupId

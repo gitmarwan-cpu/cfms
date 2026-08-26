@@ -15,8 +15,10 @@ describe('Prisma identity and RBAC services', () => {
   let admin;
   let staff;
   let permission;
+  let groupOnlyPermission;
   let adminRole;
   let customRole;
+  let groupOnlyRole;
   let group;
 
   beforeAll(async () => {
@@ -87,6 +89,15 @@ describe('Prisma identity and RBAC services', () => {
         write_date: now,
       },
     });
+    groupOnlyPermission = await prisma.permissions.create({
+      data: {
+        code: 'identity.group_only',
+        module: 'identity',
+        description_ar: 'Group-only regression permission',
+        create_date: now,
+        write_date: now,
+      },
+    });
     adminRole = await prisma.roles.create({
       data: {
         code: 'admin',
@@ -109,13 +120,36 @@ describe('Prisma identity and RBAC services', () => {
         write_date: now,
       },
     });
+    groupOnlyRole = await prisma.roles.create({
+      data: {
+        code: 'identity_group_only',
+        name_ar: 'Identity Group Only',
+        is_system: false,
+        is_active: true,
+        organization_id: organization.id,
+        create_date: now,
+        write_date: now,
+      },
+    });
     await prisma.role_permissions.create({
       data: { role_id: customRole.id, permission_id: permission.id, created_at: now },
+    });
+    await prisma.role_permissions.create({
+      data: { role_id: groupOnlyRole.id, permission_id: groupOnlyPermission.id, created_at: now },
     });
     await prisma.user_roles.create({
       data: {
         user_id: admin.id,
         role_id: adminRole.id,
+        organization_id: organization.id,
+        create_date: now,
+        write_date: now,
+      },
+    });
+    await prisma.user_roles.create({
+      data: {
+        user_id: staff.id,
+        role_id: customRole.id,
         organization_id: organization.id,
         create_date: now,
         write_date: now,
@@ -133,7 +167,7 @@ describe('Prisma identity and RBAC services', () => {
       },
     });
     await prisma.group_roles.create({
-      data: { group_id: group.id, role_id: customRole.id, created_at: now },
+      data: { group_id: group.id, role_id: groupOnlyRole.id, created_at: now },
     });
     await prisma.user_groups.create({
       data: {
@@ -156,8 +190,9 @@ describe('Prisma identity and RBAC services', () => {
     expect(login.user).not.toHaveProperty('passwordHash');
     expect(login.user.roleCodes).toContain('admin');
 
-    expect(await rbacService.getEffectiveRoleCodes(staff.id)).toContain('identity_viewer');
+    expect(await rbacService.getEffectiveRoleCodes(staff.id)).toEqual(['identity_viewer']);
     expect(await rbacService.userHasPermission(staff.id, 'identity.test')).toBe(true);
+    expect(await rbacService.userHasPermission(staff.id, 'identity.group_only')).toBe(false);
     expect(await rbacService.getEffectivePermissions(staff.id)).toEqual([
       { code: 'identity.test', organizationId: organization.id, orgUnitId: null },
     ]);
@@ -165,7 +200,7 @@ describe('Prisma identity and RBAC services', () => {
 
   it('lists and manages roles with permission replacement and isolation', async () => {
     const roles = await roleService.listRoles(String(organization.id));
-    expect(roles.map((role) => role.code)).toEqual(['admin', 'identity_viewer']);
+    expect(roles.map((role) => role.code)).toEqual(['admin', 'identity_viewer', 'identity_group_only']);
     expect((await roleService.getRoleById(organization.id, String(customRole.id))).permissions[0].code).toBe('identity.test');
 
     const created = await roleService.createRole(organization.id, {
@@ -173,6 +208,9 @@ describe('Prisma identity and RBAC services', () => {
       nameAr: 'Temporary Role',
       permissionIds: [String(permission.id)],
     });
+    await expect(prisma.audit_logs.findFirst({
+      where: { organization_id: organization.id, action: 'role.created', entity_id: created.id },
+    })).resolves.not.toBeNull();
     const updated = await roleService.updateRole(organization.id, created.id, {
       nameAr: 'Updated Role',
       permissionIds: [],
@@ -182,22 +220,24 @@ describe('Prisma identity and RBAC services', () => {
     await expect(roleService.getRoleById(organization.id, created.id)).rejects.toMatchObject({ statusCode: 404 });
   });
 
-  it('manages groups and validates system/custom role scope', async () => {
+  it('keeps legacy group records readable while freezing Group mutations', async () => {
     const listed = await groupService.listGroups(organization.id);
-    expect(listed[0].roles[0]).toMatchObject({ code: 'identity_viewer' });
+    expect(listed[0].roles[0]).toMatchObject({ code: 'identity_group_only' });
 
-    const created = await groupService.createGroup(organization.id, {
+    await expect(groupService.createGroup(organization.id, {
       code: 'temporary_group',
       nameAr: 'Temporary Group',
       roleIds: [String(customRole.id)],
-    });
-    expect(created.roles[0].code).toBe('identity_viewer');
-    const updated = await groupService.updateGroup(organization.id, created.id, { nameAr: 'Updated Group', roleIds: [] });
-    expect(updated).toMatchObject({ nameAr: 'Updated Group', roles: [] });
-    await groupService.deleteGroup(organization.id, created.id);
+    })).rejects.toMatchObject({ statusCode: 410 });
+    await expect(groupService.updateGroup(organization.id, group.id, { nameAr: 'Updated Group' }))
+      .rejects.toMatchObject({ statusCode: 410 });
+    await expect(groupService.deleteGroup(organization.id, group.id))
+      .rejects.toMatchObject({ statusCode: 410 });
+    await expect(groupService.assignRolesToGroup(organization.id, group.id, [customRole.id]))
+      .rejects.toMatchObject({ statusCode: 410 });
   });
 
-  it('preserves tenant-scoped user role and group operations', async () => {
+  it('preserves direct tenant-scoped user roles while keeping Group membership read-only', async () => {
     const userRoles = await userRoleService.listUserRoles(organization.id, String(admin.id));
     expect(userRoles[0].role.code).toBe('admin');
 
@@ -210,10 +250,9 @@ describe('Prisma identity and RBAC services', () => {
 
     const userGroups = await userGroupService.listUserGroups(String(organization.id), staff.id);
     expect(userGroups[0].group.code).toBe('identity_viewers');
-    const extraGroup = await groupService.createGroup(organization.id, { code: 'extra_group', nameAr: 'Extra Group' });
-    const membership = await userGroupService.addUserToGroup(organization.id, { userId: staff.id, groupId: extraGroup.id });
-    expect(membership.group.code).toBe('extra_group');
-    await userGroupService.removeUserFromGroup(organization.id, membership.id);
-    await groupService.deleteGroup(organization.id, extraGroup.id);
+    await expect(userGroupService.addUserToGroup(organization.id, { userId: staff.id, groupId: group.id }))
+      .rejects.toMatchObject({ statusCode: 410 });
+    await expect(userGroupService.removeUserFromGroup(organization.id, userGroups[0].id))
+      .rejects.toMatchObject({ statusCode: 410 });
   });
 });

@@ -45,6 +45,34 @@ describe('Organization Settings API', () => {
     expect(res.status).toBe(200);
     expect(res.body.data.primaryColor).toBe('#123456');
     expect(res.body.data.shortName).toBe('NewShort');
+
+    const audit = await prisma.audit_logs.findFirst({
+      where: { organization_id: organization.id, action: 'organization.updated', entity_id: organization.id },
+      orderBy: { created_at: 'desc' },
+    });
+    expect(audit).not.toBeNull();
+  });
+
+  it('يرفض ربط المؤسسة بمحافظة لا تنتمي إلى الدولة المحددة', async () => {
+    const otherCountry = await prisma.countries.create({
+      data: {
+        iso2: 'ZZ',
+        iso3: 'ZZZ',
+        name_ar: 'دولة اختبارية',
+        name_en: 'Test Country',
+        create_date: new Date(),
+        write_date: new Date(),
+      },
+    });
+    const ibb = await prisma.governorates.findFirst({ where: { name_en: 'Ibb' } });
+
+    const res = await request(app)
+      .put('/api/organization')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ countryId: otherCountry.id, governorateId: ibb.id });
+
+    expect(res.status).toBe(422);
+    expect(res.body.message).toContain('لا تنتمي');
   });
 
   it('يرفض تحديث الألوان بصيغة hex غير صالحة', async () => {
@@ -52,6 +80,15 @@ describe('Organization Settings API', () => {
       .put('/api/organization')
       .set('Authorization', `Bearer ${adminToken}`)
       .send({ primaryColor: 'not-a-color' });
+    expect(res.status).toBe(422);
+  });
+
+  it('يرفض معرّف الموقع الجغرافي غير الصالح بدلاً من تحويله إلى قيمة فارغة', async () => {
+    const res = await request(app)
+      .put('/api/organization')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ countryId: 'not-an-id' });
+
     expect(res.status).toBe(422);
   });
 });
@@ -109,6 +146,9 @@ describe('Organization Hierarchy Nodes API (Unified organizations table)', () =>
   let rootNodeA;
   let childNodeA;
   let grandChildNodeA;
+  let alternateCountry;
+  let alternateGovernorate;
+  let alternateDistrict;
 
   beforeAll(async () => {
     orgA = await createOrganization({ legalName: 'مؤسسة (أ) للربط الهيكلي', slug: `org-nodes-a-${Date.now()}` });
@@ -140,6 +180,34 @@ describe('Organization Hierarchy Nodes API (Unified organizations table)', () =>
       .set('Authorization', `Bearer ${adminTokenB}`)
       .send({ code: `type_b_${Date.now()}`, nameAr: 'فرع ب', hierarchyLevel: 1 });
     unitTypeB = typeResB.body.data.id;
+
+    alternateCountry = await prisma.countries.create({
+      data: {
+        iso2: `Z${String(Date.now()).slice(-1)}`,
+        name_ar: 'دولة اختبارية',
+        name_en: 'Test Country',
+        create_date: new Date(),
+        write_date: new Date(),
+      },
+    });
+    alternateGovernorate = await prisma.governorates.create({
+      data: {
+        name_ar: 'محافظة اختبارية',
+        name_en: `Test Governorate ${Date.now()}`,
+        country_id: alternateCountry.id,
+        create_date: new Date(),
+        write_date: new Date(),
+      },
+    });
+    alternateDistrict = await prisma.districts.create({
+      data: {
+        name_ar: 'مديرية اختبارية',
+        name_en: `Test District ${Date.now()}`,
+        governorate_id: alternateGovernorate.id,
+        create_date: new Date(),
+        write_date: new Date(),
+      },
+    });
   });
 
   it('يرفض إنشاء عقدة بنوع وحدة غير صالح بالنسبة للمؤسسة', async () => {
@@ -161,6 +229,47 @@ describe('Organization Hierarchy Nodes API (Unified organizations table)', () =>
     expect(res.body.data.name).toBe('المقر الرئيسي - صنعاء');
     expect(res.body.data.rootOrganizationId).toBe(orgA.id);
     rootNodeA = res.body.data;
+  });
+
+  it('ينشئ عقدة بقيم جغرافية مترابطة ويرجع المعرفات الرقمية', async () => {
+    const country = await prisma.countries.findFirst({ where: { iso2: 'YE' } });
+    const governorate = await prisma.governorates.findFirst({ where: { name_en: 'Ibb' } });
+    const district = await prisma.districts.findFirst({ where: { name_en: 'Yarim' } });
+
+    const res = await request(app)
+      .post('/api/organization/nodes')
+      .set('Authorization', `Bearer ${adminTokenA}`)
+      .send({ name: 'وحدة بموقع صحيح', orgUnitTypeId: unitTypeA, countryId: country.id, governorateId: governorate.id, districtId: district.id });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.countryId).toBe(country.id);
+    expect(res.body.data.governorateId).toBe(governorate.id);
+    expect(res.body.data.districtId).toBe(district.id);
+  });
+
+  it('يرفض محافظة لا تنتمي إلى الدولة المحددة', async () => {
+    const country = await prisma.countries.findFirst({ where: { iso2: 'YE' } });
+
+    const res = await request(app)
+      .post('/api/organization/nodes')
+      .set('Authorization', `Bearer ${adminTokenA}`)
+      .send({ name: 'موقع غير متسق', orgUnitTypeId: unitTypeA, countryId: country.id, governorateId: alternateGovernorate.id });
+
+    expect(res.status).toBe(422);
+    expect(res.body.message).toContain('لا تنتمي');
+  });
+
+  it('يرفض مديرية لا تنتمي إلى المحافظة المحددة', async () => {
+    const country = await prisma.countries.findFirst({ where: { iso2: 'YE' } });
+    const governorate = await prisma.governorates.findFirst({ where: { name_en: 'Ibb' } });
+
+    const res = await request(app)
+      .post('/api/organization/nodes')
+      .set('Authorization', `Bearer ${adminTokenA}`)
+      .send({ name: 'مديرية غير متسقة', orgUnitTypeId: unitTypeA, countryId: country.id, governorateId: governorate.id, districtId: alternateDistrict.id });
+
+    expect(res.status).toBe(422);
+    expect(res.body.message).toContain('لا تنتمي');
   });
 
   it('ينشئ عقدة فرعية تابعة للفرع الرئيسي بنجاح', async () => {
@@ -215,6 +324,19 @@ describe('Organization Hierarchy Nodes API (Unified organizations table)', () =>
     expect(res.status).toBe(422);
   });
 
+  it('يحمي المؤسسة الجذرية من التعطيل عبر مسار العقد التنظيمية', async () => {
+    const deactivateRes = await request(app)
+      .patch(`/api/organization/nodes/${orgA.id}/deactivate`)
+      .set('Authorization', `Bearer ${adminTokenA}`);
+    expect(deactivateRes.status).toBe(400);
+
+    const updateRes = await request(app)
+      .put(`/api/organization/nodes/${orgA.id}`)
+      .set('Authorization', `Bearer ${adminTokenA}`)
+      .send({ isActive: false });
+    expect(updateRes.status).toBe(400);
+  });
+
   it('يرفض تعيين العقدة كأب لنفسها عند التحديث (Reject self-parent)', async () => {
     const res = await request(app)
       .put(`/api/organization/nodes/${childNodeA.id}`)
@@ -238,11 +360,18 @@ describe('Organization Hierarchy Nodes API (Unified organizations table)', () =>
     const res = await request(app)
       .put(`/api/organization/nodes/${childNodeA.id}`)
       .set('Authorization', `Bearer ${adminTokenA}`)
-      .send({ name: 'إدارة الشؤون المالية والإدارية', code: 'FIN-ADM' });
+      .send({
+        name: 'إدارة الشؤون المالية والإدارية',
+        code: 'FIN-ADM',
+        countryId: (await prisma.countries.findFirst({ where: { iso2: 'YE' } })).id,
+        governorateId: (await prisma.governorates.findFirst({ where: { name_en: 'Ibb' } })).id,
+        districtId: (await prisma.districts.findFirst({ where: { name_en: 'Yarim' } })).id,
+      });
 
     expect(res.status).toBe(200);
     expect(res.body.data.name).toBe('إدارة الشؤون المالية والإدارية');
     expect(res.body.data.code).toBe('FIN-ADM');
+    expect(res.body.data.districtId).not.toBeNull();
   });
 
   it('يعطل العقدة بنجاح (Deactivate node)', async () => {

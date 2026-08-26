@@ -3,8 +3,12 @@ import { fetchOrganization, updateOrganization, type OrganizationSettings } from
 import type { ApiClientError } from '../../api/axiosClient';
 import { DataState, PageHeader } from '../../components/admin/AdminUi';
 import LocationSelect from '../../components/LocationSelect';
+import { useAuth } from '../../context/AuthContext';
 
 export default function OrganizationPage() {
+  const { user, hasPermission } = useAuth();
+  const canManage = user?.defaultOrganizationId !== null && user?.defaultOrganizationId !== undefined
+    && hasPermission('organization.manage', user.defaultOrganizationId);
   const [data, setData] = useState<OrganizationSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -51,6 +55,7 @@ export default function OrganizationPage() {
                 {notice}
               </div>
             )}
+            <fieldset disabled={!canManage} className="admin-fieldset-reset">
             <div className="admin-form-grid">
               <label className="field">
                 الاسم القانوني
@@ -170,11 +175,12 @@ export default function OrganizationPage() {
                 />
               </label>
             </div>
-            <footer className="admin-form-footer">
+            </fieldset>
+            {canManage && <footer className="admin-form-footer">
               <button className="btn btn-primary" disabled={saving}>
                 {saving ? 'جارٍ الحفظ…' : 'حفظ التغييرات'}
               </button>
-            </footer>
+            </footer>}
           </form>
         )}
       </DataState>

@@ -7,20 +7,21 @@
 | الكيان | الغرض |
 |---|---|
 | `Organization` | المؤسسة (المستأجر/Tenant). تحمل `slug` فريد للبوابة العامة، الهوية البصرية، الإعدادات. |
-| `OrgUnit` | وحدة تنظيمية (فرع/قسم/قطاع...) — هرمية عبر `parent_id`، بلا حد لعدد المستويات. |
-| `OrgUnitType` | نوع الوحدة (قابل للتخصيص لكل مؤسسة)، مع `hierarchy_level` و`allowed_parent_type_id` لفرض تسلسل منطقي. |
+| `Organization Node` | عقدة تنظيمية (فرع/قسم/قطاع...) ضمن `organizations`، هرمية عبر `parent_id`، بلا حد لعدد المستويات. |
+| `Organization Node Type` | نوع العقدة التنظيمية (قابل للتخصيص لكل مؤسسة)، مع `hierarchy_level` و`allowed_parent_type_id` لفرض تسلسل منطقي. |
 | `UserOrganization` | عضوية مستخدم في مؤسسة (M:N حقيقي) — مستقل عن الصلاحية (قد ينضم بلا أي دور). |
 
 ## الهيكل التنظيمي مرن، وليس ثابتاً
 
-**لا** جداول منفصلة ثابتة لـ "فرع"/"قسم"/"فريق" — `OrgUnitType` نفسه بيانات
+**لا** جداول منفصلة ثابتة لـ "فرع"/"قسم"/"فريق" — نوع العقدة التنظيمية نفسه بيانات
 تُدار من لوحة الإدارة لكل مؤسسة، تسمح بأي تسلسل هرمي مخصَّص (مثال: قطاع ←
 فرع ← قسم ← فريق، أو أي تركيب آخر تحدده المؤسسة).
 
 ## تعدد الانتماء (Multi-Organization Membership)
 
-مستخدم واحد قد ينتمي لعدة مؤسسات (`UserOrganization`)، بدور/مجموعة مختلفة في
-كل منها (`UserRole`/`UserGroup` يحملان `organization_id` منفصلاً لكل تعيين).
+مستخدم واحد قد ينتمي لعدة مؤسسات (`UserOrganization`)، بدور مختلف في كل منها
+(`UserRole` يحمل `organization_id` منفصلاً لكل تعيين). عضويات Groups القديمة
+محفوظة للتدقيق والترحيل فقط وليست جزءاً من التفويض الحالي.
 `users.default_organization_id` مجرد إشارة سريعة (denormalized) للمؤسسة
 الافتراضية عند الدخول — **ليست** مصدر الحقيقة (المصدر الحقيقي `UserOrganization`).
 
@@ -41,7 +42,7 @@
 
 | البند | الحالة |
 |---|---|
-| Organization, Branches/Departments/Teams (عبر OrgUnit مرن) | ✅ منجز |
+| Organization, Branches/Departments/Teams (عبر عقد تنظيمية مرنة) | ✅ منجز |
 | Organization Settings, Branding | ✅ منجز |
 | Default Country | ✅ منجز |
 | Contact Information موسَّعة | ⏳ الأساسي فقط (phone/email/website) |

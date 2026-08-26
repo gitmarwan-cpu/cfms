@@ -2,19 +2,20 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   getComplaint,
+  fetchComplaintTransitions,
   updateComplaintStatus,
   updateComplaintAssignment,
   escalateComplaint,
-  fetchOrgUnits,
-  fetchGroups,
+  fetchOrganizationNodes,
   type AdminComplaintDetail,
   type ComplaintStatus,
-  type OrgUnit,
-  type Group,
+  type ComplaintTransition,
+  type OrganizationNodeDto,
   type SlaStatus,
 } from '../../api/adminApi';
 import type { ApiClientError } from '../../api/axiosClient';
 import AuditMetadata from '../../components/admin/AuditMetadata';
+import { useAuth } from '../../context/AuthContext';
 import { formatDateTime } from '../../utils/dateTime';
 
 const STATUS_LABELS: Record<ComplaintStatus, string> = {
@@ -42,6 +43,10 @@ const SLA_STATUS_LABELS: Record<SlaStatus, { label: string; color: string }> = {
 
 export default function ComplaintDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const { user, hasPermission } = useAuth();
+  const organizationId = user?.defaultOrganizationId;
+  const canAssign = organizationId !== null && organizationId !== undefined && hasPermission('complaints.assign', organizationId);
+  const canEscalate = organizationId !== null && organizationId !== undefined && hasPermission('complaints.escalate', organizationId);
   const [data, setData] = useState<AdminComplaintDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -50,19 +55,24 @@ export default function ComplaintDetailPage() {
   const [statusUpdateNote, setStatusUpdateNote] = useState('');
   const [updatingStatus, setUpdatingStatus] = useState<ComplaintStatus | null>(null);
   const [statusError, setStatusError] = useState('');
+  const [statusSaving, setStatusSaving] = useState(false);
+  const [transitions, setTransitions] = useState<ComplaintTransition[]>([]);
+  const [transitionsLoading, setTransitionsLoading] = useState(false);
+  const [transitionsError, setTransitionsError] = useState('');
 
   // Assignment state
   const [assignUserId, setAssignUserId] = useState('');
-  const [assignOrgUnitId, setAssignOrgUnitId] = useState('');
+  const [assignOrganizationNodeId, setAssignOrganizationNodeId] = useState('');
   const [assignError, setAssignError] = useState('');
+  const [assignSaving, setAssignSaving] = useState(false);
 
   // Escalation state
   const [escalateNote, setEscalateNote] = useState('');
   const [escalateError, setEscalateError] = useState('');
+  const [escalateSaving, setEscalateSaving] = useState(false);
 
   // Org data for assignment dropdowns
-  const [orgUnits, setOrgUnits] = useState<OrgUnit[]>([]);
-  const [groups, setGroups] = useState<Group[]>([]);
+  const [organizationNodes, setOrganizationNodes] = useState<OrganizationNodeDto[]>([]);
 
   const loadData = useCallback(() => {
     if (!id) return;
@@ -87,14 +97,34 @@ export default function ComplaintDetailPage() {
     loadData();
   }, [loadData]);
 
-  // Load organization nodes for assignment dropdowns
   useEffect(() => {
-    fetchOrgUnits().then(setOrgUnits as any).catch(() => {/* Non-critical */});
-    fetchGroups().then(setGroups).catch(() => {/* Non-critical */});
-  }, []);
+    if (!id || !data || !canAssign) {
+      setTransitions([]);
+      setTransitionsError('');
+      setTransitionsLoading(false);
+      return;
+    }
+
+    setTransitionsLoading(true);
+    setTransitionsError('');
+    fetchComplaintTransitions(Number(id))
+      .then(setTransitions)
+      .catch((err) => {
+        const apiErr = err as ApiClientError;
+        setTransitions([]);
+        setTransitionsError(apiErr.message || 'تعذر تحميل الإجراءات المتاحة حالياً.');
+      })
+      .finally(() => setTransitionsLoading(false));
+  }, [id, data?.status, canAssign]);
+
+  // Load canonical organization nodes for assignment; groups are not assignees.
+  useEffect(() => {
+    if (canAssign) fetchOrganizationNodes().then(setOrganizationNodes).catch(() => {/* Non-critical */});
+  }, [canAssign]);
 
   const handleStatusUpdate = async (newStatus: ComplaintStatus) => {
     setStatusError('');
+    setStatusSaving(true);
     try {
       const updated = await updateComplaintStatus(Number(id), newStatus, statusUpdateNote || undefined);
       setData(updated);
@@ -102,29 +132,43 @@ export default function ComplaintDetailPage() {
       setUpdatingStatus(null);
     } catch (err) {
       const apiErr = err as ApiClientError;
-      setStatusError(apiErr.message || 'حدث خطأ أثناء تحديث الحالة');
+      setStatusError(apiErr.status === 409
+        ? 'لا يمكن تنفيذ هذا الانتقال من الحالة الحالية. راجع الحالة الحالية واختر إجراءً متاحاً.'
+        : apiErr.message || 'حدث خطأ أثناء تحديث الحالة');
+    } finally {
+      setStatusSaving(false);
     }
   };
 
   const handleAssign = async () => {
     setAssignError('');
+    const parsedUserId = assignUserId.trim() ? Number(assignUserId) : null;
+    const parsedOrganizationNodeId = assignOrganizationNodeId ? Number(assignOrganizationNodeId) : null;
+    if (parsedUserId !== null && (!Number.isSafeInteger(parsedUserId) || parsedUserId <= 0)) {
+      setAssignError('معرّف الموظف يجب أن يكون رقماً صحيحاً موجباً.');
+      return;
+    }
+    setAssignSaving(true);
     try {
       const updated = await updateComplaintAssignment(
         Number(id),
-        assignUserId ? Number(assignUserId) : null,
-        assignOrgUnitId ? Number(assignOrgUnitId) : null
+        parsedUserId,
+        parsedOrganizationNodeId
       );
       setData(updated);
       setAssignUserId('');
-      setAssignOrgUnitId('');
+      setAssignOrganizationNodeId('');
     } catch (err) {
       const apiErr = err as ApiClientError;
       setAssignError(apiErr.message || 'حدث خطأ أثناء التعيين');
+    } finally {
+      setAssignSaving(false);
     }
   };
 
   const handleEscalate = async () => {
     setEscalateError('');
+    setEscalateSaving(true);
     try {
       const updated = await escalateComplaint(Number(id), escalateNote || undefined);
       setData(updated);
@@ -132,6 +176,8 @@ export default function ComplaintDetailPage() {
     } catch (err) {
       const apiErr = err as ApiClientError;
       setEscalateError(apiErr.message || 'حدث خطأ أثناء التصعيد');
+    } finally {
+      setEscalateSaving(false);
     }
   };
 
@@ -368,56 +414,31 @@ export default function ComplaintDetailPage() {
                 </div>
               ) : data.assignedToOrganization ? (
                 <div className="admin-assignment-badge admin-assignment-badge--unit">
-                  معين للقسم: <strong>{data.assignedToOrganization.name}</strong>
+                  معين للعقدة التنظيمية: <strong>{data.assignedToOrganization.name}</strong>
                 </div>
               ) : (
                 <div style={{ marginBottom: '16px', color: 'var(--color-text-muted)' }}>غير معين</div>
               )}
 
-              <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '16px', marginTop: '16px' }}>
-                {assignError && (
-                  <div className="alert alert-danger" style={{ marginBottom: '12px', fontSize: '13px' }}>
-                    {assignError}
+              {canAssign ? (
+                <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '16px', marginTop: '16px' }}>
+                  {assignError && <div className="alert alert-danger" role="alert" aria-live="polite" style={{ marginBottom: '12px', fontSize: '13px' }}>{assignError}</div>}
+                  <div className="field" style={{ marginBottom: '8px' }}>
+                    <label htmlFor="assignUserId">تعيين لموظف (المعرّف)</label>
+                    <input id="assignUserId" type="number" placeholder="معرّف الموظف" value={assignUserId} onChange={(e) => setAssignUserId(e.target.value)} min="1" inputMode="numeric" />
                   </div>
-                )}
-                <div className="field" style={{ marginBottom: '8px' }}>
-                  <label htmlFor="assignUserId">تعيين لموظف (معرف)</label>
-                  <input
-                    id="assignUserId"
-                    type="number"
-                    placeholder="معرف الموظف"
-                    value={assignUserId}
-                    onChange={(e) => setAssignUserId(e.target.value)}
-                    min="1"
-                  />
+                  <div className="field" style={{ marginBottom: '8px' }}>
+                    <label htmlFor="assignOrganizationNodeId">تعيين لعقدة تنظيمية</label>
+                    <select id="assignOrganizationNodeId" value={assignOrganizationNodeId} onChange={(e) => setAssignOrganizationNodeId(e.target.value)}>
+                      <option value="">— لا يوجد —</option>
+                      {organizationNodes.filter((node) => node.isActive).map((node) => <option key={node.id} value={node.id}>{node.name}</option>)}
+                    </select>
+                  </div>
+                  <button className="btn btn-primary" style={{ width: '100%' }} onClick={handleAssign} disabled={assignSaving} type="button">{assignSaving ? 'جارٍ تحديث التعيين…' : 'تحديث التعيين'}</button>
                 </div>
-                <div className="field" style={{ marginBottom: '8px' }}>
-                  <label htmlFor="assignOrgUnitId">تعيين لقسم</label>
-                  <select
-                    id="assignOrgUnitId"
-                    value={assignOrgUnitId}
-                    onChange={(e) => setAssignOrgUnitId(e.target.value)}
-                  >
-                    <option value="">— لا يوجد —</option>
-                    {orgUnits.filter((u) => u.isActive).map((unit) => (
-                      <option key={unit.id} value={unit.id}>{unit.name}</option>
-                    ))}
-                    {groups.filter((g) => g.isActive).map((group) => (
-                      <option key={`g-${group.id}`} value="">
-                        {group.nameAr} (فريق)
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <button
-                  className="btn btn-primary"
-                  style={{ width: '100%' }}
-                  onClick={handleAssign}
-                  type="button"
-                >
-                  تحديث التعيين
-                </button>
-              </div>
+              ) : (
+                <div className="admin-readonly-note" role="status">لا تملك صلاحية تعديل التعيين.</div>
+              )}
             </div>
           </div>
 
@@ -427,49 +448,36 @@ export default function ComplaintDetailPage() {
               <h2 style={{ fontSize: '1.1rem', margin: 0 }}>تحديث الحالة</h2>
             </div>
             <div className="card__body">
-              {statusError && (
-                <div className="alert alert-danger" style={{ marginBottom: '12px', fontSize: '13px' }}>
-                  {statusError}
-                </div>
-              )}
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
-                {(Object.entries(STATUS_LABELS) as [ComplaintStatus, string][]).map(
-                  ([key, label]) =>
-                    key !== data.status && (
-                      <button
-                        key={key}
-                        className="btn btn-outline"
-                        style={{ flex: '1', minWidth: '100px', fontSize: '12px', padding: '6px' }}
-                        onClick={() => setUpdatingStatus(key)}
-                        type="button"
-                      >
-                        {label}
-                      </button>
-                    )
+              {canAssign ? <>
+                {statusError && <div className="alert alert-danger" role="alert" aria-live="polite" style={{ marginBottom: '12px', fontSize: '13px' }}>{statusError}</div>}
+                {transitionsLoading && <div className="admin-readonly-note" role="status" aria-live="polite">جارٍ تحميل الإجراءات المتاحة…</div>}
+                {!transitionsLoading && transitionsError && <div className="alert alert-danger" role="alert" aria-live="polite">تعذر التحقق من الانتقالات المتاحة، لذلك لن تُعرض إجراءات الحالة حالياً. {transitionsError}</div>}
+                {!transitionsLoading && !transitionsError && transitions.length === 0 && <div className="admin-readonly-note" role="status">لا توجد انتقالات متاحة من الحالة الحالية.</div>}
+                {!transitionsLoading && !transitionsError && transitions.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
+                    {transitions.map((transition) => <button key={transition.id} className="btn btn-outline" style={{ flex: '1', minWidth: '100px', fontSize: '12px', padding: '6px' }} onClick={() => setUpdatingStatus(transition.toStatus)} disabled={statusSaving} type="button">{transition.nameAr || STATUS_LABELS[transition.toStatus] || transition.toStatus}</button>)}
+                  </div>
                 )}
-              </div>
+              </> : <div className="admin-readonly-note" role="status">لا تملك صلاحية تغيير حالة الطلب.</div>}
 
-              {updatingStatus && (
+              {canAssign && updatingStatus && (
                 <div style={{ padding: '12px', background: '#f9fafb', borderRadius: '6px' }}>
                   <div style={{ marginBottom: '8px', fontWeight: 600 }}>
                     تغيير إلى: {STATUS_LABELS[updatingStatus]}
                   </div>
                   <div className="field" style={{ marginBottom: '8px' }}>
-                    <input
-                      type="text"
-                      placeholder="ملاحظة..."
-                      value={statusUpdateNote}
-                      onChange={(e) => setStatusUpdateNote(e.target.value)}
-                    />
+                    <label htmlFor="statusUpdateNote">ملاحظة التغيير (اختيارية)</label>
+                    <input id="statusUpdateNote" type="text" placeholder="أضف ملاحظة اختيارية…" value={statusUpdateNote} onChange={(e) => setStatusUpdateNote(e.target.value)} />
                   </div>
                   <div style={{ display: 'flex', gap: '8px' }}>
                     <button
                       className="btn btn-primary"
                       style={{ flex: 1 }}
                       onClick={() => handleStatusUpdate(updatingStatus)}
+                      disabled={statusSaving}
                       type="button"
                     >
-                      تأكيد
+                      {statusSaving ? 'جارٍ الحفظ…' : 'تأكيد'}
                     </button>
                     <button
                       className="btn btn-outline"
@@ -545,29 +553,11 @@ export default function ComplaintDetailPage() {
                 </div>
               )}
 
-              <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '16px', marginTop: '16px' }}>
-                {escalateError && (
-                  <div className="alert alert-danger" style={{ marginBottom: '12px', fontSize: '13px' }}>
-                    {escalateError}
-                  </div>
-                )}
-                <div className="field" style={{ marginBottom: '8px' }}>
-                  <input
-                    type="text"
-                    placeholder="ملاحظة التصعيد اليدوي..."
-                    value={escalateNote}
-                    onChange={(e) => setEscalateNote(e.target.value)}
-                  />
-                </div>
-                <button
-                  className="btn"
-                  style={{ width: '100%', background: 'var(--color-danger)', color: 'white', border: 'none' }}
-                  onClick={handleEscalate}
-                  type="button"
-                >
-                  تصعيد يدوي
-                </button>
-              </div>
+              {canEscalate ? <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '16px', marginTop: '16px' }}>
+                {escalateError && <div className="alert alert-danger" role="alert" aria-live="polite" style={{ marginBottom: '12px', fontSize: '13px' }}>{escalateError}</div>}
+                <div className="field" style={{ marginBottom: '8px' }}><label htmlFor="escalateNote">ملاحظة التصعيد اليدوي</label><input id="escalateNote" type="text" placeholder="أضف ملاحظة اختيارية…" value={escalateNote} onChange={(e) => setEscalateNote(e.target.value)} /></div>
+                <button className="btn" style={{ width: '100%', background: 'var(--color-danger)', color: 'white', border: 'none' }} onClick={handleEscalate} disabled={escalateSaving} type="button">{escalateSaving ? 'جارٍ التصعيد…' : 'تصعيد يدوي'}</button>
+              </div> : <div className="admin-readonly-note" role="status">لا تملك صلاحية التصعيد اليدوي.</div>}
             </div>
           </div>
         </div>

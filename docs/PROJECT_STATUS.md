@@ -1,6 +1,12 @@
 # Project Status Snapshot
 
-## Current Status — Phase B Complete (2026-08-17)
+## Current Status — Phase 3 Admin UI hardening (2026-08-27)
+
+Phase 3 admin UI hardening is implemented in the current working tree: route
+visibility and actions use backend permissions, complaint status actions consume
+backend-defined transitions, and complaint assignment remains limited to a user
+or organization node. Groups are frozen compatibility data and are not part of
+the effective authorization model or complaint assignment.
 
 Phase B (SLA & Escalation) is fully implemented, hardened, and verified on the backend:
 
@@ -15,7 +21,7 @@ Phase B (SLA & Escalation) is fully implemented, hardened, and verified on the b
    - Idempotent escalation persistence (`escalation_level: { lt: toLevel }`) ensures zero duplicate escalation events or notifications during concurrent worker cycles or race conditions.
 
 3. **Backend Test & Quality Verification**:
-   - Complete Jest backend test suite passes with **18 test suites** and **116 tests** on isolated PostgreSQL test database `cfms_test`.
+   - Complete Jest backend test suite passes with **19 test suites** and **155 tests** on isolated PostgreSQL test database `cfms_test`.
    - `cfms_db` was inspected read-only and was **not** modified.
    - Known Phase B limitations documented in [`docs/SLA.md`](./SLA.md) (24/7 UTC continuous hours calculation, in-process worker, production migration history reconciliation pending for `cfms_db`).
 
@@ -26,20 +32,21 @@ Phase B (SLA & Escalation) is fully implemented, hardened, and verified on the b
 | `/api/auth` | Login, staff creation | Mixed |
 | `/api/public/:orgSlug/...` | Public portal: branding, reference data, complaint submit/track | Public |
 | `/api/complaints` | Complaint lifecycle, assignment, status update, manual escalation | Authenticated + Tenant |
-| `/api/sla-rules` | SLA rule management (create, update, list, detail) | Authenticated + Tenant (`sla.manage`) |
+| `/api/sla-rules` | SLA rule management (create, update, list, detail) | Authenticated + Tenant (`organization.manage`) |
 | `/api/reports` | Complaint summary report endpoint | Authenticated + Tenant |
 | `/api/organization` | Own organization configuration | Authenticated + Tenant |
-| `/api/org-structure` | Organizational structure (units + types) | Authenticated + Tenant |
+| `/api/org-structure` | Organization node types; canonical nodes are under `/api/organization/nodes` | Authenticated + Tenant |
 | `/api/reference-data` | Reference list & item management | Authenticated + Tenant |
 | `/api/roles` | Role & permission management | Authenticated + Tenant |
-| `/api/groups` | Group management | Authenticated + Tenant |
-| `/api/users` | User role/group assignment | Authenticated + Tenant |
+| `/api/groups` | Frozen Group compatibility reads; writes return 410 | Authenticated + Tenant |
+| `/api/users` | User role assignment; legacy Group reads only | Authenticated + Tenant |
 | `/api/locations` | Governorates & districts (geographic reference) | Public |
 
 ## Models Currently Implemented — 23 Models
 
-- **Multi-Tenant Foundation**: `Organization`, `OrgUnit`, `OrgUnitType`, `UserOrganization`.
-- **RBAC**: `Role`, `Permission`, `RolePermission`, `UserRole`, `Group`, `GroupRole`, `UserGroup`.
+- **Multi-Tenant Foundation**: `Organization`, organization nodes/types, `UserOrganization`.
+- **RBAC**: `Role`, `Permission`, `RolePermission`, `UserRole`; `Group`,
+  `GroupRole`, and `UserGroup` remain frozen compatibility models.
 - **Users & Complainants**: `User`, `Complainants`.
 - **Complaints & SLA**: `Complaints`, `ComplaintAttachment`, `ComplaintStatusHistory`, `SlaRule`, `ComplaintEscalationEvent`.
 - **Reference Data**: `ReferenceList`, `ReferenceListItem`.
@@ -48,11 +55,11 @@ Phase B (SLA & Escalation) is fully implemented, hardened, and verified on the b
 
 ## Verification Status
 
-All 18 test suites pass cleanly against `cfms_test`. `npm run typecheck`, `npm run build`, and `git diff --check` all complete with zero errors.
+All 19 test suites and 155 tests pass cleanly against `cfms_test`. Backend TypeScript compilation, `prisma validate`, frontend `npm run typecheck`, frontend `npm run build`, and `git diff --check` all complete with zero errors.
 
-**تعدد المؤسسات**: `Organization`, `OrgUnit`, `OrgUnitType`, `UserOrganization`.
-**RBAC**: `Role`, `Permission`, `RolePermission`, `UserRole`, `Group`,
-`GroupRole`, `UserGroup`.
+**تعدد المؤسسات**: `Organization`, عقد تنظيمية وأنواعها، `UserOrganization`.
+**RBAC**: `Role`, `Permission`, `RolePermission`, `UserRole`; `Group`,
+`GroupRole`, and `UserGroup` remain frozen compatibility models.
 **المستخدمون**: `User` (نظام)، `Complainant` (عام، منفصل تماماً).
 **الشكاوى**: `Complaint`, `ComplaintAttachment`, `ComplaintStatusHistory`.
 **البيانات المرجعية**: `ReferenceList`, `ReferenceListItem`.

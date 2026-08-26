@@ -152,6 +152,14 @@ export interface AdminComplaintDetail extends AdminComplaint {
   escalationEvents: EscalationEvent[];
 }
 
+export interface ComplaintTransition {
+  id: number;
+  code: string;
+  nameAr: string;
+  nameEn: string | null;
+  toStatus: ComplaintStatus;
+}
+
 // ── Complaint List Filters ───────────────────────────────────────────
 
 export interface ComplaintListFilters {
@@ -198,6 +206,13 @@ export const fetchComplaints = async (
 export const getComplaint = async (id: number): Promise<AdminComplaintDetail> => {
   const res = await axiosClient.get<{ success: boolean; data: AdminComplaintDetail }>(
     `/complaints/${id}`
+  );
+  return res.data.data;
+};
+
+export const fetchComplaintTransitions = async (id: number): Promise<ComplaintTransition[]> => {
+  const res = await axiosClient.get<{ success: boolean; data: ComplaintTransition[] }>(
+    `/complaints/${id}/transitions`
   );
   return res.data.data;
 };

@@ -167,10 +167,10 @@ export const revokeUserRole = (userRoleId: number): Promise<void> =>
 export const fetchUserGroups = (userId: number): Promise<UserGroupAssignment[]> =>
   unwrap<UserGroupAssignment[]>(axiosClient.get(`/users/${userId}/groups`));
 
-/** Adds a user to a group within the active organization. */
+/** Legacy compatibility endpoint; Group membership writes are frozen server-side. */
 export const addUserToGroup = (userId: number, groupId: number): Promise<UserGroupAssignment> =>
   unwrap<UserGroupAssignment>(axiosClient.post(`/users/${userId}/groups`, { groupId }));
 
-/** Removes a user from a group. */
+/** Legacy compatibility endpoint; Group membership writes are frozen server-side. */
 export const removeUserFromGroup = (userGroupId: number): Promise<void> =>
   axiosClient.delete(`/users/groups/${userGroupId}`).then(() => undefined);

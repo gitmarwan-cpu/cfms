@@ -12,6 +12,7 @@ const router = express.Router();
 router.use(authenticate, resolveAuthenticatedTenant);
 router.post('/', authorizePermission('complaints.create'), upload.array('attachments', 3), validateUploadedFileSignatures, validate(createComplaintValidation), complaintController.createStaffComplaint);
 router.get('/', authorizePermission('complaints.view_all'), validate(listComplaintsValidation), complaintController.listComplaints);
+router.get('/:id/transitions', authorizePermission('complaints.assign'), validate(complaintIdParamValidation), complaintController.listComplaintTransitions);
 router.get('/:id', authorizePermission('complaints.view_all'), validate(complaintIdParamValidation), complaintController.getComplaint);
 router.patch('/:id/status', authorizePermission('complaints.assign'), validate(updateStatusValidation), complaintController.updateComplaintStatus);
 router.patch('/:id/assignment', authorizePermission('complaints.assign'), validate(assignmentValidation), complaintController.assignComplaint);

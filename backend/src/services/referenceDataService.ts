@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import prisma from '../prisma/client';
 import ApiError from '../utils/ApiError';
+import { recordAuditEvent } from './auditService';
 
 export interface ReferenceItemPayload {
   code: string;
@@ -237,7 +238,8 @@ export const getListByKey = async (key: string, organizationId: number): Promise
 export const createItem = async (
   key: string,
   organizationId: number,
-  payload: ReferenceItemPayload
+  payload: ReferenceItemPayload,
+  actorUserId?: number | null
 ): Promise<ReferenceItemResponse> => {
   const list = await getOrCreateOwnList(key, organizationId);
 
@@ -272,6 +274,15 @@ export const createItem = async (
     select: ITEM_SELECT,
   });
 
+  await recordAuditEvent(prisma, {
+    organizationId,
+    actorUserId: actorUserId ?? null,
+    action: 'reference_item.created',
+    entityType: 'reference_item',
+    entityId: item.id,
+    metadata: { listKey: key, code: item.code },
+  });
+
   return toItemCamel(item) as ReferenceItemResponse;
 };
 
@@ -279,7 +290,8 @@ export const updateItem = async (
   key: string,
   itemId: number | string,
   organizationId: number,
-  payload: ReferenceItemUpdatePayload
+  payload: ReferenceItemUpdatePayload,
+  actorUserId?: number | null
 ): Promise<ReferenceItemResponse> => {
   const parsedItemId = typeof itemId === 'number' ? itemId : Number(itemId);
   if (!Number.isSafeInteger(parsedItemId)) throw new ApiError(400, 'عنصر القائمة غير صالح');
@@ -317,6 +329,18 @@ export const updateItem = async (
     select: ITEM_SELECT,
   });
 
+  const auditAction = payload.isActive === false && Object.keys(payload).length === 1
+    ? 'reference_item.deactivated'
+    : 'reference_item.updated';
+  await recordAuditEvent(prisma, {
+    organizationId,
+    actorUserId: actorUserId ?? null,
+    action: auditAction,
+    entityType: 'reference_item',
+    entityId: updated.id,
+    metadata: { listKey: key, fields: Object.keys(payload) },
+  });
+
   return toItemCamel(updated) as ReferenceItemResponse;
 };
 
@@ -332,10 +356,21 @@ export const resolveActiveItem = async (key: string, code: string, organizationI
   return item;
 };
 
-export const deactivateItem = async (key: string, organizationId: number, itemId: number | string) =>
-  updateItem(key, itemId, organizationId, { isActive: false });
+export const deactivateItem = async (
+  key: string,
+  organizationId: number,
+  itemId: number | string,
+  actorUserId?: number | null
+) => {
+  const updated = await updateItem(key, itemId, organizationId, { isActive: false }, actorUserId);
+  return updated;
+};
 
-export const getItemsByListKey = async (key: string, organizationId: number): Promise<ReferenceItemResponse[]> => {
+export const getItemsByListKey = async (
+  key: string,
+  organizationId: number,
+  options: { includeInactive?: boolean } = {}
+): Promise<ReferenceItemResponse[]> => {
   const list = await getListByKey(key, organizationId);
-  return (list.items || []).filter((item) => item.isActive);
+  return options.includeInactive ? list.items || [] : (list.items || []).filter((item) => item.isActive);
 };

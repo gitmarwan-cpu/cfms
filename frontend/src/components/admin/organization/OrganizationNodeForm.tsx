@@ -3,6 +3,7 @@ import type { OrganizationNodeDto, OrgUnitType } from '../../../api/adminApi';
 import { createOrganizationNode, updateOrganizationNode } from '../../../api/adminApi';
 import type { ApiClientError } from '../../../api/axiosClient';
 import { FormDialog } from '../AdminUi';
+import LocationSelect from '../../LocationSelect';
 
 interface OrganizationNodeFormProps {
   editingNode: OrganizationNodeDto | null;
@@ -32,6 +33,9 @@ export default function OrganizationNodeForm({
       ? editingNode.parentId ? String(editingNode.parentId) : ''
       : defaultParentId ? String(defaultParentId) : ''
   );
+  const [countryId, setCountryId] = useState(editingNode?.countryId ? String(editingNode.countryId) : '');
+  const [governorateId, setGovernorateId] = useState(editingNode?.governorateId ? String(editingNode.governorateId) : '');
+  const [districtId, setDistrictId] = useState(editingNode?.districtId ? String(editingNode.districtId) : '');
   const [phone, setPhone] = useState(editingNode && editingNode.phone ? editingNode.phone : '');
   const [email, setEmail] = useState(editingNode && editingNode.email ? editingNode.email : '');
   const [address, setAddress] = useState(editingNode && editingNode.address ? editingNode.address : '');
@@ -39,6 +43,7 @@ export default function OrganizationNodeForm({
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [locationErrors, setLocationErrors] = useState<Record<string, string | undefined>>({});
 
   // Active organization classification types
   const activeTypes = types.filter((t) => t.isActive);
@@ -81,6 +86,20 @@ export default function OrganizationNodeForm({
     }
 
     const parsedParentId = parentId ? Number(parentId) : null;
+    const parsedCountryId = countryId ? Number(countryId) : null;
+    const parsedGovernorateId = governorateId ? Number(governorateId) : null;
+    const parsedDistrictId = districtId ? Number(districtId) : null;
+
+    if (
+      (countryId && (parsedCountryId === null || !Number.isSafeInteger(parsedCountryId) || parsedCountryId <= 0)) ||
+      (governorateId && (parsedGovernorateId === null || !Number.isSafeInteger(parsedGovernorateId) || parsedGovernorateId <= 0)) ||
+      (districtId && (parsedDistrictId === null || !Number.isSafeInteger(parsedDistrictId) || parsedDistrictId <= 0))
+    ) {
+      setLocationErrors({ countryId: 'بيانات الموقع غير صالحة.' });
+      return;
+    }
+
+    setLocationErrors({});
 
     setSaving(true);
     try {
@@ -91,6 +110,9 @@ export default function OrganizationNodeForm({
           code: code.trim() || null,
           orgUnitTypeId: parsedTypeId,
           parentId: parsedParentId,
+          countryId: parsedCountryId,
+          governorateId: parsedGovernorateId,
+          districtId: parsedDistrictId,
           phone: phone.trim() || null,
           email: email.trim() || null,
           address: address.trim() || null,
@@ -104,6 +126,9 @@ export default function OrganizationNodeForm({
           code: code.trim() || null,
           orgUnitTypeId: parsedTypeId,
           parentId: parsedParentId,
+          countryId: parsedCountryId,
+          governorateId: parsedGovernorateId,
+          districtId: parsedDistrictId,
           phone: phone.trim() || null,
           email: email.trim() || null,
           address: address.trim() || null,
@@ -113,7 +138,11 @@ export default function OrganizationNodeForm({
       }
     } catch (err) {
       const apiErr = err as ApiClientError;
-      setError(apiErr.message || 'تعذر حفظ الوحدة التنظيمية. يرجى المحاولة مرة أخرى.');
+      const message = apiErr.message || 'تعذر حفظ الوحدة التنظيمية. يرجى المحاولة مرة أخرى.';
+      if (message.includes('المديرية')) setLocationErrors({ districtId: message });
+      else if (message.includes('المحافظة')) setLocationErrors({ governorateId: message });
+      else if (message.includes('الدولة')) setLocationErrors({ countryId: message });
+      else setError(message);
     } finally {
       setSaving(false);
     }
@@ -193,6 +222,32 @@ export default function OrganizationNodeForm({
             تحدد الموضع في الشجرة الهرمية
           </small>
         </label>
+
+        <div className="admin-field--full">
+          <LocationSelect
+            countryId={countryId}
+            governorateId={governorateId}
+            districtId={districtId}
+            showCountry
+            isRequired={false}
+            errors={locationErrors}
+            onCountryChange={(value) => {
+              setCountryId(value);
+              setGovernorateId('');
+              setDistrictId('');
+              setLocationErrors({});
+            }}
+            onGovernorateChange={(value) => {
+              setGovernorateId(value);
+              setDistrictId('');
+              setLocationErrors({});
+            }}
+            onDistrictChange={(value) => {
+              setDistrictId(value);
+              setLocationErrors({});
+            }}
+          />
+        </div>
 
         <label className="field">
           رقم الهاتف

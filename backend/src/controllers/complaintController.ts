@@ -30,6 +30,11 @@ const getComplaint = catchAsync(async (req: AppRequest, res: AppResponse) => {
   res.status(200).json({ success: true, data: complaint });
 });
 
+const listComplaintTransitions = catchAsync(async (req: AppRequest, res: AppResponse) => {
+  const transitions = await complaintService.getComplaintTransitions(req.organizationId, req.params.id);
+  res.status(200).json({ success: true, data: transitions });
+});
+
 const updateComplaintStatus = catchAsync(async (req: AppRequest, res: AppResponse) => {
   const { status, note } = req.body;
   const complaint = await complaintService.updateComplaintStatus(req.organizationId, req.params.id, status, note, req.user!.id);
@@ -55,4 +60,4 @@ const escalateComplaint = catchAsync(async (req: AppRequest, res: AppResponse) =
   res.status(200).json({ success: true, message: 'تم تصعيد الشكوى', data: complaint });
 });
 
-module.exports = { submitPublicComplaint, trackPublicComplaint, createStaffComplaint, listComplaints, getComplaint, updateComplaintStatus, assignComplaint, escalateComplaint };
+module.exports = { submitPublicComplaint, trackPublicComplaint, createStaffComplaint, listComplaints, getComplaint, listComplaintTransitions, updateComplaintStatus, assignComplaint, escalateComplaint };

@@ -41,6 +41,11 @@ CREATE UNIQUE INDEX workflow_definitions_code_scope_unique
 ON workflow_definitions (code, COALESCE(organization_id, 0));
 ```
 
+The `user_roles` expression above is retained verbatim as historical baseline
+SQL. The current logical scope field in the Prisma model and active services is
+`organization_node_id`; it must not be confused with a current `org_unit_id`
+contract.
+
 Prisma introspection warns that these expression indexes are not fully supported by Prisma schema syntax. They must be preserved with raw SQL in any future Prisma Migrate baseline or follow-up migration. Do not replace them with normal Prisma `@@unique` definitions unless the tenant semantics are proven equivalent, because PostgreSQL unique constraints treat `NULL` differently.
 
 ## `_prisma_migrations` Mismatch

@@ -80,6 +80,14 @@ describe('Tenant Isolation', () => {
     expect(res.status).toBe(404);
   });
 
+  it('لا يستطيع مدير مؤسسة "أ" قراءة انتقالات شكوى تخص مؤسسة "ب"', async () => {
+    const res = await request(app)
+      .get(`/api/complaints/${complaintIdInOrgB}/transitions`)
+      .set('Authorization', `Bearer ${adminAToken}`);
+
+    expect(res.status).toBe(404);
+  });
+
   it('لا يستطيع مدير مؤسسة "أ" انتحال هوية مؤسسة "ب" عبر هيدر X-Organization-Id', async () => {
     const res = await request(app)
       .get('/api/complaints')

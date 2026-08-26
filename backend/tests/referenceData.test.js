@@ -1,6 +1,6 @@
 'use strict';
 
-const { createUserWithRole, createOrganization, getSeedGovernorateId } = require('./setup');
+const { createUserWithRole, createOrganization, getSeedGovernorateId, prisma } = require('./setup');
 const request = require('supertest');
 const app = require('../src/app');
 
@@ -68,6 +68,18 @@ describe('Reference Data API', () => {
 
     const publicRes = await request(app).get(`/api/public/${organization.slug}/reference-data/channel/items`);
     expect(publicRes.body.data.some((item) => item.code === 'temp_channel')).toBe(false);
+
+    const adminRes = await request(app)
+      .get('/api/reference-data/channel/items/admin')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(adminRes.status).toBe(200);
+    expect(adminRes.body.data.find((item) => item.code === 'temp_channel')).toMatchObject({ isActive: false });
+
+    const auditRes = await prisma.audit_logs.findFirst({
+      where: { organization_id: organization.id, action: 'reference_item.deactivated', entity_id: itemId },
+      orderBy: { created_at: 'desc' },
+    });
+    expect(auditRes).not.toBeNull();
   });
 
   it('يرفض إنشاء شكوى بتصنيف غير موجود ضمن reference_list_items', async () => {

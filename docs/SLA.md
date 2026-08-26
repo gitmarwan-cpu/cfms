@@ -2,7 +2,7 @@
 
 ## Overview
 
-The SLA & Escalation module in CFMS automatically computes response/resolution deadlines for complaints, evaluates active complaints against rules, and escalates overdue complaints to appropriate assignees or unit managers.
+The SLA & Escalation module in CFMS automatically computes response/resolution deadlines for complaints, evaluates active complaints against rules, and escalates overdue complaints to the assigned user when one exists.
 
 ---
 
@@ -76,7 +76,7 @@ Tie-breaking: Lower `id` wins. If no rule matches, SLA calculation falls back to
   - If zero rows are updated (i.e. another process or tick already escalated to `:toLevel` or higher), the escalation process terminates early—preventing duplicate escalation events, notifications, or audit logs.
 
 - **Notification Dispatch**:
-  - Escalation notifies the assigned user. If no user is assigned, it notifies the manager of the assigned organization unit (`org_units.manager_user_id`).
+  - Current behavior notifies only the assigned user. If no user is assigned, no in-app escalation recipient is created; manager fallback is not implemented and remains a future policy decision.
 
 ---
 

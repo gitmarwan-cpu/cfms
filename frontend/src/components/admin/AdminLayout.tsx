@@ -16,6 +16,7 @@ const NAV_ITEMS: NavItem[] = [
     label: 'صندوق الشكاوى',
     icon: '📥',
     exact: false,
+    permission: 'complaints.view_all',
   },
   { path: '/admin/notifications', label: 'الإشعارات', icon: '🔔', exact: false },
   { path: '/admin/organization', label: 'المؤسسة', icon: '🏢', exact: false, permission: 'organization.view' },
@@ -44,7 +45,9 @@ export default function AdminLayout() {
   const canSee = (item: NavItem) => {
     if (item.adminOnly) return user?.roleCodes.includes('admin') || false;
     if (!item.permission) return true;
-    return user?.permissions?.some((permission) => permission.code === item.permission) || false;
+    return user?.permissions?.some(
+      (permission) => permission.code === item.permission && permission.organizationId === user.defaultOrganizationId
+    ) || false;
   };
   const currentItem = NAV_ITEMS.find((item) => isActive(item.path, item.exact));
 

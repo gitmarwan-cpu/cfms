@@ -19,6 +19,7 @@ import ReferenceDataPage from './pages/admin/ReferenceDataPage';
 import SlaPage from './pages/admin/SlaPage';
 import AuditLogPage from './pages/admin/AuditLogPage';
 import NotificationsPage from './pages/admin/NotificationsPage';
+import PermissionGate, { AdminRoleGate } from './components/admin/PermissionGate';
 
 function AppHeader() {
   const { organization, orgSlug } = useOrganization() || {};
@@ -115,18 +116,18 @@ export default function App() {
         }
       >
         <Route element={<AdminLayout />}>
-          <Route index element={<DashboardPage />} />
-          <Route path="complaints" element={<ComplaintListPage />} />
-          <Route path="complaints/:id" element={<ComplaintDetailPage />} />
+          <Route index element={<PermissionGate permission="complaints.view_all"><DashboardPage /></PermissionGate>} />
+          <Route path="complaints" element={<PermissionGate permission="complaints.view_all"><ComplaintListPage /></PermissionGate>} />
+          <Route path="complaints/:id" element={<PermissionGate permission="complaints.view_all"><ComplaintDetailPage /></PermissionGate>} />
           <Route path="notifications" element={<NotificationsPage />} />
-          <Route path="organization" element={<OrganizationPage />} />
-          <Route path="roles" element={<RolesPage />} />
-          <Route path="users" element={<UsersPage />} />
-          <Route path="groups" element={<GroupsPage />} />
-          <Route path="org-structure" element={<OrgStructurePage />} />
-          <Route path="reference-data" element={<ReferenceDataPage />} />
-          <Route path="sla" element={<SlaPage />} />
-          <Route path="audit" element={<AuditLogPage />} />
+          <Route path="organization" element={<PermissionGate permission="organization.view"><OrganizationPage /></PermissionGate>} />
+          <Route path="roles" element={<PermissionGate permission="roles.view"><RolesPage /></PermissionGate>} />
+          <Route path="users" element={<PermissionGate permission="users.view"><UsersPage /></PermissionGate>} />
+          <Route path="groups" element={<PermissionGate permission="groups.view"><GroupsPage /></PermissionGate>} />
+          <Route path="org-structure" element={<PermissionGate permission="org_structure.view"><OrgStructurePage /></PermissionGate>} />
+          <Route path="reference-data" element={<PermissionGate permission="reference_data.view"><ReferenceDataPage /></PermissionGate>} />
+          <Route path="sla" element={<PermissionGate permission="organization.view"><SlaPage /></PermissionGate>} />
+          <Route path="audit" element={<AdminRoleGate><AuditLogPage /></AdminRoleGate>} />
         </Route>
       </Route>
       <Route

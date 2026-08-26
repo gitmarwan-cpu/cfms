@@ -2,12 +2,12 @@
 
 > يدمج هذا الملف خارطة الطريق الأصلية مع الرؤية طويلة المدى للمنصة كنظام
 > ERP-style قابل للتوسع. الحالة (✅ منجز / 🔶 قيد التنفيذ / ⏳ مخطَّط) مُحدَّثة
-> لتطابق الكود الفعلي وقت الكتابة (commit `66deec9`) — **وليست** الحالة
+> لتطابق الكود الفعلي عند آخر مراجعة موثقة (HEAD `685ec95`) — **وليست** الحالة
 > الأصلية في نسخة `Roadmap.md` المرفقة سابقاً، والتي أصبحت متجاوَزة جزئياً.
 
 ## Phase 0 — Foundation Stabilization ✅ منجز
 
-- بنية المشروع، Backend (Express+Sequelize)، Frontend (React+Vite)، قاعدة
+- بنية المشروع، Backend (Express+Prisma)، Frontend (React+Vite)، قاعدة
   البيانات الأساسية، Git workflow.
 
 ## Phase 1 — Core Platform Completion 🔶 قيد التنفيذ (متقدّم جداً)
@@ -32,18 +32,20 @@
 ### 1.2 Organization Management ✅ منجز جزئياً
 
 - ✅ Organization (متعددة، Multi-Tenant حقيقي، ليس مؤسسة واحدة فقط).
-- ✅ Branches/Departments/Teams: عبر `OrgUnit`/`OrgUnitType` — **هيكل تنظيمي
-  مرن قابل للتخصيص لكل مؤسسة** (وليس Branches/Departments/Teams كجداول
-  منفصلة ثابتة)، يدعم أي عمق هرمي.
+- ✅ الهيكل التنظيمي: عبر عقد `organizations` الهرمية (`parent_id`) وأنواع
+  تنظيمية قابلة للتخصيص لكل مؤسسة، وليس جداول ثابتة منفصلة للفروع/الأقسام/الفرق.
 - ✅ Organization Settings, Branding (شعار، ألوان، اسم)، Default Country.
 - ⏳ Contact Information كحقول مخصَّصة أوسع (الأساسي موجود: phone/email/website).
 
 ### 1.3 User & Permission Management ✅ منجز
 
-- ✅ Users, Roles, Permissions, **Groups** (راجع [`../docs/RBAC.md`](../docs/RBAC.md)).
+- ✅ Users, Roles, Permissions.
+- 🔶 Groups remain as frozen compatibility data for migration/rollback; they are
+  no longer part of effective authorization.
 - ✅ User↔Organization Assignment (M:N حقيقي عبر `UserOrganization`، مستخدم
   واحد قد ينتمي لعدة مؤسسات بأدوار مختلفة).
-- ✅ RBAC مع Data permissions (Scoped بـ `org_unit_id`).
+- ✅ RBAC مع Data permissions (نطاق المؤسسة، مع تقييد اختياري بـ
+  `organization_node_id`).
 
 ### 1.4 Authentication & Access Management 🔶 جزئي
 
@@ -53,10 +55,11 @@
 - ⏳ Session Management متقدّم (Refresh Tokens) — توكن واحد 8 ساعات فقط حالياً.
 - ⏳ Login Audit — غير مبني بعد.
 
-### 1.5 Workflow Engine ⏳ مخطَّط، غير مبني
+### 1.5 Workflow Engine 🔶 أساسي منفَّذ
 
-حالة الشكوى حالياً ENUM بسيط (`new/in_review/resolved/closed/rejected`) بلا
-محرّك سير عمل قابل للتخصيص.
+يستخدم مسار الشكاوى الحالي تعريفاً افتراضياً وانتقالات مخزنة في
+`workflow_definitions` و`workflow_transitions`. لا توجد بعد واجهة إدارة لتخصيص
+التعريفات؛ لذلك لا ينبغي اعتبار المسار قابلاً للتخصيص من واجهة الإدارة حالياً.
 
 ### 1.6 File Management Foundation ✅ منجز (أساسي)
 
@@ -78,7 +81,7 @@
 
 - ✅ 2.1 Complaint Submission (عام، مجهول، مرفقات، PIN، ربط اختياري بمشروع/موظف كنص حر، وأولوية).
 - ✅ 2.2 SLA & Escalation Management (قواعد اتفاقيات مستوى الخدمة، التصعيد الآلي، خادم الخلفية، وحساب المهلة الزمنية حسب الأولوية).
-- ✅ 2.3 Complaint Assignment بأقسام/فرق (إسناد فردي + وحدة تنظيمية اختيارية مع تحقق عضوية/نطاق المؤسسة ومسار تدقيق).
+- ✅ 2.3 Complaint Assignment (إسناد إلى مستخدم أو عقدة تنظيمية اختيارياً مع تحقق عضوية/نطاق المؤسسة ومسار تدقيق؛ Groups مخصصة لتجميع الأدوار وليست جهات تعيين للشكاوى).
 - ✅ 2.4 Reporting Summary API (`GET /api/reports/complaints` تفصيلي مع الإحصائيات والأولويات والتوزيعات).
 - ✅ 2.5 Public Tracking (رقم مرجعي + PIN، عرض مبسَّط آمن).
 

@@ -205,20 +205,6 @@ beforeAll(async () => {
 
   global.__rbacRoles = { adminRole, staffRole };
 
-  const systemGroup = await prisma.groups.create({
-    data: {
-      code: 'complaint_officers',
-      name_ar: 'موظفو معالجة الشكاوى',
-      is_system: true,
-      organization_id: null,
-      create_date: timestamp(),
-      write_date: timestamp(),
-    },
-  });
-  await prisma.group_roles.create({
-    data: { group_id: systemGroup.id, role_id: staffRole.id, created_at: timestamp() },
-  });
-
   global.__defaultOrg = await prisma.organizations.create({
     data: {
       legal_name: 'مؤسسة الاختبار',

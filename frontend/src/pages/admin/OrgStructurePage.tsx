@@ -19,8 +19,8 @@ export default function OrgStructurePage() {
   const { user, hasPermission } = useAuth();
   const orgId = user?.defaultOrganizationId ?? null;
 
-  const canView = orgId !== null && (hasPermission('org_structure.view', orgId) || hasPermission('organization.view', orgId));
-  const canManage = orgId !== null && (hasPermission('org_structure.manage', orgId) || hasPermission('organization.manage', orgId));
+  const canView = orgId !== null && hasPermission('org_structure.view', orgId);
+  const canManage = orgId !== null && hasPermission('org_structure.manage', orgId);
 
   // ── Raw state ──────────────────────────────────────────────────────────────
   const [nodes, setNodes] = useState<OrganizationNodeDto[]>([]);

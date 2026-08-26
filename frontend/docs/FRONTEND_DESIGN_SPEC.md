@@ -1,760 +1,1120 @@
 # SmartCFMS Frontend Design Specification
 
-Version: 1.0
-Status: **⚠️ Target Architecture / Future Direction — NOT the current implementation**
-Date: 2026-07-21 (original draft), status note added during documentation review
+**Version:** 1.1
+**Status:** Approved Target-State Guidance for Incremental Frontend Evolution
+**Primary Use:** Phase 3+ Frontend Development
+**Date:** 2026-08-26
 
 ---
 
-## ⚠️ Reconciliation Note (read this first)
+## 0. Document Authority and Reconciliation
 
-This document was written as a **forward-looking proposal** before/independent
-of the actual build. Significant parts of it **do not match the current code**
-and should not be read as a description of what exists today. Treat it as
-**target-state guidance for when the frontend grows into a full staff/admin
-panel** (Phase 3+ in [`../../docs/ROADMAP.md`](../../docs/ROADMAP.md)), not as
-current fact.
+This document defines the **target frontend architecture, UX standards, interaction principles, and engineering direction** for SmartCFMS.
 
-**Current actual frontend** (verify against `frontend/src/` directly):
-- Flat structure: `src/{api,components,context,pages}` — **not** the
-  feature-based `app/`, `features/`, `shared/` structure described in §3.
-- State: plain `useState`/`useEffect` — **no** React Query / TanStack Query.
-- Validation: manual `express-validator`-style checks in components — **no**
-  Zod, **no** React Hook Form.
-- Locale: Arabic-only, RTL, hardcoded — **no** locale provider, **no**
-  `en.json`/`ar.json` resource files, **no** language switcher.
-- Theming: single light theme via CSS custom properties (org-driven colors
-  through `OrganizationContext`) — **no** dark mode.
-- Routing: `react-router-dom` with two routes (`/:orgSlug`, `/:orgSlug/track`)
-  — not the full route table in §12.4 (no `/dashboard`, `/admin`, `/login` yet
-  — there is no staff-facing UI at all yet, only the public complainant portal).
+It is **not a description of the current implementation**.
 
-Sections that remain **valid target guidance** regardless of the gap above:
-§4 (design principles), §17–19 (loading states, accessibility, i18n
-requirements), §21 (coding standards/naming). Read them as "aim for this when
-building the staff/admin experience," not "this exists."
+The current repository implementation remains the source of truth for what already exists. Backend architecture, API contracts, tenant isolation, authentication, authorization, RBAC, and database contracts remain authoritative for security and business behavior.
+
+### Authority hierarchy
+
+When a conflict exists, use the following order:
+
+1. **Backend security and business contracts**
+2. **Approved system architecture and RBAC specifications**
+3. **Existing working implementation and API contracts**
+4. **This frontend design specification**
+5. Developer preference or implementation convenience
+
+This specification must therefore be implemented **incrementally**, not as a reason to rewrite functioning architecture.
 
 ---
 
-## 1. Purpose
+# 1. Critical Phase 3 Rule
 
-This specification defines the frontend architecture, interaction model, visual system, development standards, and implementation strategy for SmartCFMS. It is intended to guide the first production-ready frontend build while remaining aligned with the current React + Vite foundation already present in the repository.
+## 1.1 No wholesale frontend rewrite
 
-The design is centered on a secure, accessible, multilingual, and mobile-first complaints and feedback management experience for Yemen-based public service operations.
+Phase 3 must **not** become a general frontend migration or architectural rewrite.
 
----
+Do not automatically:
 
-## 2. Frontend Architecture
+* move the entire project from `src/{api,components,context,pages}` to `app/features/shared`
+* migrate all state management to TanStack Query
+* migrate all forms to React Hook Form
+* replace all validation with Zod
+* introduce a new UI framework
+* replace existing working components
+* rewrite existing pages solely to match the proposed folder structure
+* introduce dark mode solely because it appears in this document
+* introduce a new authorization model
+* introduce a new organization model
+* recreate retired `org_units`
+* introduce group-based complaint assignment
 
-### 2.1 Core Principles
+Any architectural migration must first be justified by a concrete problem and explicitly approved.
 
-- Build a scalable single-page application with clear domain separation.
-- Keep the experience simple for first-time users while supporting future admin and dashboard modules.
-- Prioritize accessibility, Arabic-first UX, and low-friction forms.
-- Ensure the architecture can support future growth into dashboards, case management, analytics, and role-based administration.
+### Principle
 
-### 2.2 Recommended Stack
+> **Prefer incremental alignment over wholesale migration.**
 
-- React 18 for UI composition
-- Vite for development and build tooling
-- React Router for routing
-- Axios for API communication
-- React Query / TanStack Query for server-state caching and synchronization
-- Context API for global UI concerns such as auth, theme, and locale
-- CSS variables for design tokens and themeing
-- ESLint + Prettier for code quality
-
-### 2.3 Architectural Approach
-
-The frontend should follow a layered architecture:
-
-1. App shell and providers
-2. Route-based feature modules
-3. Shared UI primitives and design system
-4. API and data services
-5. Shared utilities, hooks, and validation logic
-
-This keeps business features isolated while allowing shared behavior to be reused consistently.
-
-### 2.4 High-Level Structure
-
-- Public entry experience for complaint submission and status tracking
-- Authenticated experience for staff or administrators
-- Shared infrastructure for notifications, forms, file uploads, and localization
+New code should follow the standards in this document where practical. Existing code should be changed when there is a demonstrated functional, security, accessibility, maintainability, or UX gap.
 
 ---
 
-## 3. Folder Structure
+# 2. Current Frontend Baseline
 
-The proposed frontend structure is:
+The current frontend must be verified directly from the repository before implementation.
+
+The known baseline includes:
+
+* React + Vite
+* TypeScript
+* React Router
+* Axios-based API layer
+* Tailwind CSS / existing CSS architecture
+* Arabic RTL experience
+* Public complaint submission and tracking
+* Authenticated administrative experience
+* Admin organization management
+* Complaint detail and assignment functionality
+* RBAC-aware administrative UI
+* Canonical organization hierarchy based on the unified `organizations` model
+
+The exact current state must always be verified from source code rather than assumed from this document.
+
+---
+
+# 3. Core Architectural Principles
+
+SmartCFMS frontend development must follow:
+
+* incremental evolution
+* domain separation
+* accessibility
+* Arabic-first UX
+* responsive design
+* security by server-side enforcement
+* predictable API contracts
+* reusable components
+* progressive enhancement
+* maintainability
+* low-bandwidth awareness
+* clear user feedback
+* minimal unnecessary dependencies
+
+The frontend should simplify interaction without duplicating backend business rules.
+
+---
+
+# 4. Security and Authorization
+
+## 4.1 Backend is authoritative
+
+Frontend authorization is a **UX concern**, not a security boundary.
+
+The frontend may:
+
+* hide unavailable actions
+* disable controls
+* prevent unnecessary requests
+* display appropriate unauthorized states
+
+The frontend must never be trusted for:
+
+* tenant isolation
+* authorization
+* role enforcement
+* permission enforcement
+* organization access control
+* assignment authorization
+* sensitive data protection
+
+All authoritative authorization remains server-side.
+
+---
+
+# 5. RBAC Model
+
+SmartCFMS uses the approved RBAC architecture. The frontend must consume the permissions and authorization context exposed by the backend and must not introduce an alternative permission model.
+
+## 5.1 Direct Role Authorization
+
+The canonical active authorization path is:
 
 ```text
-frontend/
-  public/
-    icons/
-    images/
-    locales/
-  src/
-    app/
-      App.jsx
-      providers/
-        AuthProvider.jsx
-        ThemeProvider.jsx
-        LocaleProvider.jsx
-      routes/
-        AppRoutes.jsx
-        ProtectedRoute.jsx
-        PublicRoute.jsx
-    features/
-      auth/
-        components/
-        pages/
-        hooks/
-        services/
-        validations/
-      complaints/
-        components/
-        pages/
-        hooks/
-        services/
-        validations/
-      dashboard/
-        components/
-        pages/
-      admin/
-        components/
-        pages/
-      settings/
-        components/
-        pages/
-    shared/
-      components/
-        ui/
-        forms/
-        layout/
-      hooks/
-      utils/
-      services/
-      constants/
-      types/
-      styles/
-    config/
-      api.js
-      routes.js
-      branding.js
-    locales/
-      en.json
-      ar.json
-    assets/
-      fonts/
-      images/
-      icons/
-    main.jsx
-    index.css
+User
+  ↓
+User Role
+  ↓
+Role
+  ↓
+Role Permission
+  ↓
+Permission
 ```
 
-### 3.1 Folder Conventions
+Where organizational scoping is supported, role assignments must preserve the canonical backend scope, including:
 
-- Feature-based folders should own their components, hooks, services, and validations.
-- Shared modules stay generic and reusable.
-- All route-level pages should be thin wrappers around feature components.
-- Business logic should be extracted into services or hooks rather than embedded directly in pages.
+* organization
+* organization node
+* permission scope
 
----
+The frontend must treat backend authorization as authoritative.
 
-## 4. Design System
+## 5.2 Legacy Groups
 
-### 4.1 Visual Direction
+Groups are being retired from active authorization.
 
-The UI should feel trustworthy, modern, and government-friendly. It should be calm, structured, and optimized for form-heavy tasks.
+The target authorization model is direct user-role authorization. Groups must not be used as an active source of effective permissions.
 
-### 4.2 Core Design Principles
+During the transition period, legacy Group data may remain in the database for compatibility, migration, historical audit, and controlled read-only inspection.
 
-- Clarity over decoration
-- Consistency across components and flows
-- Strong contrast and readable typography
-- Mobile-first interactions
-- Clear progress and feedback for every step
+The frontend must therefore:
 
-### 4.3 Layout Scale
+* not create new Group memberships
+* not modify Group memberships
+* not assign Roles to Groups
+* not use Groups to determine effective authorization
+* not present Groups as an active authorization mechanism
+* present legacy Group information as read-only where it remains necessary during transition
 
-- Spacing scale: 4, 8, 12, 16, 24, 32, 40, 48, 64
-- Grid: 12-column layout on large screens, 8-column on tablets, 4-column on mobile
-- Content width: max 1200px with centered layout
+Group tables, historical migrations, and audit records must not be removed merely as part of frontend work. Their retirement requires a separately approved backend/database migration plan.
 
-### 4.4 Typography
+## 5.3 Complaint Assignment
 
-- Primary Arabic-friendly font stack: Noto Naskh Arabic, Tajawal, or similar modern Arabic-readable font
-- English fallback: Inter, system-ui, sans-serif
-- Type scale:
-  - H1: 32px / 40px
-  - H2: 24px / 32px
-  - H3: 20px / 28px
-  - Body: 16px / 24px
-  - Small: 14px / 20px
-  - Caption: 12px / 16px
+Groups are never complaint assignees.
 
-### 4.5 Component Language
+The canonical complaint assignment model is:
 
-- Cards for summaries and content blocks
-- Panels for multi-section forms
-- Tables for complaint lists and audit views
-- Empty states with clear actions for no-data scenarios
-- Stepper or progress indicators for multi-step workflows
-
----
-
-## 5. Dynamic Design Tokens
-
-Design tokens should be defined as CSS custom properties and made available to the whole application.
-
-### 5.1 Token Categories
-
-- Color tokens
-- Spacing tokens
-- Radius tokens
-- Shadow tokens
-- Typography tokens
-- Motion tokens
-
-### 5.2 Example Token Structure
-
-```css
-:root {
-  --color-primary: #0f6cbd;
-  --color-primary-strong: #0b4f86;
-  --color-accent: #19a7a7;
-  --color-surface: #ffffff;
-  --color-surface-muted: #f7f9fc;
-  --color-text: #14213d;
-  --color-text-muted: #5f6b7a;
-  --color-border: #dce4ee;
-  --color-success: #2f855a;
-  --color-warning: #c97a00;
-  --color-danger: #c53030;
-
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 16px;
-
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 24px;
-  --space-6: 32px;
-
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.08);
-
-  --font-family-base: "Noto Naskh Arabic", "Tajawal", sans-serif;
-}
+```text
+Complaint → User
+Complaint → Organization Node
 ```
 
-### 5.3 Token Rules
+The frontend must not introduce:
 
-- Tokens must be referenced by components rather than hardcoded values.
-- Tokens should support runtime updates for themes and branding.
-- All interactive states should be token-driven: hover, focus, active, disabled.
+```text
+Complaint → Group
+```
+
+unless the backend architecture explicitly introduces and authorizes such a contract in the future.
+
+## 5.4 Authorization Boundary
+
+Frontend RBAC behavior is a UX layer only.
+
+The frontend may:
+
+* hide unavailable actions
+* disable controls
+* display read-only states
+* prevent unnecessary requests
+* display appropriate unauthorized states
+
+The frontend must never be relied upon for:
+
+* tenant isolation
+* authorization
+* role enforcement
+* permission enforcement
+* organization access control
+* assignment authorization
+* sensitive data protection
+
+All authoritative authorization remains server-side.
+
 
 ---
 
-## 6. Theme Management
+# 6. Tenant Isolation
 
-### 6.1 Requirements
+Tenant isolation must never depend on frontend behavior.
+
+The frontend may provide organization context for:
+
+* navigation
+* display
+* API routing
+* branding
+* UX filtering
+
+but the backend must remain responsible for validating access to tenant-scoped resources.
+
+Never assume that changing an organization identifier in the browser grants access to another tenant.
+
+---
+
+# 7. Organization Architecture
+
+The organization model must follow the approved backend architecture.
+
+## 7.1 Canonical model
+
+Use the unified `organizations` model and its hierarchy.
+
+The hierarchy is represented through:
+
+```text
+organizations.parent_id
+```
+
+Do not reintroduce:
+
+* `org_units`
+* `org_unit_id`
+* parallel organization hierarchy models
+
+unless explicitly approved by the architecture owners.
+
+## 7.2 Organization node terminology
+
+Frontend terminology should distinguish clearly between:
+
+* Organization / Tenant
+* Organization Node
+* Organization Unit Type
+* Role
+* Legacy Group (read-only compatibility data)
+
+Do not use legacy terminology merely because it exists in older code.
+
+---
+
+# 8. Geographic Structure
+
+The canonical geographic hierarchy is:
+
+```text
+Country
+  ↓
+Governorate
+  ↓
+District
+```
+
+Where geographic fields are supported by an organization node, the UI should use dependent selectors.
+
+Expected behavior:
+
+* changing Country clears Governorate and District
+* changing Governorate clears District
+* District requires Governorate
+* Governorate requires Country
+
+The backend remains authoritative and must validate geographic relationships.
+
+The frontend must not implement geographic inheritance unless an explicit backend/business policy exists.
+
+---
+
+# 9. Frontend Architecture
+
+The long-term target architecture is layered:
+
+1. Application shell and providers
+2. Route-level features
+3. Shared UI/design system
+4. API/data services
+5. Shared hooks/utilities/types
+6. Configuration and design tokens
+
+However, the existing repository structure must not be migrated wholesale merely to match this proposal.
+
+Architecture should evolve when there is a demonstrated need.
+
+---
+
+# 10. Recommended Future Structure
+
+A feature-oriented structure remains the preferred long-term direction:
+
+```text
+src/
+  app/
+  features/
+  shared/
+  config/
+  locales/
+  assets/
+```
+
+This is **target architecture**, not a mandatory Phase 3 migration.
+
+Existing stable modules may remain where they are until a justified refactor is required.
+
+---
+
+# 11. State Management
+
+State must be classified correctly.
+
+### Local UI state
+
+Use component state for:
+
+* dialogs
+* dropdown state
+* temporary form values
+* local UI interactions
+
+### Feature state
+
+Use hooks or feature-level state for:
+
+* multi-step workflows
+* temporary workflow state
+* complex feature interactions
+
+### Server state
+
+Server data should eventually benefit from a dedicated server-state strategy such as TanStack Query where complexity justifies it.
+
+However:
+
+> **Phase 3 must not perform a broad TanStack Query migration without demonstrated need.**
+
+Introduce it incrementally where it provides clear benefits such as:
+
+* caching
+* request deduplication
+* invalidation
+* synchronization
+* pagination
+* mutation lifecycle handling
+
+---
+
+# 12. API Layer
+
+The API layer must remain centralized and predictable.
+
+Requirements:
+
+* shared Axios client
+* centralized authentication handling
+* consistent error normalization
+* typed API contracts where available
+* feature/domain-specific service modules
+* consistent response handling
+* safe unauthorized-session handling
+
+Do not duplicate API calls across unrelated components.
+
+Do not bypass the established API layer without a documented reason.
+
+---
+
+# 13. Authentication
+
+Protected administrative experiences must:
+
+* require authentication
+* respect session expiration
+* redirect safely after logout
+* avoid exposing credentials or tokens unnecessarily
+* provide clear authentication failure states
+
+Route guards improve UX but do not replace backend authorization.
+
+---
+
+# 14. Routing
+
+Routing should support separation between:
+
+### Public
+
+* complaint submission
+* complaint tracking
+* help/information
+* privacy-related content
+
+### Authenticated
+
+* dashboard
+* complaints
+* complaint detail
+* reporting
+* administrative features
+
+### Error
+
+* unauthorized
+* not found
+* server error
+
+Use route-level lazy loading where it provides a measurable performance benefit.
+
+Do not restructure routing merely for architectural symmetry.
+
+---
+
+# 15. Design System
+
+The interface should feel:
+
+* trustworthy
+* modern
+* calm
+* structured
+* professional
+* suitable for humanitarian/public-service operations
+
+Primary principle:
+
+> **Clarity over decoration.**
+
+Prioritize:
+
+* readability
+* hierarchy
+* consistency
+* discoverability
+* predictable interaction
+* accessibility
+
+---
+
+# 16. Design Tokens
+
+Use CSS variables/design tokens for:
+
+* colors
+* spacing
+* typography
+* radii
+* shadows
+* motion
+* semantic states
+
+Components should avoid unnecessary hardcoded visual values.
+
+Token layers should conceptually follow:
+
+```text
+Base Tokens
+    ↓
+Brand Tokens
+    ↓
+Semantic Tokens
+    ↓
+Component Tokens
+```
+
+---
+
+# 17. Organization Branding
+
+Branding may be organization-aware.
+
+Potential branding properties include:
+
+* organization name
+* acronym
+* logo
+* primary color
+* secondary color
+* support contact
+* footer/legal text
+
+Branding must not compromise consistency, accessibility, or contrast.
+
+Organization-provided colors must be validated before being used for text or interactive states.
+
+---
+
+# 18. Theme
+
+A light theme remains the baseline.
+
+Dark mode is a **future capability**, not a mandatory Phase 3 requirement.
+
+Do not introduce dark mode unless:
+
+* product requirements justify it
+* design tokens can support it cleanly
+* accessibility is preserved
+* the implementation does not destabilize the existing UI
+
+---
+
+# 19. Responsive Design
+
+The interface must support:
+
+* desktop
+* tablet
+* mobile
+
+Use mobile-first principles.
+
+Expected behavior:
+
+* forms stack naturally
+* navigation adapts to small screens
+* tables become horizontally scrollable or card-based where appropriate
+* important actions remain accessible
+* dialogs remain usable on small screens
+* no unnecessary horizontal overflow
+
+Test representative viewport sizes rather than assuming responsiveness from CSS alone.
+
+---
+
+# 20. Accessibility
+
+Target standard:
+
+**WCAG 2.2 AA**
+
+Requirements include:
+
+* semantic HTML
+* keyboard accessibility
+* visible focus states
+* adequate contrast
+* logical heading hierarchy
+* accessible labels
+* accessible error messages
+* meaningful ARIA usage
+* screen-reader compatibility
+* accessible dialogs and menus
+
+Accessibility must be validated behaviorally, not only by TypeScript/build success.
+
+---
+
+# 21. Forms
+
+Forms should:
+
+* group related fields
+* clearly identify required fields
+* preserve values after validation errors
+* provide field-level errors
+* provide useful loading states
+* prevent accidental duplicate submissions
+* focus the first invalid field when practical
+
+Complex forms should use progressive disclosure where appropriate.
+
+---
+
+# 22. Validation
+
+Validation has three layers:
+
+```text
+Frontend immediate feedback
+        ↓
+API/schema validation
+        ↓
+Backend authoritative validation
+```
+
+Client-side validation must never be treated as a security mechanism.
+
+Zod and React Hook Form are recommended technologies for future complex forms, but they are **not mandatory migration targets for all existing forms**.
+
+Use them when they materially improve:
+
+* consistency
+* validation quality
+* form complexity
+* maintainability
+
+---
+
+# 23. Error Handling
+
+Errors should be classified into:
+
+* validation
+* authentication
+* authorization
+* not found
+* conflict
+* network
+* server/unexpected
+
+User-facing errors should:
+
+* be understandable
+* identify the problem
+* provide recovery where possible
+* avoid exposing internal implementation details
+
+Use:
+
+* inline field errors
+* banners
+* toasts
+* empty states
+* dedicated error pages
+
+according to context.
+
+---
+
+# 24. Loading and Async UX
+
+Every asynchronous operation must communicate state.
+
+Use appropriate patterns:
+
+* button loading state
+* skeleton
+* inline spinner
+* progress indicator
+* disabled duplicate actions
+
+Avoid unnecessary layout shifts.
+
+---
+
+# 25. Complaint Management UX
+
+Complaint workflows must reflect backend contracts.
+
+The frontend must not invent workflow states, transitions, assignments, or permissions.
+
+Complaint assignment currently supports:
+
+```text
+User
+Organization Node
+```
+
+The UI must not present unsupported assignment targets.
+
+Complaint detail should make clear:
+
+* current status
+* assignee
+* assigned organization node
+* priority
+* SLA state where available
+* workflow history
+* audit information where authorized
+* relevant complainant/case information according to access permissions
+
+Sensitive information must only be displayed when authorized.
+
+---
+
+# 26. Administrative UX
+
+Administrative pages should provide:
+
+* clear page titles
+* consistent actions
+* predictable CRUD behavior
+* confirmation for destructive actions
+* loading states
+* empty states
+* validation feedback
+* permission-aware actions
+* appropriate read-only behavior where the user lacks management permission
+
+The frontend should not merely hide buttons; backend enforcement remains mandatory.
+
+---
+
+# 27. CRUD Lifecycle Standards
+
+For administrative entities, prefer a consistent lifecycle:
+
+```text
+View
+Create
+Edit
+Deactivate / Archive
+Reactivate where supported
+Delete only where explicitly permitted
+```
+
+Do not assume that every entity should support hard deletion.
+
+Deletion semantics must follow the backend contract.
+
+For roles, groups, reference data, organizations, and other configuration entities, determine lifecycle behavior from the actual backend/business rules before changing it.
+
+---
+
+# 28. Audit UX
+
+Audit records are sensitive administrative information.
+
+The frontend should only expose audit data according to the canonical authorization contract.
+
+Do not invent a new permission such as:
+
+```text
+audit.view
+```
+
+unless it is formally introduced into the RBAC architecture.
+
+Until then, use the existing backend authorization contract.
+
+Audit presentation should prioritize:
+
+* actor
+* action
+* target
+* timestamp
+* relevant context
+* readable change information
+
+Avoid exposing secrets, tokens, credentials, or unnecessary sensitive payloads.
+
+---
+
+# 29. Notifications
+
+Notification behavior must follow an explicit backend/business policy.
+
+Do not invent default notification recipients for:
+
+* complaint creation
+* organization assignment
+* escalation
+* workflow transitions
+
+If a notification contract is not defined, identify the gap instead of guessing.
+
+---
+
+# 30. SLA UX
+
+The UI should expose SLA information only to the extent supported by the backend.
+
+Where supported, consider:
+
+* SLA status
+* due date
+* elapsed time
+* remaining time
+* breach state
+* priority
+* category
+* sensitivity
+
+Do not invent SLA calculations in the frontend when the backend is authoritative.
+
+---
+
+# 31. Internationalization
+
+Long-term target:
+
+* Arabic
+* English
 
 The system should support:
 
-- Light and dark themes
-- Organization-specific brand themes
-- Locale-aware color contrast and direction adjustments
+* RTL Arabic
+* LTR English
+* localized dates
+* localized numbers
+* localized messages
+* logical CSS properties
+* direction-aware navigation and components
 
-### 6.2 Implementation Model
+However, internationalization must be introduced incrementally.
 
-- A ThemeProvider should expose the active theme and allow switching.
-- CSS custom properties should be updated at runtime based on the selected theme.
-- Brand values should be loaded from a centralized config file or server-provided metadata.
-
-### 6.3 Theme Layering
-
-1. Base tokens
-2. Brand tokens
-3. Semantic tokens
-4. Component tokens
-
-This allows branding changes without rewriting component styles.
+Do not perform a broad hardcoded-string migration merely because the target architecture specifies translation files.
 
 ---
 
-## 7. Organization Branding
+# 32. Arabic RTL
 
-SmartCFMS should support configurable organizational identity while remaining consistent with public-sector design expectations.
+Arabic remains the primary UX language for the current operational context.
 
-### 7.1 Branding Inputs
+Requirements:
 
-- Organization name
-- Short name or acronym
-- Logo and favicon
-- Primary and secondary colors
-- Support contact details
-- Legal footer text
-- Locale-specific tagline or description
+* correct RTL layout
+* natural Arabic wording
+* appropriate typography
+* correct icon positioning
+* logical spacing
+* readable form labels
+* appropriate table alignment
 
-### 7.2 Branding Strategy
-
-The frontend should not hardcode branding language directly inside components. Instead, branding should be driven by a central config object, such as:
-
-```js
-export const brandingConfig = {
-  name: 'SmartCFMS',
-  shortName: 'CFMS',
-  primaryColor: '#0f6cbd',
-  accentColor: '#19a7a7',
-  logoUrl: '/images/logo.svg',
-  supportEmail: 'support@cfms.local'
-};
-```
-
-This allows the UI to adapt to different departments or client organizations without structural changes.
+Do not mirror icons blindly; directional icons must retain semantic meaning.
 
 ---
 
-## 8. Responsive Strategy
+# 33. Performance
 
-### 8.1 Approach
+Priorities:
 
-The UI should follow a mobile-first strategy with progressive enhancement for larger screens.
+1. fast initial load
+2. responsive interaction
+3. efficient API usage
+4. minimal unnecessary dependencies
+5. stable layout
 
-### 8.2 Breakpoints
+Use:
 
-- Mobile: < 640px
-- Tablet: 640px - 1023px
-- Desktop: 1024px and above
+* lazy loading
+* code splitting
+* pagination
+* caching where justified
+* optimized assets
 
-### 8.3 Responsive Rules
-
-- Navigation should collapse into a compact mobile menu.
-- Forms should stack vertically on small screens.
-- Tables should transform into cards or scroll containers on mobile.
-- Important actions should remain within thumb reach on mobile devices.
-
-### 8.4 Layout Behavior
-
-- Use flexible containers and responsive spacing.
-- Components should support both RTL and LTR without layout breakage.
-- Avoid horizontal overflow in forms and lists.
+Do not introduce premature optimization.
 
 ---
 
-## 9. State Management
+# 34. Component Standards
 
-### 9.1 State Categories
+Shared components should be:
 
-- Local UI state: modal visibility, dropdown open state, form drafts
-- Feature state: current complaint submission flow, selected location, wizard step
-- Server state: complaints, users, locations, audit records
-- Global app state: auth, theme, locale, organization branding
+* reusable
+* composable
+* accessible
+* predictable
+* theme-aware where appropriate
 
-### 9.2 Recommended Model
+Preferred primitives include:
 
-- Use local component state for simple and isolated UI behavior.
-- Use React hooks and feature-level state for moderate complexity.
-- Use Context for auth, theme, and locale.
-- Use React Query for asynchronous server data and caching.
+* Button
+* Input
+* Select
+* Textarea
+* Checkbox
+* Radio
+* Modal
+* Drawer
+* Tabs
+* Alert
+* Badge
+* Card
+* EmptyState
+* Skeleton
+* DataTable
+* Pagination
+* Breadcrumb
+* SectionHeader
 
-### 9.3 State Rules
-
-- Avoid prop drilling for shared global concerns.
-- Avoid storing large derived data in local component state when it can be cached at the query layer.
-- Keep optimistic updates limited to low-risk actions.
-
----
-
-## 10. API Layer
-
-### 10.1 Goals
-
-The API layer should be centralized, predictable, and resilient.
-
-### 10.2 Structure
-
-- One shared Axios instance for common configuration
-- Feature-level service modules for domain requests
-- Clear error transformation for UI consumption
-- Centralized upload handling for files and attachments
-
-### 10.3 Expected Behaviors
-
-- Attach auth tokens automatically
-- Normalize server response shapes
-- Intercept unauthorized responses
-- Convert API errors into actionable UI messages
-- Support multipart uploads and file progress states
-
-### 10.4 Response Handling
-
-All API responses should be normalized into a consistent structure:
-
-```js
-{
-  data,
-  message,
-  success,
-  errors
-}
-```
-
-This reduces duplication in components and simplifies future integration.
+Only create a shared component when reuse or consistency justifies it.
 
 ---
 
-## 11. Authentication Flow
+# 35. Code Quality
 
-### 11.1 User Roles
+Use:
 
-- Public user: submits complaints and views own submission status
-- Staff user: reviews and manages complaint records
-- Administrator: manages configuration, users, and system settings
+* TypeScript
+* clear domain naming
+* focused components
+* small reusable functions
+* typed API contracts
+* minimal duplication
 
-### 11.2 Flow
+Avoid:
 
-1. User enters credentials or submits a public form.
-2. Access token is stored securely and attached to API requests.
-3. Protected routes check auth state before rendering.
-4. Expired or invalid sessions trigger a clear re-authentication flow.
-5. Logout clears session state and redirects to the appropriate public or login route.
-
-### 11.3 Security Expectations
-
-- Never expose sensitive tokens in public routes.
-- Use route guards for protected areas.
-- Support session expiration feedback and safe redirect behavior.
-- Prevent direct access to restricted pages via URL manipulation.
+* monolithic components
+* hidden business rules in UI
+* duplicated API logic
+* unnecessary abstractions
+* premature generic components
+* inline styling when a token/class/component is more appropriate
 
 ---
 
-## 12. Routing Strategy
+# 36. Testing
 
-### 12.1 Routing Model
+Phase 3 must include appropriate levels of testing.
 
-Use React Router with route-based code splitting.
+### Unit tests
 
-### 12.2 Route Categories
+For:
 
-- Public routes: home, complaint submission, status lookup, help, privacy
-- Protected routes: dashboard, case review, reporting, admin tools
-- Error routes: not found, unauthorized, server error
+* utilities
+* validation
+* isolated logic
 
-### 12.3 Navigation Model
+### Integration/API tests
 
-- Route-based layout wrappers should define page shells.
-- Shared navigation should adapt for desktop and mobile viewports.
-- Route transitions should be smooth but lightweight.
+For:
 
-### 12.4 Route Structure Example
+* authentication
+* RBAC
+* tenant isolation
+* CRUD contracts
+* complaint assignment
+* organization hierarchy
+
+### Frontend tests
+
+For critical user journeys:
+
+* login
+* navigation
+* complaint review
+* assignment
+* administrative CRUD
+* validation
+* unauthorized behavior
+
+### Browser/UI tests
+
+Where feasible, validate actual behavior in a running browser environment.
+
+Build and typecheck success alone does not prove UX correctness.
+
+---
+
+# 37. Phase 3 Execution Protocol
+
+Before modifying code, the implementation agent must:
+
+### Step 1 — Verify baseline
+
+Check:
+
+* current branch
+* HEAD
+* working tree
+* current diff
+* existing tests
+* frontend typecheck
+* build status
+
+Do not discard existing uncommitted work.
+
+### Step 2 — Read authoritative references
+
+Review relevant:
+
+* architecture documentation
+* RBAC specification
+* API contracts
+* roadmap
+* frontend specification
+* existing implementation
+
+### Step 3 — Perform forensic gap analysis
+
+Compare the actual implementation against this specification.
+
+Classify each finding as:
 
 ```text
-/                      -> Home or landing page
-/submit                -> Complaint submission form
-/status/:reference     -> Submission status page
-/login                 -> Staff login
-/dashboard             -> Staff dashboard
-/complaints/:id        -> Complaint detail page
-/admin                 -> Admin landing page
+Critical
+Required
+Recommended
+Optional
+Future
 ```
 
----
+Do not implement every theoretical difference.
 
-## 13. Reusable Components
+### Step 4 — Identify contradictions
 
-Components should be designed to be composable, accessible, and theme-aware.
+Before changing code, explicitly identify:
 
-### 13.1 Shared UI Components
+* backend/frontend contract mismatches
+* security issues
+* RBAC inconsistencies
+* tenant isolation risks
+* UX inconsistencies
+* accessibility gaps
+* unsupported assumptions
 
-- Button
-- Input
-- Select
-- Textarea
-- Checkbox / Radio
-- File upload
-- Modal
-- Drawer
-- Tabs
-- Accordion
-- Alert
-- Badge
-- Empty state
-- Skeleton loader
-- Data table
-- Pagination
-- Breadcrumbs
-- Card
-- Section header
+### Step 5 — Implement incrementally
 
-### 13.2 Form Components
+Fix the highest-value verified gaps first.
 
-- Field wrapper
-- Error message block
-- Form section
-- Wizard stepper
-- Location selector
-- File attachment list
-- Consent checkbox group
+Avoid unrelated refactoring.
 
-### 13.3 Layout Components
+### Step 6 — Verify
 
-- App shell
-- Header
-- Sidebar
-- Main content container
-- Footer
-- Page title area
+Run appropriate:
+
+```text
+typecheck
+build
+tests
+diff --check
+```
+
+and browser-level validation where applicable.
+
+### Step 7 — Review the diff
+
+Confirm:
+
+* no unrelated changes
+* no architectural regression
+* no security regression
+* no unsupported API assumptions
+* no accidental legacy model reintroduction
 
 ---
 
-## 14. Form Standards
+# 38. Explicit Phase 3 Non-Goals
 
-### 14.1 Form Design Principles
+Unless separately approved, Phase 3 must **not**:
 
-- Forms should be short, clear, and grouped by intent.
-- Required fields must be visually obvious.
-- Inline help should support, not clutter, the task.
-- Important decisions should be explicit and easy to review.
-
-### 14.2 Form Patterns
-
-- Single-page forms for simple submissions
-- Multi-step steps for complex workflows
-- Progressive disclosure for optional details
-- Save draft support for long forms where appropriate
-
-### 14.3 Input Behavior
-
-- Inputs should be controlled components.
-- Field values should be preserved across validation failures.
-- Focus should move to the first invalid field when a submit fails.
-- Error messages should appear close to the relevant field.
-
----
-
-## 15. Validation Strategy
-
-### 15.1 Validation Layers
-
-- Client-side validation for immediate feedback
-- Form schema validation for consistency
-- Server-side validation for authoritative enforcement
-
-### 15.2 Recommended Validation Tools
-
-- Zod for schema definition and validation
-- React Hook Form for form state and validation orchestration
-
-### 15.3 Validation Rules
-
-- Required fields must be validated before submission.
-- Sensitive fields should have explicit validation and handling rules.
-- File validation should enforce format, size, and count limits.
-- Validation should be localized and user-friendly.
-
-### 15.4 Error Mapping
-
-Server-side validation errors should be mapped to the correct field and displayed near the input.
+* rewrite the entire frontend folder structure
+* migrate every component to a new form library
+* migrate every API request to TanStack Query
+* introduce a second state-management system without need
+* recreate `org_units`
+* add `org_unit_id`
+* introduce group complaint assignment
+* create a parallel RBAC model
+* weaken backend authorization
+* move tenant isolation into the frontend
+* modify production database structure
+* modify Prisma schema merely for frontend convenience
+* introduce unsupported notification semantics
+* invent SLA business rules
+* invent audit permissions
+* add dark mode solely for compliance with this target document
+* convert every existing Arabic string to i18n resources solely because the target architecture proposes it
+* perform broad refactoring without a demonstrated requirement
 
 ---
 
-## 16. Error Handling
+# 39. Definition of Done for Phase 3
 
-### 16.1 Error Types
+Phase 3 is successful when:
 
-- Network failures
-- Validation errors
-- Auth/session errors
-- Not found and unauthorized states
-- Unexpected runtime exceptions
-
-### 16.2 Handling Strategy
-
-- Use a global error boundary for unexpected UI crashes.
-- Show inline errors on forms.
-- Show toast or banner notifications for non-blocking failures.
-- Use dedicated empty and fallback states for missing data.
-
-### 16.3 User-Facing Error Principles
-
-- Errors must be clear and actionable.
-- Avoid technical messages where user-friendly language is possible.
-- Provide recovery options whenever possible.
+* existing functionality remains intact
+* backend contracts remain authoritative
+* RBAC remains enforced server-side
+* tenant isolation remains server-side
+* complaint assignment uses supported targets only
+* organization hierarchy remains canonical
+* administrative UX becomes more consistent
+* responsive behavior is verified
+* accessibility gaps are reduced
+* critical workflows have appropriate tests
+* no unsupported architecture is introduced
+* no unnecessary large-scale migration is performed
+* build and typecheck pass
+* relevant automated tests pass
+* working tree changes are reviewable and scoped
 
 ---
 
-## 17. Loading States
+# 40. Final Engineering Principle
 
-### 17.1 Loading Principles
+The objective is **not to make the repository look like this document**.
 
-All asynchronous actions should provide visible feedback.
+The objective is to make the actual SmartCFMS product progressively conform to the useful standards defined here while preserving:
 
-### 17.2 Recommended Patterns
+* security
+* correctness
+* backward compatibility
+* existing approved architecture
+* maintainability
+* operational usability
 
-- Inline button loading states
-- Skeleton screens for page-level content loading
-- Spinners for small data refreshes
-- Progress indicators for file uploads and multi-step submissions
-
-### 17.3 Content Priority
-
-The UI should preserve layout stability and avoid layout shift where possible.
-
----
-
-## 18. Accessibility
-
-### 18.1 Accessibility Standard
-
-The frontend should meet WCAG 2.2 AA expectations.
-
-### 18.2 Requirements
-
-- Semantic HTML structure
-- Keyboard accessibility for all interactive controls
-- Visible focus states
-- Sufficient color contrast
-- ARIA labels where necessary
-- Support for screen readers and assistive technologies
-- Logical heading order and landmark regions
-
-### 18.3 Form Accessibility
-
-- Every input should have a visible label.
-- Error text should be associated with the relevant control.
-- Validation messages should be announced appropriately.
-- Submit actions should be clearly identified.
-
----
-
-## 19. Internationalization (Arabic RTL / English LTR)
-
-### 19.1 Core Goal
-
-The application must support Arabic and English with proper directional layout and localized content.
-
-### 19.2 Locale Strategy
-
-- Use a locale provider and translation resource files.
-- Store translations in JSON files for maintainability.
-- Structure content by domain and page rather than by component only.
-
-### 19.3 RTL / LTR Requirements
-
-- Support both Arabic RTL and English LTR layouts.
-- Use logical CSS properties where possible.
-- Ensure icon alignment, form layout, and navigation adapt to direction changes.
-- Preserve user selection and support seamless switching between languages.
-
-### 19.4 Locale-Specific Handling
-
-- Date, number, and currency formatting should be locale-aware.
-- Right-to-left layout should not break spacing or alignment.
-- Content should be reviewed for natural phrasing in both languages.
-
----
-
-## 20. Performance Optimization
-
-### 20.1 Performance Goals
-
-- Fast initial load
-- Responsive interactions
-- Smooth route transitions
-- Efficient API usage
-
-### 20.2 Recommended Practices
-
-- Use route-based lazy loading for large modules.
-- Split heavy features such as dashboards and admin tools into separate bundles.
-- Optimize image and asset loading.
-- Use memoization only where it improves real performance.
-- Avoid unnecessary re-renders through careful component boundaries.
-- Prefer lightweight UI libraries or minimal dependencies.
-
-### 20.3 Data Performance
-
-- Cache frequently requested data.
-- Avoid reloading the same resource repeatedly.
-- Use pagination and lazy loading for large lists.
-
----
-
-## 21. Coding Standards
-
-### 21.1 General Standards
-
-- Write clear, readable, and maintainable code.
-- Keep components focused and reusable.
-- Prefer small functions and composable hooks.
-- Avoid large monolithic components.
-
-### 21.2 Naming Conventions
-
-- Components: PascalCase
-- Hooks: useXxx
-- Services: camelCase with domain-specific names
-- Constants: UPPER_SNAKE_CASE
-- Files: kebab-case for general files, PascalCase for React components
-
-### 21.3 Style Rules
-
-- Use consistent formatting and indentation.
-- Use semantic names for props and state variables.
-- Keep styling token-driven rather than hardcoded.
-- Avoid inline style overrides unless necessary.
-
-### 21.4 Quality Gates
-
-- Linting must be enforced in CI and local development.
-- Build validation must be required before merge.
-- Core user journeys should have test coverage for submission, validation, routing, and auth flows.
-
----
-
-## 22. Implementation Phasing
-
-### Phase 1 - Foundation
-
-- App shell
-- Theme and branding system
-- Locale and routing structure
-- Shared UI primitives
-
-### Phase 2 - Core Complaint Experience
-
-- Complaint submission flow
-- Location selection
-- Validation and error states
-- File upload handling
-
-### Phase 3 - Extended Experience
-
-- Status lookup
-- Staff dashboard
-- Complaint detail views
-- Admin and reporting modules
-
-### Phase 4 - Hardening
-
-- Accessibility audits
-- Performance profiling
-- Security review
-- Localization refinement
-
----
-
-## 23. Approval Criteria
-
-The implementation should be considered ready when:
-
-- The architecture supports public and authenticated user journeys.
-- The design system is consistent across forms, pages, and error states.
-- Arabic and English experiences are both fully functional.
-- Accessibility and responsive behavior are validated.
-- The codebase remains maintainable and extensible for future modules.
+> **Evidence before refactoring.
+> Contracts before convenience.
+> Security before UX shortcuts.
+> Incremental improvement before wholesale migration.**

@@ -6,7 +6,7 @@ The application runtime and Jest test infrastructure now use Prisma for the conv
 
 The existing `cfms_db` is the current CFMS database and already contains application data. The test database is the separate `cfms_test` database. No old-production-to-new-production data copy is required for this phase: existing data was already in the target database, so no separate data migration was performed.
 
-The baseline SQL creates 24 active application tables. They are the Sequelize-managed snake_case tables, including `users`, `complaints`, `organizations`, `roles`, `groups`, `reference_lists`, and related bridge tables.
+The baseline SQL created 24 active application tables; after the permanent removal of Groups (`20260826150000_remove_groups`), there are 21 active application tables. They are the Sequelize-managed snake_case tables, including `users`, `complaints`, `organizations`, `roles`, `reference_lists`, and related bridge tables.
 
 ## Stale Prisma Artifacts
 
@@ -22,12 +22,9 @@ Do not delete, reset, rename, or modify these stale objects during the current m
 
 ## Expression Indexes Prisma Cannot Represent
 
-PostgreSQL currently enforces five important expression indexes that use `COALESCE(...)` for tenant-scoped uniqueness with nullable scope fields:
+PostgreSQL currently enforces four important expression indexes that use `COALESCE(...)` for tenant-scoped uniqueness with nullable scope fields:
 
 ```sql
-CREATE UNIQUE INDEX groups_code_scope_unique
-ON groups (code, COALESCE(organization_id, 0));
-
 CREATE UNIQUE INDEX reference_lists_key_scope_unique
 ON reference_lists ("key", COALESCE(organization_id, 0));
 

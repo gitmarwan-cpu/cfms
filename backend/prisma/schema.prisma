@@ -348,40 +348,6 @@ model governorates {
   @@index([country_id], map: "governorates_country_id")
 }
 
-model group_roles {
-  id         Int      @id @default(autoincrement())
-  group_id   Int
-  role_id    Int
-  created_at DateTime @db.Timestamptz(6)
-  groups     groups   @relation(fields: [group_id], references: [id], onDelete: Cascade)
-  roles      roles    @relation(fields: [role_id], references: [id], onDelete: Cascade)
-
-  @@unique([group_id, role_id], map: "group_roles_unique")
-}
-
-/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
-model groups {
-  id              Int            @id @default(autoincrement())
-  code            String         @db.VarChar(60)
-  organization_id Int?
-  name_ar         String         @db.VarChar(100)
-  name_en         String?        @db.VarChar(100)
-  description     String?
-  is_system       Boolean        @default(false)
-  is_active       Boolean        @default(true)
-  create_date     DateTime       @db.Timestamptz(6)
-  write_date      DateTime       @db.Timestamptz(6)
-  create_uid      Int?
-  write_uid       Int?
-  create_user     users?         @relation("groups_create_uidTousers", fields: [create_uid], references: [id], onDelete: SetNull)
-  write_user      users?         @relation("groups_write_uidTousers", fields: [write_uid], references: [id], onDelete: SetNull)
-  group_roles     group_roles[]
-  organizations   organizations? @relation(fields: [organization_id], references: [id], onDelete: Cascade)
-  user_groups     user_groups[]
-
-  @@index([organization_id], map: "groups_organization_id")
-}
-
 model org_unit_types {
   id                     Int              @id @default(autoincrement())
   organization_id        Int
@@ -460,7 +426,6 @@ model organizations {
   complainants                        complainants[]
   complaints                          complaints[]
   complaints_assigned_to_organization complaints[]                                   @relation("ComplaintsAssignedToOrganization")
-  groups                              groups[]
   org_unit_types                      org_unit_types[]                               @relation("OrgUnitTypesTenantScope")
   org_unit_types_root                 org_unit_types[]                               @relation("OrgUnitTypeRootOrganization")
   country_ref                         countries?                                     @relation(fields: [country_id], references: [id], onDelete: Restrict)
@@ -468,7 +433,6 @@ model organizations {
   districts                           districts?                                     @relation(fields: [district_id], references: [id])
   reference_lists                     reference_lists[]
   roles                               roles[]
-  user_groups                         user_groups[]
   user_organizations                  user_organizations[]
   user_roles                          user_roles[]
   user_roles_organization_node        user_roles[]                                   @relation("UserRoleOrganizationNode")
@@ -579,31 +543,11 @@ model roles {
   organization_id  Int?
   create_user      users?             @relation("roles_create_uidTousers", fields: [create_uid], references: [id], onDelete: SetNull)
   write_user       users?             @relation("roles_write_uidTousers", fields: [write_uid], references: [id], onDelete: SetNull)
-  group_roles      group_roles[]
   role_permissions role_permissions[]
   organizations    organizations?     @relation(fields: [organization_id], references: [id], onDelete: Cascade)
   user_roles       user_roles[]
 
   @@index([organization_id], map: "roles_organization_id")
-}
-
-model user_groups {
-  id              Int           @id @default(autoincrement())
-  user_id         Int
-  group_id        Int
-  organization_id Int
-  create_date     DateTime      @db.Timestamptz(6)
-  write_date      DateTime      @db.Timestamptz(6)
-  create_uid      Int?
-  write_uid       Int?
-  create_user     users?        @relation("user_groups_create_uidTousers", fields: [create_uid], references: [id], onDelete: SetNull)
-  write_user      users?        @relation("user_groups_write_uidTousers", fields: [write_uid], references: [id], onDelete: SetNull)
-  groups          groups        @relation(fields: [group_id], references: [id], onDelete: Cascade)
-  organizations   organizations @relation(fields: [organization_id], references: [id], onDelete: Cascade)
-  users           users         @relation(fields: [user_id], references: [id], onDelete: Cascade)
-
-  @@unique([user_id, group_id, organization_id], map: "user_groups_unique")
-  @@index([user_id], map: "user_groups_user_id")
 }
 
 model user_organizations {
@@ -674,10 +618,8 @@ model users {
   districts_created                                districts[]                   @relation("districts_create_uidTousers")
   districts_written                                districts[]                   @relation("districts_write_uidTousers")
   governorates_created                             governorates[]                @relation("governorates_create_uidTousers")
-  governorates_written                             governorates[]                @relation("governorates_write_uidTousers")
-  groups_created                                   groups[]                      @relation("groups_create_uidTousers")
-  groups_written                                   groups[]                      @relation("groups_write_uidTousers")
-  org_unit_types_created                           org_unit_types[]              @relation("org_unit_types_create_uidTousers")
+  governorates_written                            governorates[]                @relation("governorates_write_uidTousers")
+  org_unit_types_created                          org_unit_types[]              @relation("org_unit_types_create_uidTousers")
   org_unit_types_written                           org_unit_types[]              @relation("org_unit_types_write_uidTousers")
   organizations_created                            organizations[]               @relation("organizations_create_uidTousers")
   organizations_written                            organizations[]               @relation("organizations_write_uidTousers")
@@ -691,8 +633,6 @@ model users {
   roles_written                                    roles[]                       @relation("roles_write_uidTousers")
   sla_rules_created                                sla_rules[]                   @relation("sla_rules_create_uidTousers")
   sla_rules_written                                sla_rules[]                   @relation("sla_rules_write_uidTousers")
-  user_groups_created                              user_groups[]                 @relation("user_groups_create_uidTousers")
-  user_groups_written                              user_groups[]                 @relation("user_groups_write_uidTousers")
   user_organizations_created                       user_organizations[]          @relation("user_organizations_create_uidTousers")
   user_organizations_written                       user_organizations[]          @relation("user_organizations_write_uidTousers")
   user_roles_created                               user_roles[]                  @relation("user_roles_create_uidTousers")
@@ -705,7 +645,6 @@ model users {
   workflow_transitions_written                     workflow_transitions[]        @relation("workflow_transitions_write_uidTousers")
   complaint_status_history                         complaint_status_history[]
   complaints_complaints_assigned_to_user_idTousers complaints[]                  @relation("complaints_assigned_to_user_idTousers")
-  user_groups                                      user_groups[]
   user_organizations                               user_organizations[]
   user_roles                                       user_roles[]
   audit_logs                                       audit_logs[]

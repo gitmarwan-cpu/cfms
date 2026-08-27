@@ -4,6 +4,7 @@ import NotificationCenter from './NotificationCenter';
 import { useState } from 'react';
 
 type NavItem = { path: string; label: string; icon: string; exact: boolean; permission?: string; adminOnly?: boolean };
+
 const NAV_ITEMS: NavItem[] = [
   {
     path: '/admin',
@@ -22,7 +23,6 @@ const NAV_ITEMS: NavItem[] = [
   { path: '/admin/organization', label: 'المؤسسة', icon: '🏢', exact: false, permission: 'organization.view' },
   { path: '/admin/roles', label: 'الأدوار والصلاحيات', icon: '🛡️', exact: false, permission: 'roles.view' },
   { path: '/admin/users', label: 'المستخدمون', icon: '👤', exact: false, permission: 'users.view' },
-  { path: '/admin/groups', label: 'المجموعات والفرق', icon: '👥', exact: false, permission: 'groups.view' },
   { path: '/admin/org-structure', label: 'الهيكل التنظيمي', icon: '▦', exact: false, permission: 'org_structure.view' },
   { path: '/admin/reference-data', label: 'البيانات المرجعية', icon: '☷', exact: false, permission: 'reference_data.view' },
   { path: '/admin/sla', label: 'SLA', icon: '⏱', exact: false, permission: 'organization.view' },
@@ -42,6 +42,7 @@ export default function AdminLayout() {
 
   const isActive = (path: string, exact: boolean) =>
     exact ? location.pathname === path : location.pathname.startsWith(path);
+
   const canSee = (item: NavItem) => {
     if (item.adminOnly) return user?.roleCodes.includes('admin') || false;
     if (!item.permission) return true;
@@ -49,6 +50,7 @@ export default function AdminLayout() {
       (permission) => permission.code === item.permission && permission.organizationId === user.defaultOrganizationId
     ) || false;
   };
+
   const currentItem = NAV_ITEMS.find((item) => isActive(item.path, item.exact));
 
   return (

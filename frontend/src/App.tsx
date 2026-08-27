@@ -12,7 +12,6 @@ import ComplaintListPage from './pages/admin/ComplaintListPage';
 import ComplaintDetailPage from './pages/admin/ComplaintDetailPage';
 import RolesPage from './pages/admin/RolesPage';
 import UsersPage from './pages/admin/UsersPage';
-import GroupsPage from './pages/admin/GroupsPage';
 import OrganizationPage from './pages/admin/OrganizationPage';
 import OrgStructurePage from './pages/admin/OrgStructurePage';
 import ReferenceDataPage from './pages/admin/ReferenceDataPage';
@@ -123,7 +122,6 @@ export default function App() {
           <Route path="organization" element={<PermissionGate permission="organization.view"><OrganizationPage /></PermissionGate>} />
           <Route path="roles" element={<PermissionGate permission="roles.view"><RolesPage /></PermissionGate>} />
           <Route path="users" element={<PermissionGate permission="users.view"><UsersPage /></PermissionGate>} />
-          <Route path="groups" element={<PermissionGate permission="groups.view"><GroupsPage /></PermissionGate>} />
           <Route path="org-structure" element={<PermissionGate permission="org_structure.view"><OrgStructurePage /></PermissionGate>} />
           <Route path="reference-data" element={<PermissionGate permission="reference_data.view"><ReferenceDataPage /></PermissionGate>} />
           <Route path="sla" element={<PermissionGate permission="organization.view"><SlaPage /></PermissionGate>} />

@@ -10,10 +10,9 @@
 | `permissions` | كتالوج نظامي بالكامل (مشترك بين كل المؤسسات دوماً). لا Template+Override هنا. |
 | `roles` | Template+Override. `is_system=true` (admin/staff) لا يمكن حذفه/تعديله. |
 | `role_permissions` | جسر m:n بين دور وصلاحياته. |
-| `groups` | بيانات توافقية تاريخية مجمّدة للقراءة والتدقيق؛ ليست جزءاً من التفويض الفعّال. |
-| `group_roles` | جسر تاريخي محفوظ لأغراض الترحيل/التدقيق؛ لا يُستخدم في التفويض ولا تُقبل كتاباته. |
 | `user_roles` | إسناد مباشر: مستخدم ← دور، ضمن `organization_id` إلزامي، مع `organization_node_id` اختياري لنطاق أدق. |
-| `user_groups` | عضويات تاريخية محفوظة لأغراض الترحيل/التدقيق؛ لا تُستخدم في التفويض ولا تُقبل كتاباتها. |
+
+*ملاحظة: تم إزالة نظام المجموعات (Groups, GroupRoles, UserGroups) وصلاحيات المجموعات (`groups.view`, `groups.manage`) بشكل دائم عبر الهجرة التصحيحية `20260826150000_remove_groups`.*
 
 ## مسار التفويض المعتمد
 
@@ -21,9 +20,8 @@
 Users → UserRoles → Roles → RolePermissions → Permissions
 ```
 
-يحسب `services/rbacService.ts::getEffectivePermissions(userId)` الصلاحيات من
-`user_roles` فقط. يحتفظ النظام ببيانات Groups القديمة دون حذفها، لكن لا يمكنها
-إضافة أدوار أو صلاحيات للمستخدمين.
+يحسب `services/rbacService.ts::getEffectivePermissions(userId)` الصلاحيات حصرية من
+`user_roles` المباشر.
 
 ## التحقق في الـ middleware
 
@@ -42,8 +40,3 @@ Users → UserRoles → Roles → RolePermissions → Permissions
 - لا يمكن إسناد دور لمستخدم غير عضو فعلياً في المؤسسة (`UserOrganization`) أولاً.
 - الدور المُسنَد يجب أن يكون نظامياً أو مملوكاً لنفس المؤسسة تحديداً.
 - لا يمكن إلغاء آخر `admin` في مؤسسة.
-- جميع عمليات إنشاء/تعديل/حذف Groups وGroupRoles وUserGroups مجمّدة وتعيد
-  **410**؛ تبقى القراءات المتوافقة متاحة مؤقتاً.
-
-لا يوجد في النموذج الحالي توريث للمجموعات أو أي بديل لتجميع الصلاحيات. إزالة
-الجداول والواجهات التاريخية مرحلة لاحقة مستقلة بعد ترحيل البيانات والتحقق منها.

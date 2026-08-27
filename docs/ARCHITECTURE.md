@@ -128,8 +128,8 @@ User → Role
 User → UserRole → Role → Permission
 ```
 
-تظل جداول Groups وGroupRoles وUserGroups محفوظة مؤقتاً كبيانات توافقية
-مجمّدة للقراءة والتدقيق والترحيل، ولا تدخل في حساب الصلاحيات.
+تمت إزالة نظام المجموعات (Groups, GroupRoles, UserGroups) بشكل دائم عبر الهجرة التصحيحية `20260826150000_remove_groups`؛ لم تعد الجداول موجودة وصلاحياتها (`groups.view`, `groups.manage`) لم تعد في الكتالوج.
+
 
 التفاصيل الكاملة لقواعد RBAC موجودة في:
 

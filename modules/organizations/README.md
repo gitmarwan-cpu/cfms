@@ -20,8 +20,8 @@
 ## تعدد الانتماء (Multi-Organization Membership)
 
 مستخدم واحد قد ينتمي لعدة مؤسسات (`UserOrganization`)، بدور مختلف في كل منها
-(`UserRole` يحمل `organization_id` منفصلاً لكل تعيين). عضويات Groups القديمة
-محفوظة للتدقيق والترحيل فقط وليست جزءاً من التفويض الحالي.
+(`UserRole` يحمل `organization_id` منفصلاً لكل تعيين). نظام Groups أُزيل نهائياً؛
+لم تعد جداول/عضويات Group موجودة في قاعدة البيانات.
 `users.default_organization_id` مجرد إشارة سريعة (denormalized) للمؤسسة
 الافتراضية عند الدخول — **ليست** مصدر الحقيقة (المصدر الحقيقي `UserOrganization`).
 

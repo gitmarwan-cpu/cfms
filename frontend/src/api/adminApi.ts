@@ -364,17 +364,6 @@ export interface OrgUnit {
   manager?: UserRef | null;
 }
 
-export interface Group {
-  id: number;
-  organizationId: number;
-  code: string;
-  nameAr: string;
-  nameEn: string | null;
-  description: string | null;
-  isActive: boolean;
-  roles?: Pick<Role, 'id' | 'code' | 'nameAr' | 'nameEn'>[];
-}
-
 // ── Org Structure API ────────────────────────────────────────────────
 
 export const fetchOrgUnits = async (): Promise<any[]> => {
@@ -464,12 +453,8 @@ export const updateOrganizationNode = (id: number, payload: UpdateOrganizationNo
 export const deactivateOrganizationNode = (id: number): Promise<OrganizationNodeDto> =>
   unwrap<OrganizationNodeDto>(axiosClient.patch(`/organization/nodes/${id}/deactivate`));
 
-export const fetchGroups = async (): Promise<Group[]> => {
-  const res = await axiosClient.get<{ success: boolean; data: Group[] }>('/groups');
-  return res.data.data;
-};
-
 // ── Administration APIs (contracts mirrored from backend/src/routes) ──
+
 
 export interface Permission { id: number; code: string; nameAr: string; descriptionAr?: string | null; module?: string | null; }
 export interface Role {
@@ -494,10 +479,6 @@ export const fetchPermissions = () => unwrap<Permission[]>(axiosClient.get('/rol
 export const createRole = (payload: Pick<Role, 'code' | 'nameAr' | 'nameEn' | 'description'> & { permissionIds: number[] }) => unwrap<Role>(axiosClient.post('/roles', payload));
 export const updateRole = (id: number, payload: Partial<Pick<Role, 'nameAr' | 'nameEn' | 'description' | 'isActive'>> & { permissionIds?: number[] }) => unwrap<Role>(axiosClient.put(`/roles/${id}`, payload));
 export const deleteRole = (id: number) => axiosClient.delete(`/roles/${id}`);
-export const createGroup = (payload: Pick<Group, 'code' | 'nameAr' | 'nameEn' | 'description'> & { roleIds: number[] }) => unwrap<Group>(axiosClient.post('/groups', payload));
-export const fetchGroup = (id: number) => unwrap<Group>(axiosClient.get(`/groups/${id}`));
-export const updateGroup = (id: number, payload: Partial<Pick<Group, 'nameAr' | 'nameEn' | 'description' | 'isActive'>> & { roleIds?: number[] }) => unwrap<Group>(axiosClient.put(`/groups/${id}`, payload));
-export const deleteGroup = (id: number) => axiosClient.delete(`/groups/${id}`);
 export const fetchOrganization = () => unwrap<OrganizationSettings>(axiosClient.get('/organization'));
 export const updateOrganization = (payload: Partial<OrganizationSettings>) => unwrap<OrganizationSettings>(axiosClient.put('/organization', payload));
 export const fetchOrgUnitTypes = () => unwrap<OrgUnitType[]>(axiosClient.get('/org-structure/unit-types'));

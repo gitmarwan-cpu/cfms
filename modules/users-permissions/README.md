@@ -14,14 +14,14 @@
 ## الأدوار والصلاحيات (RBAC)
 
 المسار المعتمد لإسناد الصلاحيات مباشر فقط: `User→UserRole→Role→Permission`.
-بيانات Groups وعضوياتها التاريخية محفوظة مؤقتاً للقراءة والتدقيق والترحيل، لكنها
-مجمّدة ولا تمنح صلاحيات. راجع [`../../docs/RBAC.md`](../../docs/RBAC.md).
+نظام Groups أُزيل نهائياً عبر `20260826150000_remove_groups`؛
+لم تعد الجداول/العضويات موجودة؛ راجع [`../../docs/RBAC.md`](../../docs/RBAC.md).
 
 ## الحالة مقابل `Roadmap.md`
 
 | البند (1.3, 1.4) | الحالة |
 |---|---|
-| Users, Roles, Groups, Permissions | ✅ منجز |
+| Users, Roles, Permissions | ✅ منجز |
 | User Organization Assignment | ✅ منجز (M:N حقيقي) |
 | RBAC, Data permissions (Scoped) | ✅ منجز |
 | Staff Login/Logout | ✅ منجز |

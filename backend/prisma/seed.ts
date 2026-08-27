@@ -130,7 +130,6 @@ const PERMISSIONS = [
   ['org_structure.view', 'org_structure', 'عرض الهيكل التنظيمي'], ['org_structure.manage', 'org_structure', 'إدارة الهيكل التنظيمي'],
   ['users.view', 'users', 'عرض المستخدمين'], ['users.manage', 'users', 'إدارة المستخدمين'],
   ['roles.view', 'users', 'عرض الأدوار والصلاحيات'], ['roles.manage', 'users', 'إدارة الأدوار والصلاحيات'],
-  ['groups.view', 'users', 'عرض المجموعات'], ['groups.manage', 'users', 'إدارة المجموعات وأدوارها'],
   ['complaints.view_own', 'complaints', 'عرض الشكاوى المسندة للمستخدم فقط'], ['complaints.view_all', 'complaints', 'عرض جميع الشكاوى'],
   ['complaints.create', 'complaints', 'تسجيل شكوى نيابة عن مستفيد (حالة حضورية/هاتفية)'], ['complaints.assign', 'complaints', 'إسناد الشكاوى لموظف/قسم/فريق'],
   ['complaints.transfer', 'complaints', 'تحويل الشكوى بين الأقسام/الفروع'], ['complaints.close', 'complaints', 'إغلاق الشكوى'],

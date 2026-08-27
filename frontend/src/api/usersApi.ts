@@ -14,9 +14,6 @@ import axiosClient from './axiosClient';
  *   GET    /users/:userId/roles      list a user's role assignments (users.view)
  *   POST   /users/:userId/roles      assign a role (users.manage)
  *   DELETE /users/roles/:userRoleId  revoke a role (users.manage)
- *   GET    /users/:userId/groups     list a user's group memberships (users.view)
- *   POST   /users/:userId/groups     add a user to a group (users.manage)
- *   DELETE /users/groups/:userGroupId remove a user from a group (users.manage)
  *
  * The tenant context is resolved by the backend from the JWT and the
  * X-Organization-Id header — the frontend never sends an organization
@@ -90,16 +87,6 @@ export interface UserRoleAssignment {
   orgUnit: { id: number; name: string; code: string } | null;
 }
 
-export interface UserGroupAssignment {
-  id: number;
-  userId: number;
-  groupId: number;
-  organizationId: number;
-  createdAt: string;
-  updatedAt: string;
-  group: { id: number; code: string; nameAr: string; nameEn: string | null };
-}
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const unwrap = async <T>(request: Promise<{ data: { success: boolean; data: T } }>): Promise<T> =>
@@ -160,17 +147,3 @@ export const assignUserRole = (
 /** Revokes a user's role assignment. */
 export const revokeUserRole = (userRoleId: number): Promise<void> =>
   axiosClient.delete(`/users/roles/${userRoleId}`).then(() => undefined);
-
-// ── Groups ────────────────────────────────────────────────────────────────────
-
-/** Lists a user's group memberships within the active organization. */
-export const fetchUserGroups = (userId: number): Promise<UserGroupAssignment[]> =>
-  unwrap<UserGroupAssignment[]>(axiosClient.get(`/users/${userId}/groups`));
-
-/** Legacy compatibility endpoint; Group membership writes are frozen server-side. */
-export const addUserToGroup = (userId: number, groupId: number): Promise<UserGroupAssignment> =>
-  unwrap<UserGroupAssignment>(axiosClient.post(`/users/${userId}/groups`, { groupId }));
-
-/** Legacy compatibility endpoint; Group membership writes are frozen server-side. */
-export const removeUserFromGroup = (userGroupId: number): Promise<void> =>
-  axiosClient.delete(`/users/groups/${userGroupId}`).then(() => undefined);

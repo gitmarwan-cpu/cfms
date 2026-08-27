@@ -44,42 +44,6 @@ const getUserRoleAssignments = async (userId: number): Promise<DirectAssignment[
   }));
 };
 
-// Retained for migration/audit inspection only. Effective authorization must not call this path.
-const getUserGroupRoleAssignments = async (userId: number): Promise<DirectAssignment[]> => {
-  const memberships = await prisma.user_groups.findMany({
-    where: { user_id: userId, groups: { is_active: true } },
-    select: {
-      organization_id: true,
-      groups: {
-        select: {
-          group_roles: {
-            where: { roles: { is_active: true } },
-            select: {
-              roles: {
-                select: {
-                  code: true,
-                  role_permissions: { select: { permissions: { select: { code: true } } } },
-                },
-              },
-            },
-          },
-        },
-      },
-    },
-  });
-
-  return memberships.flatMap((membership) =>
-    membership.groups.group_roles.map(({ roles }) => ({
-      organizationId: membership.organization_id,
-      orgUnitId: null,
-      role: {
-        code: roles.code,
-        permissions: roles.role_permissions.map(({ permissions }) => permissions),
-      },
-    }))
-  );
-};
-
 export const getEffectiveRoleCodes = async (userId: number): Promise<string[]> => {
   const directAssignments = await getUserRoleAssignments(userId);
   return [...new Set(directAssignments.map(({ role }) => role.code))];
@@ -110,4 +74,4 @@ export const userHasPermission = async (
   });
 };
 
-export { getUserRoleAssignments, getUserGroupRoleAssignments };
+export { getUserRoleAssignments };

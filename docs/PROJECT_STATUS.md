@@ -5,7 +5,7 @@
 Phase 3 admin UI hardening is implemented in the current working tree: route
 visibility and actions use backend permissions, complaint status actions consume
 backend-defined transitions, and complaint assignment remains limited to a user
-or organization node. Groups are frozen compatibility data and are not part of
+or organization node. Groups have been permanently removed and are not part of
 the effective authorization model or complaint assignment.
 
 Phase B (SLA & Escalation) is fully implemented, hardened, and verified on the backend:
@@ -38,15 +38,13 @@ Phase B (SLA & Escalation) is fully implemented, hardened, and verified on the b
 | `/api/org-structure` | Organization node types; canonical nodes are under `/api/organization/nodes` | Authenticated + Tenant |
 | `/api/reference-data` | Reference list & item management | Authenticated + Tenant |
 | `/api/roles` | Role & permission management | Authenticated + Tenant |
-| `/api/groups` | Frozen Group compatibility reads; writes return 410 | Authenticated + Tenant |
-| `/api/users` | User role assignment; legacy Group reads only | Authenticated + Tenant |
+| `/api/users` | User role assignment | Authenticated + Tenant |
 | `/api/locations` | Governorates & districts (geographic reference) | Public |
 
 ## Models Currently Implemented — 23 Models
 
 - **Multi-Tenant Foundation**: `Organization`, organization nodes/types, `UserOrganization`.
-- **RBAC**: `Role`, `Permission`, `RolePermission`, `UserRole`; `Group`,
-  `GroupRole`, and `UserGroup` remain frozen compatibility models.
+- **RBAC**: `Role`, `Permission`, `RolePermission`, `UserRole` (Groups subsystem permanently removed).
 - **Users & Complainants**: `User`, `Complainants`.
 - **Complaints & SLA**: `Complaints`, `ComplaintAttachment`, `ComplaintStatusHistory`, `SlaRule`, `ComplaintEscalationEvent`.
 - **Reference Data**: `ReferenceList`, `ReferenceListItem`.
@@ -58,8 +56,7 @@ Phase B (SLA & Escalation) is fully implemented, hardened, and verified on the b
 All 19 test suites and 155 tests pass cleanly against `cfms_test`. Backend TypeScript compilation, `prisma validate`, frontend `npm run typecheck`, frontend `npm run build`, and `git diff --check` all complete with zero errors.
 
 **تعدد المؤسسات**: `Organization`, عقد تنظيمية وأنواعها، `UserOrganization`.
-**RBAC**: `Role`, `Permission`, `RolePermission`, `UserRole`; `Group`,
-`GroupRole`, and `UserGroup` remain frozen compatibility models.
+**RBAC**: `Role`, `Permission`, `RolePermission`, `UserRole` (نظام المجموعات أُزيل بالكامل).
 **المستخدمون**: `User` (نظام)، `Complainant` (عام، منفصل تماماً).
 **الشكاوى**: `Complaint`, `ComplaintAttachment`, `ComplaintStatusHistory`.
 **البيانات المرجعية**: `ReferenceList`, `ReferenceListItem`.
@@ -67,8 +64,8 @@ All 19 test suites and 155 tests pass cleanly against `cfms_test`. Backend TypeS
 
 ## الاختبارات
 
-33 migration، 9 ملفات اختبار (`auth`, `complaints`, `groups`, `locations`,
-`organization`, `referenceData`, `security`, `tenantIsolation` + `setup`).
+33 migrations، 8 ملفات اختبار (`auth`, `complaints`, `locations`, `organization`,
+`referenceData`, `security`, `tenantIsolation` + `setup`).
 الاختبارات الحالية تعمل على PostgreSQL المعزول `cfms_test` عبر Prisma؛ أي إشارة
 لاحقة إلى SQLite تصف البنية التاريخية فقط.
 

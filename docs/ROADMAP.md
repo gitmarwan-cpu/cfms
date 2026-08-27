@@ -40,8 +40,8 @@
 ### 1.3 User & Permission Management ✅ منجز
 
 - ✅ Users, Roles, Permissions.
-- 🔶 Groups remain as frozen compatibility data for migration/rollback; they are
-  no longer part of effective authorization.
+- ✅ Groups subsystem permanently removed (`20260826150000_remove_groups`);
+  no longer part of the database or effective authorization.
 - ✅ User↔Organization Assignment (M:N حقيقي عبر `UserOrganization`، مستخدم
   واحد قد ينتمي لعدة مؤسسات بأدوار مختلفة).
 - ✅ RBAC مع Data permissions (نطاق المؤسسة، مع تقييد اختياري بـ
@@ -81,7 +81,7 @@
 
 - ✅ 2.1 Complaint Submission (عام، مجهول، مرفقات، PIN، ربط اختياري بمشروع/موظف كنص حر، وأولوية).
 - ✅ 2.2 SLA & Escalation Management (قواعد اتفاقيات مستوى الخدمة، التصعيد الآلي، خادم الخلفية، وحساب المهلة الزمنية حسب الأولوية).
-- ✅ 2.3 Complaint Assignment (إسناد إلى مستخدم أو عقدة تنظيمية اختيارياً مع تحقق عضوية/نطاق المؤسسة ومسار تدقيق؛ Groups مخصصة لتجميع الأدوار وليست جهات تعيين للشكاوى).
+- ✅ 2.3 Complaint Assignment (إسناد إلى مستخدم أو عقدة تنظيمية اختيارياً مع تحقق عضوية/نطاق المؤسسة ومسار تدقيق؛ أُزيل نظام Groups نهائياً (لا توجد جهات تعيين جماعية).
 - ✅ 2.4 Reporting Summary API (`GET /api/reports/complaints` تفصيلي مع الإحصائيات والأولويات والتوزيعات).
 - ✅ 2.5 Public Tracking (رقم مرجعي + PIN، عرض مبسَّط آمن).
 

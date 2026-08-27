@@ -173,8 +173,6 @@ beforeAll(async () => {
     'users.manage',
     'roles.view',
     'roles.manage',
-    'groups.view',
-    'groups.manage',
     'complaints.view_own',
     'complaints.view_all',
     'complaints.create',

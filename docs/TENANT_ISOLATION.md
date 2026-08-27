@@ -37,8 +37,8 @@ const listX = async (filters) => {
 
 ## نمط Template + Override
 
-مطبَّق على: `roles`, `reference_lists`. جداول Groups التاريخية محفوظة للقراءة
-والتدقيق فقط وليست مصدراً للتفويض. القاعدة: `organization_id = NULL` يعني
+مطبَّق على: `roles`, `reference_lists`. نظام Groups أُزيل نهائياً عبر `20260826150000_remove_groups`؛
+أصبح التفويض مباشراً عبر `user_roles` فقط. القاعدة: `organization_id = NULL` يعني
 سجلاً نظامياً متاحاً لكل المؤسسات؛ قيمة تعني مملوكاً لمؤسسة واحدة فقط.
 عند التحقق من الملكية:
 

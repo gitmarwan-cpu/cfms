@@ -160,24 +160,15 @@ Where organizational scoping is supported, role assignments must preserve the ca
 
 The frontend must treat backend authorization as authoritative.
 
-## 5.2 Legacy Groups
+## 5.2 Groups — Removed
 
-Groups are being retired from active authorization.
-
-The target authorization model is direct user-role authorization. Groups must not be used as an active source of effective permissions.
-
-During the transition period, legacy Group data may remain in the database for compatibility, migration, historical audit, and controlled read-only inspection.
+The Groups subsystem has been permanently removed (services, controllers, routes, schema models, seed permissions, `groups.view` / `groups.manage`, and the `20260826150000_remove_groups` migration). The tables `groups`, `group_roles`, and `user_groups` no longer exist.
 
 The frontend must therefore:
 
-* not create new Group memberships
-* not modify Group memberships
-* not assign Roles to Groups
-* not use Groups to determine effective authorization
-* not present Groups as an active authorization mechanism
-* present legacy Group information as read-only where it remains necessary during transition
-
-Group tables, historical migrations, and audit records must not be removed merely as part of frontend work. Their retirement requires a separately approved backend/database migration plan.
+* not reference the removed Groups pages, panels, or API functions
+* not define any Groups interfaces or state
+* not treat Groups as an authorization mechanism
 
 ## 5.3 Complaint Assignment
 

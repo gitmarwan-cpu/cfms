@@ -1,16 +1,22 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { PageHeader, LoadingSkeleton, DataState, ConfirmDialog } from '../../components/admin/AdminUi';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { PageHeader, LoadingSkeleton, DataState, ConfirmDialog, FormDialog } from '../../components/admin/AdminUi';
 import { useAuth } from '../../context/AuthContext';
 import { fetchRoles, type Role } from '../../api/adminApi';
 import {
   activateUser,
+  addMembership as addMembershipApi,
   assignUserRole,
   deactivateUser,
   fetchUser,
+  fetchUserMemberships,
   fetchUserRoles,
   fetchUsers,
+  removeMembership as removeMembershipApi,
+  resetUserPassword,
   revokeUserRole,
+  setPrimaryMembership as setPrimaryMembershipApi,
   type ManagedUser,
+  type Membership,
   type UserRoleAssignment,
 } from '../../api/usersApi';
 import type { ApiClientError } from '../../api/axiosClient';
@@ -39,8 +45,8 @@ const DEBOUNCE_MS = 350;
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export default function UsersPage() {
-  const { user, hasPermission } = useAuth();
-  const orgId = user?.defaultOrganizationId ?? null;
+  const { user, hasPermission, currentOrganizationId, refreshMe } = useAuth();
+  const orgId = currentOrganizationId;
 
   const canView = orgId !== null && hasPermission('users.view', orgId);
   const canManage = orgId !== null && hasPermission('users.manage', orgId);
@@ -96,26 +102,36 @@ export default function UsersPage() {
   const [detailError, setDetailError] = useState('');
 
   const [userRoles, setUserRoles] = useState<UserRoleAssignment[]>([]);
+  const [userMemberships, setUserMemberships] = useState<Membership[]>([]);
   const [accessLoading, setAccessLoading] = useState(false);
   const [accessError, setAccessError] = useState('');
 
   const [busy, setBusy] = useState(false);
   const [busyAssignmentId, setBusyAssignmentId] = useState<number | null>(null);
+  const [busyMembershipId, setBusyMembershipId] = useState<number | null>(null);
 
   // ── Dialogs ────────────────────────────────────────────────────────────────
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
+  const [resetPasswordOpen, setResetPasswordOpen] = useState(false);
   const [notice, setNotice] = useState('');
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
 
   // ── Select a user ──────────────────────────────────────────────────────────
+  const loadMemberships = useCallback((userId: number) => {
+    fetchUserMemberships(userId)
+      .then((r) => setUserMemberships(r))
+      .catch(() => setUserMemberships([])); // membership load failures surface via role errors
+  }, []);
+
   const selectUser = useCallback((u: ManagedUser) => {
     setSelectedUser(u);
     setDetailError('');
     setAccessError('');
     setMobileDetailOpen(true);
     setAccessLoading(true);
+    loadMemberships(u.id);
     fetchUserRoles(u.id)
       .then((r) => { setUserRoles(r); })
       .catch((err: ApiClientError) => {
@@ -123,7 +139,7 @@ export default function UsersPage() {
         setAccessError(err.message || 'تعذر تحميل أدوار المستخدم.');
       })
       .finally(() => setAccessLoading(false));
-  }, []);
+  }, [loadMemberships]);
 
   const refreshSelectedUser = useCallback((userId: number) => {
     fetchUser(userId)
@@ -137,15 +153,17 @@ export default function UsersPage() {
   const refreshAccess = useCallback((userId: number) => {
     setAccessLoading(true);
     setAccessError('');
+    loadMemberships(userId);
     fetchUserRoles(userId)
       .then((r) => { setUserRoles(r); })
       .catch((err: ApiClientError) => setAccessError(err.message || 'تعذر تحميل أدوار المستخدم.'))
       .finally(() => setAccessLoading(false));
-  }, []);
+  }, [loadMemberships]);
 
   const clearSelection = () => {
     setSelectedUser(null);
     setUserRoles([]);
+    setUserMemberships([]);
     setAccessError('');
     setDetailError('');
     setMobileDetailOpen(false);
@@ -220,6 +238,54 @@ export default function UsersPage() {
       .then(setUserRoles)
       .catch((err: ApiClientError) => setAccessError(err.message || 'تعذر إلغاء الدور.'))
       .finally(() => setBusyAssignmentId(null));
+  };
+
+  // ── Membership handlers ───────────────────────────────────────────────────
+  // Server-side invariant messages (last-membership / last-active-admin /
+  // self-removal) are surfaced VERBATIM — no friendlier rewording that hides
+  // the actual constraint from the admin.
+  const handleAddMembership = () => {
+    if (!selectedUser) return;
+    setBusy(true);
+    setAccessError('');
+    addMembershipApi(selectedUser.id)
+      .then(() => {
+        loadMemberships(selectedUser.id);
+        setNotice(`تمت إضافة «${selectedUser.fullName}» كعضو في المؤسسة بنجاح.`);
+      })
+      .catch((err: ApiClientError) => setAccessError(err.message || 'تعذر إضافة العضوية.'))
+      .finally(() => setBusy(false));
+  };
+
+  const handleRemoveMembership = (membershipId: number) => {
+    if (!selectedUser) return;
+    setBusyMembershipId(membershipId);
+    setAccessError('');
+    removeMembershipApi(membershipId)
+      .then(() => {
+        loadMemberships(selectedUser.id);
+        setNotice('تم إلغاء العضوية بنجاح.');
+      })
+      .catch((err: ApiClientError) => setAccessError(err.message || 'تعذر إلغاء العضوية.'))
+      .finally(() => setBusyMembershipId(null));
+  };
+
+  const handleSetPrimary = (membershipId: number) => {
+    if (!selectedUser) return;
+    setBusyMembershipId(membershipId);
+    setAccessError('');
+    setPrimaryMembershipApi(membershipId)
+      .then(() => {
+        loadMemberships(selectedUser.id);
+        setNotice('تم تعيين العضوية الأساسية بنجاح.');
+        // The logged-in admin changed their OWN primary organization — the
+        // default-organization resolution must be re-fetched so the
+        // organization switcher (and the primary badge) stays correct.
+        if (user && selectedUser.id === user.id) return refreshMe();
+        return undefined;
+      })
+      .catch((err: ApiClientError) => setAccessError(err.message || 'تعذر تعيين العضوية الأساسية.'))
+      .finally(() => setBusyMembershipId(null));
   };
 
   // ── Guard ──────────────────────────────────────────────────────────────────
@@ -402,10 +468,12 @@ export default function UsersPage() {
               user={selectedUser}
               roles={roles}
               userRoles={userRoles}
+              memberships={userMemberships}
               accessLoading={accessLoading}
               accessError={accessError}
               busy={busy}
               busyAssignmentId={busyAssignmentId}
+              busyMembershipId={busyMembershipId}
               canManage={canManage}
               onEdit={() => setEditOpen(true)}
               onDeactivate={() => setConfirmDeactivate(true)}
@@ -413,6 +481,10 @@ export default function UsersPage() {
               onClose={clearSelection}
               onAssignRole={assignRole}
               onRevokeRole={revokeRole}
+              onAddMembership={handleAddMembership}
+              onRemoveMembership={handleRemoveMembership}
+              onSetPrimary={handleSetPrimary}
+              onResetPassword={() => setResetPasswordOpen(true)}
             />
           </div>
         ) : (
@@ -453,6 +525,17 @@ export default function UsersPage() {
           busy={busy}
         />
       )}
+
+      {resetPasswordOpen && selectedUser && (
+        <ResetPasswordDialog
+          user={selectedUser}
+          onClose={() => setResetPasswordOpen(false)}
+          onReset={(updatedName) => {
+            setResetPasswordOpen(false);
+            setNotice(`تم إعادة تعيين كلمة المرور لـ «${updatedName}» بنجاح.`);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -463,10 +546,12 @@ interface UserDetailPanelProps {
   user: ManagedUser;
   roles: Role[];
   userRoles: UserRoleAssignment[];
+  memberships: Membership[];
   accessLoading: boolean;
   accessError: string;
   busy: boolean;
   busyAssignmentId: number | null;
+  busyMembershipId: number | null;
   canManage: boolean;
   onEdit: () => void;
   onDeactivate: () => void;
@@ -474,16 +559,22 @@ interface UserDetailPanelProps {
   onClose: () => void;
   onAssignRole: (roleId: number) => void;
   onRevokeRole: (assignmentId: number) => void;
+  onAddMembership: () => void;
+  onRemoveMembership: (membershipId: number) => void;
+  onSetPrimary: (membershipId: number) => void;
+  onResetPassword: () => void;
 }
 
 function UserDetailPanel({
   user,
   roles,
   userRoles,
+  memberships,
   accessLoading,
   accessError,
   busy,
   busyAssignmentId,
+  busyMembershipId,
   canManage,
   onEdit,
   onDeactivate,
@@ -491,6 +582,10 @@ function UserDetailPanel({
   onClose,
   onAssignRole,
   onRevokeRole,
+  onAddMembership,
+  onRemoveMembership,
+  onSetPrimary,
+  onResetPassword,
 }: UserDetailPanelProps) {
   return (
     <div>
@@ -512,6 +607,9 @@ function UserDetailPanel({
               <>
                 <button type="button" className="btn btn-outline" style={{ fontSize: '13px' }} onClick={onEdit}>
                   تعديل
+                </button>
+                <button type="button" className="btn btn-outline" style={{ fontSize: '13px' }} onClick={onResetPassword} disabled={busy}>
+                  إعادة تعيين كلمة المرور
                 </button>
                 {user.isActive ? (
                   <button type="button" className="btn btn-outline" style={{ fontSize: '13px', color: 'var(--color-danger, #c0392b)' }} onClick={onDeactivate} disabled={busy}>
@@ -590,8 +688,191 @@ function UserDetailPanel({
             onAssign={onAssignRole}
             onRevoke={onRevokeRole}
           />
+          <UserMembershipsPanel
+            key={`memberships-${user.id}`}
+            memberships={memberships}
+            busy={busy}
+            busyMembershipId={busyMembershipId}
+            canManage={canManage}
+            onAdd={onAddMembership}
+            onRemove={onRemoveMembership}
+            onSetPrimary={onSetPrimary}
+          />
         </div>
       )}
     </div>
+  );
+}
+
+// ── Memberships Panel ──────────────────────────────────────────────────────────
+
+interface UserMembershipsPanelProps {
+  memberships: Membership[];
+  busy: boolean;
+  busyMembershipId: number | null;
+  canManage: boolean;
+  onAdd: () => void;
+  onRemove: (membershipId: number) => void;
+  onSetPrimary: (membershipId: number) => void;
+}
+
+/**
+ * Membership manager for a single user (GET/POST /users/:userId/memberships,
+ * DELETE /users/memberships/:id, PATCH /users/memberships/:id/primary).
+ * Server-side invariant messages (last-membership / last-active-admin /
+ * self-removal) are surfaced verbatim by the parent — this panel only renders.
+ */
+function UserMembershipsPanel({
+  memberships,
+  busy,
+  busyMembershipId,
+  canManage,
+  onAdd,
+  onRemove,
+  onSetPrimary,
+}: UserMembershipsPanelProps) {
+  return (
+    <div className="card">
+      <div className="card__header">
+        <h2 style={{ fontSize: '1.1rem', margin: 0 }}>العضويات</h2>
+      </div>
+      <div className="card__body">
+        {memberships.length === 0 ? (
+          <p className="admin-assign-note">لا توجد عضويات مسجلة لهذا المستخدم في هذه المؤسسة.</p>
+        ) : (
+          <ul className="admin-assign-list">
+            {memberships.map((m) => (
+              <li key={m.id} className="admin-assign-item">
+                <span>
+                  <strong>{m.organization ? m.organization.legalName : `مؤسسة #${m.organizationId}`}</strong>
+                  {m.isPrimary && (
+                    <span className="admin-status-pill is-success" style={{ marginInlineStart: '8px' }}>
+                      أساسية
+                    </span>
+                  )}
+                  <span className={`admin-status-pill ${m.isActive ? 'is-success' : ''}`} style={{ marginInlineStart: '8px' }}>
+                    {m.isActive ? 'نشطة' : 'معطّلة'}
+                  </span>
+                </span>
+                {canManage && (
+                  <span style={{ display: 'flex', gap: '6px' }}>
+                    {!m.isPrimary && m.isActive && (
+                      <button
+                        type="button"
+                        className="admin-text-button"
+                        onClick={() => onSetPrimary(m.id)}
+                        disabled={busy || busyMembershipId !== null}
+                        aria-label="تعيين كعضوية أساسية"
+                      >
+                        {busyMembershipId === m.id ? '…' : 'تعيين أساسية'}
+                      </button>
+                    )}
+                    {m.isActive && (
+                      <button
+                        type="button"
+                        className="admin-text-button danger"
+                        onClick={() => onRemove(m.id)}
+                        disabled={busy || busyMembershipId !== null}
+                        aria-label="إزالة العضوية"
+                      >
+                        {busyMembershipId === m.id ? '…' : 'إزالة'}
+                      </button>
+                    )}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {canManage && (
+          <div className="admin-inline-form">
+            <button
+              type="button"
+              className="btn btn-outline"
+              onClick={onAdd}
+              disabled={busy || memberships.some((m) => m.isActive)}
+            >
+              {memberships.some((m) => m.isActive) ? 'عضو نشط بالفعل' : 'إضافة عضوية'}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Reset Password Dialog ──────────────────────────────────────────────────────
+
+interface ResetPasswordDialogProps {
+  user: ManagedUser;
+  onClose: () => void;
+  onReset: (userFullName: string) => void;
+}
+
+/**
+ * Admin-issued password reset (POST /users/:userId/reset-password, users.manage).
+ * The new password is typed by the admin and is never stored, logged, or echoed.
+ */
+function ResetPasswordDialog({ user, onClose, onReset }: ResetPasswordDialogProps) {
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    setError('');
+    if (!newPassword) {
+      setError('الرجاء إدخال كلمة المرور الجديدة.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError('كلمتا المرور غير متطابقتين.');
+      return;
+    }
+    setSaving(true);
+    try {
+      await resetUserPassword(user.id, newPassword);
+      onReset(user.fullName);
+    } catch (err) {
+      const apiErr = err as ApiClientError;
+      // Surface server-side policy messages verbatim; never echo the password.
+      setError(apiErr.message || 'تعذر إعادة تعيين كلمة المرور. حاول مرة أخرى.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <FormDialog
+      title={`إعادة تعيين كلمة المرور: ${user.fullName}`}
+      onClose={onClose}
+      onSubmit={submit}
+      saving={saving}
+      error={error}
+      submitLabel="إعادة التعيين"
+    >
+      <label className="field">
+        كلمة المرور الجديدة
+        <input
+          type="password"
+          value={newPassword}
+          onChange={(e) => setNewPassword(e.target.value)}
+          autoComplete="new-password"
+          required
+        />
+      </label>
+      <label className="field">
+        تأكيد كلمة المرور الجديدة
+        <input
+          type="password"
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          autoComplete="new-password"
+          required
+        />
+      </label>
+    </FormDialog>
   );
 }

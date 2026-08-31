@@ -1,4 +1,5 @@
 const { body } = require('express-validator');
+const { passwordPolicyBodyValidation } = require('./passwordPolicy');
 export {};
 
 const loginValidation = [
@@ -6,15 +7,20 @@ const loginValidation = [
   body('password').notEmpty().withMessage('كلمة المرور مطلوبة'),
 ];
 
+// Password rules come from the shared password policy (validations/passwordPolicy.ts)
+// so registration, self-service change and admin reset always agree.
 const registerValidation = [
   body('fullName').isLength({ min: 2, max: 150 }).withMessage('الاسم الكامل مطلوب'),
   body('email').isEmail().withMessage('البريد الإلكتروني غير صالح'),
-  body('password')
-    .isLength({ min: 8 })
-    .withMessage('كلمة المرور يجب ألا تقل عن 8 أحرف')
-    .matches(/\d/)
-    .withMessage('يجب أن تحتوي كلمة المرور على رقم واحد على الأقل'),
+  passwordPolicyBodyValidation('password'),
   body('roleCode').optional().isLength({ min: 2, max: 60 }),
 ];
 
-module.exports = { loginValidation, registerValidation };
+// Self-service password change (POST /auth/change-password) — account-level,
+// authenticated-only route; the shared policy governs the new password.
+const changePasswordValidation = [
+  body('currentPassword').isString().notEmpty().withMessage('كلمة المرور الحالية مطلوبة'),
+  passwordPolicyBodyValidation('newPassword'),
+];
+
+module.exports = { loginValidation, registerValidation, changePasswordValidation };

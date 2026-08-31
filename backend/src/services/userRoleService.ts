@@ -1,5 +1,6 @@
 import prisma from '../prisma/client';
 import ApiError from '../utils/ApiError';
+import { recordAuditEvent } from './auditService';
 
 export type OrganizationId = string | number;
 export type UserId = string | number;
@@ -89,7 +90,7 @@ export const assignRole = async (
         prisma.users.findUnique({ where: { id: parsedUserId }, select: { id: true } }),
         prisma.roles.findFirst({
           where: { id: parsedRoleId, OR: [{ organization_id: null }, { organization_id: parsedOrganizationId as number }] },
-          select: { id: true, is_active: true },
+          select: { id: true, code: true, is_active: true },
         }),
       ])
     : [null, null];
@@ -125,40 +126,91 @@ export const assignRole = async (
   if (existing) throw new ApiError(409, 'هذا التعيين موجود بالفعل');
 
   const now = new Date();
-  const created = await prisma.user_roles.create({
-    data: {
-      user_id: parsedUserId as number,
-      role_id: parsedRoleId as number,
-      organization_id: parsedOrganizationId as number,
-      organization_node_id: parsedOrganizationNodeId,
-      create_date: now,
-      write_date: now,
-      create_uid: authUserId || null,
-      write_uid: authUserId || null,
-    },
-    select: USER_ROLE_SELECT,
+  // Create + audit must succeed or fail together (Phase 3 atomicity contract).
+  const created = await prisma.$transaction(async (tx) => {
+    const createdRow = await tx.user_roles.create({
+      data: {
+        user_id: parsedUserId as number,
+        role_id: parsedRoleId as number,
+        organization_id: parsedOrganizationId as number,
+        organization_node_id: parsedOrganizationNodeId,
+        create_date: now,
+        write_date: now,
+        create_uid: authUserId || null,
+        write_uid: authUserId || null,
+      },
+      select: USER_ROLE_SELECT,
+    });
+
+    await recordAuditEvent(tx, {
+      organizationId: parsedOrganizationId as number,
+      actorUserId: authUserId ?? null,
+      action: 'user_role.assigned',
+      entityType: 'user_role',
+      entityId: createdRow.id,
+      metadata: {
+        userId: parsedUserId as number,
+        roleId: parsedRoleId as number,
+        roleCode: role.code,
+        organizationNodeId: parsedOrganizationNodeId,
+      },
+    });
+
+    return createdRow;
   });
   return mapUserRole(created);
 };
 
-export const revokeRole = async (organizationId: OrganizationId, userRoleId: UserRoleId): Promise<void> => {
+export const revokeRole = async (
+  organizationId: OrganizationId,
+  userRoleId: UserRoleId,
+  actorUserId?: number | null
+): Promise<void> => {
   const parsedOrganizationId = toSafeInteger(organizationId);
   const parsedUserRoleId = toSafeInteger(userRoleId);
-  const userRole = parsedOrganizationId && parsedUserRoleId
-    ? await prisma.user_roles.findFirst({
-        where: { id: parsedUserRoleId, organization_id: parsedOrganizationId },
-        select: { id: true, role_id: true },
-      })
-    : null;
-  if (!userRole) throw new ApiError(404, 'تعيين الدور غير موجود ضمن مؤسستك');
 
-  const role = await prisma.roles.findUnique({ where: { id: userRole.role_id }, select: { code: true } });
-  if (role?.code === 'admin') {
-    const remainingOrgAdmins = await prisma.user_roles.count({
-      where: { role_id: userRole.role_id, organization_id: parsedOrganizationId as number, roles: { code: 'admin' } },
+  // Lookup, last-admin guard, delete and audit must all execute inside the
+  // same transaction (Phase 3 atomicity contract): the role code and target
+  // user_id used for the audit metadata are fetched INSIDE the transaction,
+  // immediately before the delete.
+  await prisma.$transaction(async (tx) => {
+    const userRole = parsedOrganizationId && parsedUserRoleId
+      ? await tx.user_roles.findFirst({
+          where: { id: parsedUserRoleId, organization_id: parsedOrganizationId },
+          select: { id: true, role_id: true, user_id: true },
+        })
+      : null;
+    if (!userRole) throw new ApiError(404, 'تعيين الدور غير موجود ضمن مؤسستك');
+
+    const role = await tx.roles.findUnique({ where: { id: userRole.role_id }, select: { code: true } });
+    if (role?.code === 'admin') {
+      // Only ACTIVE admin users count towards the last-admin guard: an inactive
+      // admin-role holder cannot administer the tenant, so counting them would
+      // let a revoke leave the organization with zero active admins (Fix 1.1).
+      const remainingOrgAdmins = await tx.user_roles.count({
+        where: {
+          role_id: userRole.role_id,
+          organization_id: parsedOrganizationId as number,
+          roles: { code: 'admin' },
+          users: { is_active: true },
+        },
+      });
+      if (remainingOrgAdmins <= 1) throw new ApiError(400, 'لا يمكن إلغاء آخر مدير في هذه المؤسسة');
+    }
+
+    await tx.user_roles.delete({ where: { id: userRole.id } });
+
+    await recordAuditEvent(tx, {
+      organizationId: parsedOrganizationId as number,
+      actorUserId: actorUserId ?? null,
+      action: 'user_role.revoked',
+      entityType: 'user_role',
+      entityId: userRole.id,
+      metadata: {
+        userId: userRole.user_id,
+        roleId: userRole.role_id,
+        roleCode: role?.code ?? null,
+      },
     });
-    if (remainingOrgAdmins <= 1) throw new ApiError(400, 'لا يمكن إلغاء آخر مدير في هذه المؤسسة');
-  }
-
-  await prisma.user_roles.delete({ where: { id: parsedUserRoleId as number } });
+  });
 };

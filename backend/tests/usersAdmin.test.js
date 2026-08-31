@@ -381,3 +381,176 @@ describe('User Administration API', () => {
     expect(res.status).toBe(403);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 3 — Password lifecycle (self-service change + admin-issued reset)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('Password Lifecycle (Phase 3)', () => {
+  let adminToken;
+  let staffToken;
+  let adminUser;
+  let staffUser;
+  let org;
+  const ts = Date.now();
+
+  const auditRows = (action, organizationId) =>
+    prisma.audit_logs.findMany({
+      where: { action, organization_id: organizationId },
+      orderBy: { id: 'desc' },
+    });
+
+  beforeAll(async () => {
+    org = await createOrganization({ legalName: 'مؤسسة كلمات المرور', slug: `password-org-${ts}` });
+    const admin = await createUserWithRole(
+      { fullName: 'مدير كلمات المرور', email: `password.admin.${ts}@cfms.local`, roleCode: 'admin', organizationId: org.id },
+      'Password123'
+    );
+    const staff = await createUserWithRole(
+      { fullName: 'موظف كلمات المرور', email: `password.staff.${ts}@cfms.local`, roleCode: 'staff', organizationId: org.id },
+      'Password123'
+    );
+    adminUser = admin.user;
+    staffUser = staff.user;
+    adminToken = await login(adminUser.email);
+    staffToken = await login(staffUser.email);
+  });
+
+  it('يغيّر كلمة المرور الذاتي بكلمة مرور حالية صحيحة (200) ويسمح بالدخول بالجديدة', async () => {
+    const res = await request(app)
+      .post('/api/auth/change-password')
+      .set('Authorization', `Bearer ${staffToken}`)
+      .send({ currentPassword: 'Password123', newPassword: 'NewPassword456' });
+    expect(res.status).toBe(200);
+    expect(JSON.stringify(res.body)).not.toContain('Password123');
+    expect(JSON.stringify(res.body)).not.toContain('NewPassword456');
+
+    // The old credential no longer authenticates — verified against the
+    // stored hash: every test in this file shares one 10-per-15-minute login
+    // rate-limit bucket (authRoutes loginRateLimiter, keyed by IP), so HTTP
+    // login assertions are budgeted for the spec-mandated checks in the
+    // admin-reset test below.
+    const changedUser = await prisma.users.findUnique({ where: { id: staffUser.id } });
+    expect(await bcrypt.compare('Password123', changedUser.password_hash)).toBe(false);
+
+    const newLogin = await request(app)
+      .post('/api/auth/login')
+      .send({ email: staffUser.email, password: 'NewPassword456' });
+    expect(newLogin.status).toBe(200);
+  });
+
+  it('يرفض التغيير بكلمة مرور حالية خاطئة (401) دون كشف أي معلومات', async () => {
+    const res = await request(app)
+      .post('/api/auth/change-password')
+      .set('Authorization', `Bearer ${staffToken}`)
+      .send({ currentPassword: 'WrongPassword999', newPassword: 'AnotherPassword123' });
+    expect(res.status).toBe(401);
+    expect(JSON.stringify(res.body)).not.toContain('WrongPassword999');
+    expect(JSON.stringify(res.body)).not.toContain('AnotherPassword123');
+  });
+
+  it('يرفض التغيير عند مخالفة سياسة كلمة المرور (422)', async () => {
+    const res = await request(app)
+      .post('/api/auth/change-password')
+      .set('Authorization', `Bearer ${staffToken}`)
+      .send({ currentPassword: 'NewPassword456', newPassword: 'weak' });
+    expect(res.status).toBe(422);
+    // The policy failure must not have changed the password:
+    const stillWorks = await request(app)
+      .post('/api/auth/login')
+      .send({ email: staffUser.email, password: 'NewPassword456' });
+    expect(stillWorks.status).toBe(200);
+  });
+
+  it('يكتب حدث تدقيق user.password_changed باسم المنظمة الصحيح', async () => {
+    const rows = await auditRows('user.password_changed', org.id);
+    const row = rows.find((r) => r.actor_user_id === staffUser.id);
+    expect(row).toBeTruthy();
+    expect(row.entity_type).toBe('user');
+    expect(row.entity_id).toBe(staffUser.id);
+    expect(row.metadata).toMatchObject({ method: 'self' });
+    expect(JSON.stringify(row.metadata)).not.toContain('NewPassword456');
+  });
+
+  // ── Admin-issued password reset ────────────────────────────────────────────────
+
+  it('يعيد المدير تعيين كلمة مرور موظف في مؤسسته (200) ويفشل الدخول بالقديمة', async () => {
+    const res = await request(app)
+      .post(`/api/users/${staffUser.id}/reset-password`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ newPassword: 'ResetPassword789' });
+    expect(res.status).toBe(200);
+    expect(JSON.stringify(res.body)).not.toContain('ResetPassword789');
+    expect(JSON.stringify(res.body)).not.toContain('password');
+
+    // The previous password (set by the self-service change above) fails now.
+    const oldLogin = await request(app)
+      .post('/api/auth/login')
+      .send({ email: staffUser.email, password: 'NewPassword456' });
+    expect(oldLogin.status).toBe(401);
+
+    const newLogin = await request(app)
+      .post('/api/auth/login')
+      .send({ email: staffUser.email, password: 'ResetPassword789' });
+    expect(newLogin.status).toBe(200);
+
+    // The stored value is a hash, never plaintext.
+    const dbUser = await prisma.users.findUnique({ where: { id: staffUser.id } });
+    expect(dbUser.password_hash).not.toBe('ResetPassword789');
+    expect(dbUser.password_hash.startsWith('$2')).toBe(true);
+  });
+
+  it('يرفض المدير تعيين كلمة مرور تخالف السياسة (422) ولا تتغير الحالية', async () => {
+    const res = await request(app)
+      .post(`/api/users/${staffUser.id}/reset-password`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ newPassword: 'weak' });
+    expect(res.status).toBe(422);
+    expect(JSON.stringify(res.body)).not.toContain('weak');
+
+    // The 422 rejection must not have changed the stored password (hash
+    // check — see the rate-limit budget note in the self-service test above).
+    const afterRejected = await prisma.users.findUnique({ where: { id: staffUser.id } });
+    expect(await bcrypt.compare('ResetPassword789', afterRejected.password_hash)).toBe(true);
+  });
+
+  it('يرفض المدير تعيين كلمة مرور لمستخدم ليس عضواً في مؤسسته (404) دون كشف وجوده', async () => {
+    const otherOrg = await createOrganization({ legalName: 'مؤسسة إعادة التعيين الأخرى', slug: `password-org-other-${ts}` });
+    const { user: outsider } = await createUserWithRole(
+      { fullName: 'مستخدم مؤسسة أخرى', email: `password.outsider.${ts}@cfms.local`, roleCode: 'staff', organizationId: otherOrg.id },
+      'Password123'
+    );
+
+    const res = await request(app)
+      .post(`/api/users/${outsider.id}/reset-password`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ newPassword: 'OutsiderPassword123' });
+    expect(res.status).toBe(404);
+
+    // The outsider's original password is untouched.
+    // The outsider's original credential is untouched (hash check — same
+    // rate-limit budget rationale as above).
+    const outsiderUser = await prisma.users.findUnique({ where: { id: outsider.id } });
+    expect(await bcrypt.compare('Password123', outsiderUser.password_hash)).toBe(true);
+  });
+
+  it('يرفض موظف بدون صلاحية users.manage إعادة تعيين كلمات المرور (403)', async () => {
+    const res = await request(app)
+      .post(`/api/users/${adminUser.id}/reset-password`)
+      .set('Authorization', `Bearer ${staffToken}`)
+      .send({ newPassword: 'ForbiddenPassword123' });
+    expect(res.status).toBe(403);
+  });
+
+  it('يكتب حدث تدقيق user.password_reset بالبيانات الوصفية الصحيحة وبدون أي كلمات مرور', async () => {
+    const rows = await auditRows('user.password_reset', org.id);
+    const row = rows.find((r) => r.entity_id === staffUser.id);
+    expect(row).toBeTruthy();
+    expect(row.entity_type).toBe('user');
+    expect(row.actor_user_id).toBe(adminUser.id);
+    expect(row.metadata).toMatchObject({ method: 'admin', byUserId: adminUser.id });
+    expect(JSON.stringify(row.metadata)).not.toContain('ResetPassword789');
+    expect(JSON.stringify(row.metadata)).not.toContain('hash');
+  });
+
+});

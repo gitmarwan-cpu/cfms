@@ -111,7 +111,10 @@ export const listUsers = async (organizationId: number, filters: UserListFilters
   const limit = Math.min(100, Math.max(1, Number.parseInt(String(filters.limit || ''), 10) || 20));
 
   const where: Prisma.usersWhereInput = {
-    user_organizations: { some: { organization_id: organizationId } },
+    // Only users with an ACTIVE membership row in this organization are
+    // tenant members; soft-revoked memberships must hide the user here
+    // (mirrors getMyOrganizations in authService.ts).
+    user_organizations: { some: { organization_id: organizationId, is_active: true } },
   };
 
   // Active/inactive filter

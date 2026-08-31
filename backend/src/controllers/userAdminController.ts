@@ -51,4 +51,15 @@ const activateUser = catchAsync(async (req: AppRequest, res: AppResponse) => {
   res.status(200).json({ success: true, message: 'تم تفعيل المستخدم بنجاح', data: user });
 });
 
-module.exports = { listUsers, getUserById, updateUser, deactivateUser, activateUser };
+const resetPassword = catchAsync(async (req: AppRequest, res: AppResponse) => {
+  const passwordService = require('../services/passwordService');
+  await passwordService.adminResetUserPassword(
+    req.organizationId,
+    req.user?.id ?? null,
+    Number(req.params.userId),
+    req.body.newPassword
+  );
+  res.status(200).json({ success: true, message: 'تم إعادة تعيين كلمة المرور بنجاح' });
+});
+
+module.exports = { listUsers, getUserById, updateUser, deactivateUser, activateUser, resetPassword };

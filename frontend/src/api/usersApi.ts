@@ -42,6 +42,10 @@ export interface ManagedUser {
   defaultOrganizationId: number | null;
   primaryOrganizationNodeId: number | null;
   primaryOrganizationNode: PrimaryOrganizationNode | null;
+  /** Memberships of the user in the active organization context (when requested). */
+  memberships?: Membership[];
+  /** Derived from audit_logs by the backend — no dedicated column exists. */
+  lastLoginAt?: string | null;
 }
 
 export interface RegisterUserInput {
@@ -85,6 +89,18 @@ export interface UserRoleAssignment {
   updatedAt: string;
   role: { id: number; code: string; nameAr: string; nameEn: string | null };
   orgUnit: { id: number; name: string; code: string } | null;
+}
+
+/** A tenant-membership row (user_organizations) as returned by the backend. */
+export interface Membership {
+  id: number;
+  userId: number;
+  organizationId: number;
+  isPrimary: boolean;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  organization: { id: number; legalName: string; shortName: string | null } | null;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -147,3 +163,32 @@ export const assignUserRole = (
 /** Revokes a user's role assignment. */
 export const revokeUserRole = (userRoleId: number): Promise<void> =>
   axiosClient.delete(`/users/roles/${userRoleId}`).then(() => undefined);
+
+// ── Memberships (Phase 3) ─────────────────────────────────────────────────────
+// The target organization is always the authenticated tenant context on the
+// backend — it is never sent in a request body, params or query string.
+
+/** Lists a user's memberships within the active organization context. */
+export const fetchUserMemberships = (userId: number): Promise<Membership[]> =>
+  unwrap<Membership[]>(axiosClient.get(`/users/${userId}/memberships`));
+
+/**
+ * Adds a user to the active organization (or reactivates an inactive
+ * membership in place). The body is intentionally EMPTY — the target
+ * organization is the tenant context, never a client-supplied id.
+ */
+export const addMembership = (userId: number): Promise<Membership> =>
+  unwrap<Membership>(axiosClient.post(`/users/${userId}/memberships`, {}));
+
+/** Soft-removes a membership (is_active = false; the row is never deleted). */
+export const removeMembership = (membershipId: number): Promise<void> =>
+  axiosClient.delete(`/users/memberships/${membershipId}`).then(() => undefined);
+
+/** Marks a membership as the user's primary one and syncs the default org. */
+export const setPrimaryMembership = (membershipId: number): Promise<Membership> =>
+  unwrap<Membership>(axiosClient.patch(`/users/memberships/${membershipId}/primary`));
+
+/** Admin-issued password reset for a user within the active organization. */
+export const resetUserPassword = async (userId: number, newPassword: string): Promise<void> => {
+  await axiosClient.post(`/users/${userId}/reset-password`, { newPassword });
+};

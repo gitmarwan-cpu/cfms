@@ -5,6 +5,7 @@ import prisma from '../prisma/client';
 import ApiError from '../utils/ApiError';
 import { getEffectiveRoleCodes } from './rbacService';
 import { recordAuditEvent } from './auditService';
+import { validatePasswordPolicy } from '../validations/passwordPolicy';
 
 export interface RegisterPayload {
   email: string;
@@ -119,6 +120,11 @@ export const register = async (organizationId: string | number, payload: Registe
   const parsedOrganizationId = toSafeInteger(organizationId);
   if (parsedOrganizationId === null) throw new ApiError(400, 'المؤسسة غير موجودة');
 
+  // Single source of truth for the password policy (shared with the password
+  // change/reset endpoints). authValidation.ts mirrors this rule set for
+  // HTTP-level validation — keep the two in sync by construction.
+  validatePasswordPolicy(payload.password);
+
   const passwordHash = await bcrypt.hash(payload.password, 10);
 
   try {
@@ -181,4 +187,168 @@ export const register = async (organizationId: string | number, payload: Registe
     }
     throw error;
   }
+};
+
+export interface MembershipOrganization {
+  id: number;
+  name: string;
+  shortName: string | null;
+  isPrimary: boolean;
+}
+
+/**
+ * Active organization memberships for the authenticated user — the payload
+ * behind the admin organization switcher. Mirrors the exact acceptance
+ * criteria of `resolveAuthenticatedTenant` (membership `is_active: true`), so
+ * the UI can only ever offer organizations the backend will actually accept
+ * in the `X-Organization-Id` header. Tenant isolation stays server-side.
+ */
+export const getMyOrganizations = async (userId: number): Promise<MembershipOrganization[]> => {
+  const memberships = await prisma.user_organizations.findMany({
+    where: { user_id: userId, is_active: true },
+    select: {
+      is_primary: true,
+      organizations: { select: { id: true, legal_name: true, short_name: true } },
+    },
+    orderBy: [{ is_primary: 'desc' }, { organization_id: 'asc' }],
+  });
+
+  return memberships.map((membership) => ({
+    id: membership.organizations.id,
+    name: membership.organizations.legal_name,
+    shortName: membership.organizations.short_name,
+    isPrimary: membership.is_primary,
+  }));
+};
+
+// ─── Password Lifecycle (Phase 3) ─────────────────────────────────────────────
+
+/** Audit org: the session tenant when available, else the user's default org
+ * (mirrors the recordSuccessfulLoginEvent precedence). */
+const resolveAuditOrganizationId = (user: {
+  organizationId?: number | null;
+  default_organization_id: number | null;
+}): number | null =>
+  typeof user.organizationId === 'number' ? user.organizationId : user.default_organization_id;
+
+/**
+ * Self-service password change (POST /auth/change-password).
+ *
+ * Account-level operation — NOT tenant-scoped (authenticate only). The audit
+ * event uses the caller's organization context when available, otherwise their
+ * default organization, mirroring recordSuccessfulLoginEvent.
+ *
+ * The shared password policy (passwordPolicy.ts) is enforced — the exact same
+ * rule set as registration. The generic auth-failure message is used for both
+ * "account not found" and "wrong current password" so the endpoint never
+ * reveals whether an account exists. No password material is ever logged,
+ * returned, or placed in audit metadata.
+ */
+export const changeUserPassword = async (
+  actorUserId: number | null | undefined,
+  currentPassword: unknown,
+  newPassword: unknown
+): Promise<void> => {
+  const parsedUserId = toSafeInteger(actorUserId ?? null);
+  if (parsedUserId === null) throw new ApiError(401, 'البريد الإلكتروني أو كلمة المرور غير صحيحة');
+
+  if (typeof currentPassword !== 'string' || currentPassword.length === 0) {
+    throw new ApiError(422, 'كلمة المرور الحالية مطلوبة');
+  }
+
+  const user = await prisma.users.findUnique({
+    where: { id: parsedUserId },
+    select: { id: true, password_hash: true, is_active: true, default_organization_id: true },
+  });
+  if (!user || !user.is_active) throw new ApiError(401, 'البريد الإلكتروني أو كلمة المرور غير صحيحة');
+
+  const currentPasswordMatches = await bcrypt.compare(currentPassword, user.password_hash);
+  if (!currentPasswordMatches) throw new ApiError(401, 'البريد الإلكتروني أو كلمة المرور غير صحيحة');
+
+  if (typeof newPassword !== 'string' || newPassword.length === 0) {
+    throw new ApiError(422, 'كلمة المرور الجديدة مطلوبة');
+  }
+
+  validatePasswordPolicy(newPassword);
+  const newPasswordHash = await bcrypt.hash(newPassword, 10);
+
+  const organizationId = resolveAuditOrganizationId(user);
+  await prisma.$transaction(async (tx) => {
+    await tx.users.update({
+      where: { id: parsedUserId },
+      data: { password_hash: newPasswordHash, write_date: new Date() },
+    });
+    await recordAuditEvent(tx, {
+      organizationId,
+      actorUserId: parsedUserId,
+      action: 'user.password_changed',
+      entityType: 'user',
+      entityId: parsedUserId,
+      metadata: { method: 'self' },
+    });
+  });
+};
+
+/**
+ * Admin-issued password reset (POST /users/:userId/reset-password).
+ *
+ * NOTE (accepted for Phase 3): resetting a password does NOT invalidate the
+ * target user's existing sessions — JWTs are stateless with an 8-hour expiry
+ * window, so previously-issued tokens keep working until they expire. No
+ * token_version column or session-invalidation flow was approved for this
+ * phase; do not mistake this for an oversight.
+ */
+export const adminResetUserPassword = async (
+  organizationId: number | null | undefined,
+  actorUserId: number | null | undefined,
+  targetUserId: unknown,
+  newPassword: unknown
+): Promise<void> => {
+  const parsedOrganizationId = toSafeInteger(organizationId ?? null);
+  if (parsedOrganizationId === null) throw new ApiError(400, 'المؤسسة غير موجودة');
+
+  const parsedTargetUserId = toSafeInteger(
+    typeof targetUserId === 'number' ? targetUserId : String(targetUserId ?? '')
+  );
+  if (parsedTargetUserId === null) throw new ApiError(400, 'معرّف المستخدم غير صالح');
+
+  // The target must hold an ACTIVE membership in the CALLER's organization —
+  // 404 (never 403) so the existence of the user in another tenant is not leaked.
+  const membership = await prisma.user_organizations.findFirst({
+    where: {
+      user_id: parsedTargetUserId,
+      organization_id: parsedOrganizationId,
+      is_active: true,
+    },
+    select: { id: true },
+  });
+  if (!membership) throw new ApiError(404, 'المستخدم غير موجود');
+
+  const targetUser = await prisma.users.findUnique({
+    where: { id: parsedTargetUserId },
+    select: { id: true },
+  });
+  if (!targetUser) throw new ApiError(404, 'المستخدم غير موجود');
+
+  if (typeof newPassword !== 'string' || newPassword.length === 0) {
+    throw new ApiError(422, 'كلمة المرور الجديدة مطلوبة');
+  }
+
+  validatePasswordPolicy(newPassword);
+  const newPasswordHash = await bcrypt.hash(newPassword, 10);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.users.update({
+      where: { id: parsedTargetUserId },
+      data: { password_hash: newPasswordHash, write_date: new Date() },
+    });
+    await recordAuditEvent(tx, {
+      organizationId: parsedOrganizationId,
+      actorUserId: actorUserId ?? null,
+      action: 'user.password_reset',
+      entityType: 'user',
+      entityId: parsedTargetUserId,
+      metadata: { method: 'admin', byUserId: actorUserId ?? null },
+    });
+  });
 };

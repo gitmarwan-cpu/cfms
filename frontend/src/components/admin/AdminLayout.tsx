@@ -1,7 +1,9 @@
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import NotificationCenter from './NotificationCenter';
-import { useState } from 'react';
+import OrganizationSwitcher from './OrganizationSwitcher';
+import ChangePasswordDialog from './ChangePasswordDialog';
+import { useEffect, useRef, useState } from 'react';
 
 type NavItem = { path: string; label: string; icon: string; exact: boolean; permission?: string; adminOnly?: boolean };
 
@@ -30,7 +32,7 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 export default function AdminLayout() {
-  const { user, logout } = useAuth();
+  const { user, logout, currentOrganizationId } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -47,7 +49,7 @@ export default function AdminLayout() {
     if (item.adminOnly) return user?.roleCodes.includes('admin') || false;
     if (!item.permission) return true;
     return user?.permissions?.some(
-      (permission) => permission.code === item.permission && permission.organizationId === user.defaultOrganizationId
+      (permission) => permission.code === item.permission && permission.organizationId === currentOrganizationId
     ) || false;
   };
 
@@ -120,8 +122,9 @@ export default function AdminLayout() {
             {currentItem && <><span aria-hidden="true">/</span><strong>{currentItem.label}</strong></>}
           </div>
           <div className="admin-header__actions">
-            <span className="admin-header__context">المؤسسة #{user?.defaultOrganizationId ?? '—'}</span>
+            <OrganizationSwitcher />
             <NotificationCenter />
+            <AccountMenu />
           </div>
         </header>
 
@@ -130,6 +133,76 @@ export default function AdminLayout() {
           <Outlet />
         </main>
       </div>
+    </div>
+  );
+}
+
+// ── Account Menu ───────────────────────────────────────────────────────────────
+
+/** Header account menu — hosts the self-service "change my password" entry. */
+function AccountMenu() {
+  const [open, setOpen] = useState(false);
+  const [changeOpen, setChangeOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('touchstart', handlePointerDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('touchstart', handlePointerDown);
+    };
+  }, [open]);
+
+  return (
+    <div ref={containerRef} style={{ position: 'relative' }}>
+      <button
+        type="button"
+        className="btn btn-outline"
+        style={{ fontSize: '13px', padding: '6px 12px' }}
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
+        الحساب ▾
+      </button>
+      {open && (
+        <div
+          role="menu"
+          style={{
+            position: 'absolute',
+            top: 'calc(100% + 6px)',
+            left: 0,
+            background: 'var(--color-surface, #fff)',
+            border: '1px solid var(--color-border)',
+            borderRadius: '8px',
+            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)',
+            minWidth: '180px',
+            zIndex: 60,
+            overflow: 'hidden',
+          }}
+        >
+          <button
+            type="button"
+            role="menuitem"
+            className="admin-text-button"
+            style={{ display: 'block', width: '100%', textAlign: 'right', padding: '10px 14px' }}
+            onClick={() => {
+              setOpen(false);
+              setChangeOpen(true);
+            }}
+          >
+            تغيير كلمة المرور
+          </button>
+        </div>
+      )}
+      {changeOpen && <ChangePasswordDialog onClose={() => setChangeOpen(false)} />}
     </div>
   );
 }

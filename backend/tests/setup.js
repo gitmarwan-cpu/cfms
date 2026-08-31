@@ -165,6 +165,7 @@ beforeAll(async () => {
   const permissionCodes = [
     'organization.view',
     'organization.manage',
+    'organization.create',
     'reference_data.view',
     'reference_data.manage',
     'org_structure.view',

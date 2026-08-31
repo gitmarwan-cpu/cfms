@@ -453,6 +453,27 @@ export const updateOrganizationNode = (id: number, payload: UpdateOrganizationNo
 export const deactivateOrganizationNode = (id: number): Promise<OrganizationNodeDto> =>
   unwrap<OrganizationNodeDto>(axiosClient.patch(`/organization/nodes/${id}/deactivate`));
 
+// ── Organization (Tenant) Creation API ───────────────────────────────
+// Distinct from creating an organizational unit: this creates a new
+// Organization/Tenant together with its automatic Root Organizational Unit.
+
+export interface CreateOrganizationInput {
+  legalName: string;
+  slug: string;
+  shortName?: string | null;
+  description?: string | null;
+  countryId?: number | null;
+  governorateId?: number | null;
+  districtId?: number | null;
+  email?: string | null;
+  website?: string | null;
+}
+
+export const createOrganization = async (payload: CreateOrganizationInput): Promise<OrganizationSettings> => {
+  const res = await axiosClient.post<{ success: boolean; data: OrganizationSettings }>('/organization', payload);
+  return res.data.data;
+};
+
 // ── Administration APIs (contracts mirrored from backend/src/routes) ──
 
 

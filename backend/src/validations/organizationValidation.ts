@@ -22,6 +22,24 @@ const updateOrganizationValidation = [
   body('isActive').optional().isBoolean().toBoolean(),
 ];
 
+const createOrganizationValidation = [
+  body('legalName').trim().notEmpty().withMessage('اسم المؤسسة مطلوب').isLength({ min: 2, max: 200 }),
+  body('slug')
+    .trim()
+    .notEmpty()
+    .withMessage('معرّف المؤسسة (slug) مطلوب')
+    .matches(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    .withMessage('معرّف المؤسسة (slug) غير صالح: أحرف لاتينية صغيرة وأرقام وشرطات فقط')
+    .isLength({ min: 3, max: 80 }),
+  body('shortName').optional({ checkFalsy: true }).isLength({ max: 80 }),
+  body('description').optional({ checkFalsy: true }),
+  body('countryId').optional({ checkFalsy: true }).isInt({ min: 1 }),
+  body('governorateId').optional({ checkFalsy: true }).isInt({ min: 1 }),
+  body('districtId').optional({ checkFalsy: true }).isInt({ min: 1 }),
+  body('email').optional({ checkFalsy: true }).isEmail(),
+  body('website').optional({ checkFalsy: true }).isURL(),
+];
+
 const createNodeValidation = [
   body('name').trim().notEmpty().withMessage('اسم الوحدة التنظيمية مطلوب').isLength({ min: 2, max: 200 }),
   body('orgUnitTypeId').isInt({ min: 1 }).withMessage('نوع الوحدة التنظيمية غير صالح'),
@@ -63,6 +81,7 @@ const nodeIdParamValidation = [
 
 module.exports = {
   updateOrganizationValidation,
+  createOrganizationValidation,
   createNodeValidation,
   updateNodeValidation,
   nodeIdParamValidation,

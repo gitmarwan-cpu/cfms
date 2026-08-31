@@ -115,8 +115,17 @@ export const createType = async (
   const parsedOrganizationId = toSafeInteger(organizationId);
   if (parsedOrganizationId === null) throw new ApiError(422, TYPE_NOT_FOUND);
 
+  const code = typeof payload.code === 'string' ? payload.code.trim() : '';
+  if (!code) throw new ApiError(422, 'رمز نوع الوحدة التنظيمية مطلوب');
+  // Rule H: the "organization" type is reserved for the Root Organizational
+  // Unit (the organization record itself). Administrators must never be able
+  // to create arbitrary child units typed as the organization itself.
+  if (code.toLowerCase() === 'organization') {
+    throw new ApiError(422, 'الرمز "organization" محجوز للمؤسسة الجذرية ولا يمكن استخدامه لوحدات تنظيمية تابعة');
+  }
+
   const existing = await prisma.org_unit_types.findFirst({
-    where: { organization_id: parsedOrganizationId, code: payload.code },
+    where: { organization_id: parsedOrganizationId, code },
     select: { id: true },
   });
   if (existing) throw new ApiError(409, 'الرمز (code) مستخدم بالفعل لنوع آخر ضمن هذه المؤسسة');

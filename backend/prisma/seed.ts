@@ -126,6 +126,7 @@ const RELATIONSHIP_ITEMS = [
 
 const PERMISSIONS = [
   ['organization.view', 'organization', 'عرض إعدادات المؤسسة'], ['organization.manage', 'organization', 'تعديل إعدادات المؤسسة'],
+  ['organization.create', 'organization', 'إنشاء مؤسسات جديدة (Root Organizational Unit) ضمن المنصة'],
   ['reference_data.view', 'reference_data', 'عرض القوائم المرجعية'], ['reference_data.manage', 'reference_data', 'إدارة القوائم المرجعية'],
   ['org_structure.view', 'org_structure', 'عرض الهيكل التنظيمي'], ['org_structure.manage', 'org_structure', 'إدارة الهيكل التنظيمي'],
   ['users.view', 'users', 'عرض المستخدمين'], ['users.manage', 'users', 'إدارة المستخدمين'],

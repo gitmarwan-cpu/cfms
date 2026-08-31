@@ -451,6 +451,30 @@ const mapNode = (record: NodeRecord): OrganizationNodeResponse => ({
     : { unitType: null }),
 });
 
+/**
+ * Enforces the documented hierarchy contract when a unit type declares an
+ * `allowed_parent_type_id`. When no parent type is declared the hierarchy
+ * stays flexible (any parent inside the tenant), matching the documented
+ * "flexible hierarchy" architecture in modules/organizations/README.md.
+ * The Root Unit is always at hierarchy level 0 and can never be nested
+ * beneath another unit.
+ */
+const validateNodeTypePlacement = (
+  allowedParentTypeId: number | null | undefined,
+  parentIsRootUnit: boolean,
+  parentTypeId: number | null
+): void => {
+  const requiredParentTypeId = allowedParentTypeId ?? null;
+  if (requiredParentTypeId === null) return;
+
+  if (parentIsRootUnit) {
+    throw new ApiError(422, 'هذا النوع من الوحدات يتطلب وحدة أم محددة ضمن المؤسسة ولا يمكن وضعه مباشرة تحت المؤسسة الجذرية');
+  }
+  if (parentTypeId !== requiredParentTypeId) {
+    throw new ApiError(422, 'هذا النوع من الوحدات يتطلب وحدة أم من نوع محدد ضمن هذه المؤسسة');
+  }
+};
+
 const resolveRootOrgId = async (tenantOrgId: OrganizationId): Promise<number> => {
   const parsedId = toSafeInteger(tenantOrgId);
   if (!parsedId) throw new ApiError(401, 'معرف المؤسسة الفعالة غير صالح');
@@ -529,6 +553,165 @@ const validateLocationCombination = async (
   }
 };
 
+export interface CreateOrganizationPayload {
+  legalName: string;
+  slug: string;
+  shortName?: string | null;
+  description?: string | null;
+  countryId?: number | string | null;
+  governorateId?: number | string | null;
+  districtId?: number | string | null;
+  email?: string | null;
+  website?: string | null;
+}
+
+const ORGANIZATION_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+/**
+ * Creates a new Organization/Tenant together with its implicit Root
+ * Organizational Unit in a single atomic transaction.
+ *
+ * Unified hierarchy architecture: the `organizations` row itself IS the Root
+ * Unit (parent_id = NULL, org_unit_type_id = NULL, root_organization_id =
+ * NULL). Exactly one Root Unit per organization is therefore guaranteed by
+ * construction — the Root cannot be contradictory with the organization
+ * identity because it is the same row.
+ *
+ * The transaction also seeds the default unit types (mirroring
+ * prisma/seed.ts), and grants the creating administrator an active membership
+ * plus the system admin role within the new tenant so it is immediately
+ * manageable.
+ */
+export const createOrganization = async (
+  payload: CreateOrganizationPayload,
+  authUserId?: number | null
+): Promise<OrganizationResponse> => {
+  const legalName = payload.legalName?.trim() ?? '';
+  if (legalName.length < 2 || legalName.length > 200) {
+    throw new ApiError(422, 'اسم المؤسسة مطلوب (2-200 حرف)');
+  }
+
+  const slug = payload.slug?.trim().toLowerCase() ?? '';
+  if (!ORGANIZATION_SLUG_PATTERN.test(slug) || slug.length < 3 || slug.length > 80) {
+    throw new ApiError(422, 'معرّف المؤسسة (slug) غير صالح: أحرف لاتينية صغيرة وأرقام وشرطات فقط (3-80)');
+  }
+
+  const existingRoot = await prisma.organizations.findFirst({
+    where: { slug, parent_id: null },
+    select: { id: true },
+  });
+  if (existingRoot) {
+    throw new ApiError(409, 'معرّف المؤسسة (slug) مستخدم مسبقاً');
+  }
+
+  const countryId = parseNullableLocationId(payload.countryId, 'الدولة');
+  const governorateId = parseNullableLocationId(payload.governorateId, 'المحافظة');
+  const districtId = parseNullableLocationId(payload.districtId, 'المديرية');
+  await validateLocationCombination(countryId, governorateId, districtId);
+
+  const created = await prisma.$transaction(async (tx) => {
+    const now = new Date();
+
+    // The organization record is simultaneously the tenant identity and its
+    // Root Organizational Unit (parent_id and root_organization_id stay NULL).
+    const organization = await tx.organizations.create({
+      data: {
+        legal_name: legalName,
+        short_name: payload.shortName?.trim() || null,
+        description: payload.description?.trim() || null,
+        slug,
+        country: 'Yemen',
+        country_id: countryId,
+        governorate_id: governorateId,
+        district_id: districtId,
+        email: payload.email?.trim() || null,
+        website: payload.website?.trim() || null,
+        default_language: 'ar',
+        timezone: 'Asia/Aden',
+        date_format: 'DD/MM/YYYY',
+        anonymous_complaints_policy: 'allowed',
+        notification_settings: {},
+        is_active: true,
+        create_date: now,
+        write_date: now,
+        create_uid: authUserId || null,
+        write_uid: authUserId || null,
+      },
+      select: ORGANIZATION_SELECT,
+    });
+
+    // Default unit types for the new tenant (same reference data as seed.ts),
+    // so the hierarchy is ready for Branch/Sector and Department nodes.
+    const branchType = await tx.org_unit_types.create({
+      data: {
+        organization_id: organization.id,
+        code: 'branch_sector',
+        name_ar: 'فرع / قطاع',
+        name_en: 'Branch / Sector',
+        hierarchy_level: 1,
+        allowed_parent_type_id: null,
+        is_active: true,
+        create_date: now,
+        write_date: now,
+      },
+    });
+    await tx.org_unit_types.create({
+      data: {
+        organization_id: organization.id,
+        code: 'department',
+        name_ar: 'قسم',
+        name_en: 'Department',
+        hierarchy_level: 2,
+        allowed_parent_type_id: branchType.id,
+        is_active: true,
+        create_date: now,
+        write_date: now,
+      },
+    });
+
+    if (authUserId) {
+      await tx.user_organizations.create({
+        data: {
+          user_id: authUserId,
+          organization_id: organization.id,
+          is_primary: false,
+          is_active: true,
+          create_date: now,
+          write_date: now,
+        },
+      });
+      const adminRole = await tx.roles.findFirst({
+        where: { code: 'admin', organization_id: null, is_active: true },
+        select: { id: true },
+      });
+      if (adminRole) {
+        await tx.user_roles.create({
+          data: {
+            user_id: authUserId,
+            role_id: adminRole.id,
+            organization_id: organization.id,
+            create_date: now,
+            write_date: now,
+          },
+        });
+      }
+    }
+
+    await recordAuditEvent(tx, {
+      organizationId: organization.id,
+      actorUserId: authUserId ?? null,
+      action: 'organization.created',
+      entityType: 'organization',
+      entityId: organization.id,
+      metadata: { slug },
+    });
+
+    return organization;
+  });
+
+  return mapOrganization(created);
+};
+
 export const listOrganizationNodes = async (
   tenantOrgId: OrganizationId
 ): Promise<OrganizationNodeResponse[]> => {
@@ -571,6 +754,8 @@ export const createOrganizationNode = async (
   }
 
   let effectiveParentId: number | null = null;
+  let parentIsRootUnit = true;
+  let parentTypeId: number | null = null;
   if (payload.parentId !== undefined && payload.parentId !== null && payload.parentId !== '') {
     const parsedParentId = Number(payload.parentId);
     if (!Number.isSafeInteger(parsedParentId) || parsedParentId <= 0) {
@@ -579,7 +764,7 @@ export const createOrganizationNode = async (
 
     const parentNode = await prisma.organizations.findFirst({
       where: { id: parsedParentId, deleted_at: null },
-      select: { id: true, root_organization_id: true },
+      select: { id: true, root_organization_id: true, org_unit_type_id: true },
     });
 
     if (!parentNode || (parentNode.root_organization_id || parentNode.id) !== rootOrgId) {
@@ -587,9 +772,15 @@ export const createOrganizationNode = async (
     }
 
     effectiveParentId = parentNode.id;
+    parentIsRootUnit = false;
+    parentTypeId = parentNode.org_unit_type_id ?? null;
   } else {
+    // No parent supplied: the node is attached directly beneath the Root Unit
+    // of the active organization. A new node can never become a second Root.
     effectiveParentId = rootOrgId;
   }
+
+  validateNodeTypePlacement(typeRecord.allowed_parent_type_id, parentIsRootUnit, parentTypeId);
 
   const countryId = parseNullableLocationId(payload.countryId, 'الدولة');
   const governorateId = parseNullableLocationId(payload.governorateId, 'المحافظة');
@@ -652,18 +843,33 @@ export const updateOrganizationNode = async (
 
   const node = await prisma.organizations.findFirst({
     where: { id: parsedNodeId, deleted_at: null },
-    select: { id: true, root_organization_id: true, parent_id: true, country_id: true, governorate_id: true, district_id: true },
+    select: { id: true, root_organization_id: true, parent_id: true, org_unit_type_id: true, country_id: true, governorate_id: true, district_id: true },
   });
 
   if (!node || (node.root_organization_id || node.id) !== rootOrgId) {
     throw new ApiError(404, 'الوحدة التنظيمية غير موجودة');
   }
-  if (parsedNodeId === rootOrgId && payload.isActive === false) {
+  const isRootNode = parsedNodeId === rootOrgId;
+  if (isRootNode && payload.isActive === false) {
     throw new ApiError(400, 'لا يمكن تعطيل المؤسسة الجذرية من مسار الهيكل التنظيمي');
+  }
+  if (isRootNode && payload.parentId !== undefined) {
+    // Root Unit integrity (Rule B/E): the Root Unit can never be moved to
+    // another parent — it always stays at hierarchy level 0 with no parent.
+    throw new ApiError(400, 'لا يمكن تحريك المؤسسة الجذرية أو تغيير موقعها في الهيكل التنظيمي');
+  }
+  if (isRootNode && payload.orgUnitTypeId !== undefined) {
+    // The Root Unit represents the organization itself; it never carries a
+    // normal organizational unit type.
+    throw new ApiError(400, 'لا يمكن تعيين نوع وحدة تنظيمية للمؤسسة الجذرية');
   }
 
   const updateData: Record<string, unknown> = { write_date: new Date() };
   if (authUserId) updateData.write_uid = authUserId;
+
+  let nextTypeRecord: { allowed_parent_type_id: number | null } | null = null;
+  let nextParentIsRoot = node.parent_id === null || node.parent_id === rootOrgId;
+  let nextParentTypeId: number | null | undefined;
 
   if (payload.name !== undefined) updateData.legal_name = payload.name.trim();
   if (payload.shortName !== undefined) updateData.short_name = payload.shortName ? payload.shortName.trim() : null;
@@ -694,11 +900,17 @@ export const updateOrganizationNode = async (
     }
 
     updateData.org_unit_type_id = parsedTypeId;
+    nextTypeRecord = { allowed_parent_type_id: typeRecord.allowed_parent_type_id ?? null };
   }
 
   if (payload.parentId !== undefined) {
     if (payload.parentId === null || payload.parentId === '') {
-      updateData.parent_id = null;
+      // Detaching a node is never allowed to create a second Root Unit:
+      // clearing the parent re-attaches the node directly beneath the
+      // organization Root Unit (Rules A/B/D).
+      updateData.parent_id = rootOrgId;
+      nextParentIsRoot = true;
+      nextParentTypeId = null;
     } else {
       const parsedParentId = Number(payload.parentId);
       if (!Number.isSafeInteger(parsedParentId) || parsedParentId <= 0) {
@@ -711,7 +923,7 @@ export const updateOrganizationNode = async (
 
       const parentNode = await prisma.organizations.findFirst({
         where: { id: parsedParentId, deleted_at: null },
-        select: { id: true, root_organization_id: true },
+        select: { id: true, root_organization_id: true, org_unit_type_id: true },
       });
 
       if (!parentNode || (parentNode.root_organization_id || parentNode.id) !== rootOrgId) {
@@ -724,6 +936,32 @@ export const updateOrganizationNode = async (
       }
 
       updateData.parent_id = parsedParentId;
+      nextParentIsRoot = false;
+      nextParentTypeId = parentNode.org_unit_type_id ?? null;
+    }
+  }
+
+  if (payload.orgUnitTypeId !== undefined || payload.parentId !== undefined) {
+    const effectiveTypeRecord = nextTypeRecord
+      ?? (node.org_unit_type_id
+        ? await prisma.org_unit_types.findUnique({
+            where: { id: node.org_unit_type_id },
+            select: { allowed_parent_type_id: true },
+          })
+        : null);
+
+    if (effectiveTypeRecord && (effectiveTypeRecord.allowed_parent_type_id ?? null) !== null) {
+      const placementParentId = typeof updateData.parent_id === 'number'
+        ? updateData.parent_id
+        : node.parent_id;
+      if (!nextParentIsRoot && nextParentTypeId === undefined && placementParentId) {
+        const parentRecord = await prisma.organizations.findUnique({
+          where: { id: placementParentId },
+          select: { org_unit_type_id: true },
+        });
+        nextParentTypeId = parentRecord?.org_unit_type_id ?? null;
+      }
+      validateNodeTypePlacement(effectiveTypeRecord.allowed_parent_type_id, nextParentIsRoot, nextParentTypeId ?? null);
     }
   }
 

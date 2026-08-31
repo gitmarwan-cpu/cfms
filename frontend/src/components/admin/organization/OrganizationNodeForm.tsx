@@ -210,7 +210,7 @@ export default function OrganizationNodeForm({
         <label className="field">
           الوحدة التنظيمية الأم
           <select value={parentId} onChange={(e) => setParentId(e.target.value)}>
-            <option value="">(بدون أم — وحدة جذرية)</option>
+            <option value="">(الوحدة الأم: المؤسسة الجذرية)</option>
             {validParents.map((node) => (
               <option key={node.id} value={node.id}>
                 {node.name}

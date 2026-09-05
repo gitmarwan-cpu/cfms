@@ -5,7 +5,7 @@ import * as locationService from './locationService';
 import { recordAuditEvent } from './auditService';
 import { createNotification } from './notificationService';
 import { resolveComplaintSlaFields, slaStatusForStatusChange } from './slaService';
-import { sendComplaintReceipt } from './whatsappService';
+import { sendComplaintReceipt, sendTrackingPinUpdate } from './whatsappService';
 
 const generateReferenceCode = require('../utils/generateReferenceCode') as () => string;
 const { generatePin, hashPin, verifyPin } = require('../utils/pin') as {

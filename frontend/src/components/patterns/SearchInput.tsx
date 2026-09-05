@@ -1,5 +1,6 @@
 import { useId } from 'react';
 import { Search, X } from 'lucide-react';
+import { cn } from '../../utils/cn';
 
 interface SearchInputProps {
   label: string;
@@ -16,19 +17,19 @@ interface SearchInputProps {
  * visible <label> carries the accessible name, and the clear button is a real
  * button with its own label.
  */
-export default function SearchInput({ label, value, onChange, placeholder, onSubmit, className = '' }: SearchInputProps) {
+export default function SearchInput({ label, value, onChange, placeholder, onSubmit, className }: SearchInputProps) {
   const id = useId();
   return (
-    <div className={`ptn-search ${className}`.trim()}>
-      <label className="ptn-search__label" htmlFor={id}>
+    <div className={cn("ds-field", className)}>
+      <label className="ds-label" htmlFor={id}>
         {label}
       </label>
-      <div className="ptn-search__control">
-        <Search size={16} aria-hidden="true" className="ptn-search__icon" />
+      <div className="relative flex items-center">
+        <Search size={16} aria-hidden="true" className="absolute right-3 text-muted-foreground pointer-events-none" />
         <input
           id={id}
           type="search"
-          className="ptn-search__input"
+          className="ds-input pl-10 pr-10"
           value={value}
           placeholder={placeholder}
           onChange={(event) => onChange(event.target.value)}
@@ -37,7 +38,7 @@ export default function SearchInput({ label, value, onChange, placeholder, onSub
           }}
         />
         {value !== '' && (
-          <button type="button" className="ptn-search__clear" onClick={() => onChange('')} aria-label="مسح البحث">
+          <button type="button" className="absolute left-2 p-1.5 rounded-sm text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2" onClick={() => onChange('')} aria-label="مسح البحث">
             <X size={14} aria-hidden="true" />
           </button>
         )}

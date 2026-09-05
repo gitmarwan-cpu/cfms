@@ -177,7 +177,19 @@ const mapOrganization = (
     secondaryColor: record.secondary_color,
     accentColor: record.accent_color,
     anonymousComplaintsPolicy: record.anonymous_complaints_policy,
-    notificationSettings: record.notification_settings,
+    notificationSettings: ((): Prisma.JsonValue => {
+      let safeSettings = record.notification_settings as Record<string, any>;
+      if (safeSettings?.whatsapp?.apiKey) {
+        safeSettings = {
+          ...safeSettings,
+          whatsapp: {
+            ...safeSettings.whatsapp,
+            apiKey: '********'
+          }
+        };
+      }
+      return safeSettings as Prisma.JsonValue;
+    })(),
     isActive: record.is_active,
     createDate: record.create_date,
     writeDate: record.write_date,
@@ -300,6 +312,19 @@ export const updateOrganization = async (
           value as number | string | null | undefined,
           idLabels[databaseField]
         );
+      } else if (databaseField === 'notification_settings') {
+        let newSettings = value as Record<string, any>;
+        if (newSettings?.whatsapp?.apiKey === '********') {
+          const existingSettings = (organization.notification_settings as Record<string, any>) || {};
+          newSettings = {
+            ...newSettings,
+            whatsapp: {
+              ...newSettings.whatsapp,
+              apiKey: existingSettings.whatsapp?.apiKey
+            }
+          };
+        }
+        data[databaseField] = newSettings;
       } else {
         data[databaseField] = value;
       }

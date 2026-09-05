@@ -112,6 +112,7 @@ export interface AdminComplaint {
   priorityItemId: number | null;
   channelItemId: number | null;
   isSensitive: boolean;
+  consentGiven: boolean;
   description: string;
   desiredResolution: string | null;
   projectReferenceCode: string | null;
@@ -145,6 +146,7 @@ export interface AdminComplaint {
   category: string | null;
   channel: string | null;
   priority: string | null;
+  trackingPinHash?: string | null;
 }
 
 export interface AdminComplaintDetail extends AdminComplaint {
@@ -251,6 +253,16 @@ export const escalateComplaint = async (
   );
   return res.data.data;
 };
+
+export const regenerateTrackingPin = async (
+  id: number
+): Promise<{ success: boolean; message: string }> => {
+  const res = await axiosClient.post<{ success: boolean; message: string; data: any }>(
+    `/complaints/${id}/regenerate-pin`
+  );
+  return { success: res.data.success, message: res.data.message };
+};
+
 
 // ── Notification Types ───────────────────────────────────────────────
 
@@ -493,6 +505,7 @@ export interface OrganizationSettings {
   website: string | null; country: string | null; countryId: number | null; governorateId: number | null; districtId: number | null;
   city: string | null; address: string | null; defaultLanguage: 'ar' | 'en'; timezone: string | null; primaryColor: string | null;
   secondaryColor: string | null; accentColor: string | null; anonymousComplaintsPolicy: 'allowed' | 'not_allowed' | 'optional';
+  notificationSettings?: Record<string, any>;
 }
 export interface OrgUnitType { id: number; code: string; nameAr: string; nameEn: string | null; hierarchyLevel: number; isActive: boolean; allowedParentTypeId: number | null; }
 export interface SlaRule { id: number; name: string; complaintType: 'complaint' | 'proposal' | null; categoryItemId: number | null; priorityItemId: number | null; isSensitive: boolean | null; firstResponseHours: number; resolutionHours: number; escalationIntervalHours: number; maxEscalationLevel: number; isActive: boolean; createdAt: string; updatedAt: string; }

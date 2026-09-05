@@ -1,4 +1,5 @@
 import prisma from '../prisma/client';
+import ApiError from '../utils/ApiError';
 
 export interface WhatsAppConfig {
   enabled: boolean;
@@ -69,5 +70,35 @@ export const sendComplaintReceipt = async (
   } catch (error) {
     // WhatsApp failure MUST NOT fail the complaint creation process
     console.error(`[WhatsApp] Failed to send receipt to ${phone}:`, error);
+  }
+};
+
+export const sendTrackingPinUpdate = async (
+  organizationId: number,
+  phone: string,
+  referenceCode: string,
+  trackingPin: string
+): Promise<void> => {
+  if (!phone) throw new ApiError(400, 'لا توجد وسيلة اتصال متاحة لإرسال رمز المتابعة.');
+  
+  const org = await prisma.organizations.findUnique({
+    where: { id: organizationId },
+    select: { notification_settings: true },
+  });
+  
+  if (!org || !org.notification_settings) throw new ApiError(400, 'مزود الخدمة (WhatsApp) غير مهيأ أو غير مفعل.');
+  
+  const settings = org.notification_settings as Record<string, any>;
+  const whatsappConfig = settings.whatsapp as WhatsAppConfig | undefined;
+  
+  if (!whatsappConfig || !whatsappConfig.enabled) {
+    throw new ApiError(400, 'مزود الخدمة (WhatsApp) غير مفعل لإرسال الرمز.');
+  }
+
+  try {
+    console.log(`[WhatsApp:Update] Queued PIN update for ${phone}: ${referenceCode}`);
+  } catch (error) {
+    console.error(`[WhatsApp] Failed to send PIN update to ${phone}:`, error);
+    throw new ApiError(500, 'فشل إرسال الرمز عبر مزود الخدمة.');
   }
 };

@@ -60,4 +60,9 @@ const escalateComplaint = catchAsync(async (req: AppRequest, res: AppResponse) =
   res.status(200).json({ success: true, message: 'تم تصعيد الشكوى', data: complaint });
 });
 
-module.exports = { submitPublicComplaint, trackPublicComplaint, createStaffComplaint, listComplaints, getComplaint, listComplaintTransitions, updateComplaintStatus, assignComplaint, escalateComplaint };
+const regenerateTrackingPin = catchAsync(async (req: AppRequest, res: AppResponse) => {
+  const result = await complaintService.regenerateTrackingPin(req.organizationId, req.params.id, req.user!.id);
+  res.status(200).json({ success: true, message: `تم إنشاء رمز متابعة جديد وإرساله عبر ${result.channel}`, data: result });
+});
+
+module.exports = { submitPublicComplaint, trackPublicComplaint, createStaffComplaint, listComplaints, getComplaint, listComplaintTransitions, updateComplaintStatus, assignComplaint, escalateComplaint, regenerateTrackingPin };

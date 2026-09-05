@@ -17,5 +17,6 @@ router.get('/:id', authorizePermission('complaints.view_all'), validate(complain
 router.patch('/:id/status', authorizePermission('complaints.assign'), validate(updateStatusValidation), complaintController.updateComplaintStatus);
 router.patch('/:id/assignment', authorizePermission('complaints.assign'), validate(assignmentValidation), complaintController.assignComplaint);
 router.post('/:id/escalate', authorizePermission('complaints.escalate'), validate(escalateComplaintValidation), complaintController.escalateComplaint);
+router.post('/:id/regenerate-pin', authorizePermission('complaints.assign'), validate(complaintIdParamValidation), complaintController.regenerateTrackingPin);
 
 module.exports = router;

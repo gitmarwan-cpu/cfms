@@ -5,6 +5,7 @@ import { DataState, FormDialog } from '../../components/admin/AdminUi';
 import { PageHeader } from '../../components/patterns/PageHeader';
 import LocationSelect from '../../components/LocationSelect';
 import { useAuth } from '../../context/AuthContext';
+import { CheckboxRow } from '../../components/ui/Checkbox';
 
 interface CreateOrganizationFormState {
   legalName: string;
@@ -59,6 +60,19 @@ export default function OrganizationPage() {
 
   const change = (key: keyof OrganizationSettings, value: unknown) =>
     setData((v) => (v ? { ...v, [key]: value } : v));
+
+  const changeSettings = (key: string, value: unknown) =>
+    setData((v) => {
+      if (!v) return v;
+      const currentSettings = (v.notificationSettings as Record<string, any>) || {};
+      return {
+        ...v,
+        notificationSettings: {
+          ...currentSettings,
+          [key]: value,
+        },
+      };
+    });
 
   const changeCreate = (key: keyof CreateOrganizationFormState, value: string) =>
     setCreateForm((v) => ({ ...v, [key]: value }));
@@ -350,6 +364,76 @@ export default function OrganizationPage() {
                   onChange={(e) => change('accentColor', e.target.value)}
                 />
               </label>
+            </div>
+
+            <hr style={{ margin: '32px 0', borderColor: 'var(--color-border)' }} />
+            
+            <div style={{ marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '1.1rem', color: 'var(--color-text-strong)', marginBottom: '4px' }}>WhatsApp Notifications</h3>
+              <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
+                يجب تفعيل وإعداد مزود WhatsApp قبل استخدام الإرسال الفعلي.
+              </p>
+            </div>
+
+            <div className="admin-form-grid">
+              <div className="field admin-field--full">
+                <CheckboxRow
+                  label="تفعيل إشعارات WhatsApp (Enable WhatsApp Notifications)"
+                  checked={((data.notificationSettings as any)?.whatsapp?.enabled) || false}
+                  onChange={(e) => changeSettings('whatsapp', { ...((data.notificationSettings as any)?.whatsapp || {}), enabled: e.target.checked })}
+                />
+              </div>
+
+              {((data.notificationSettings as any)?.whatsapp?.enabled) && (
+                <>
+                  <label className="field">
+                    المزود (Provider)
+                    <select
+                      value={((data.notificationSettings as any)?.whatsapp?.provider) || 'meta'}
+                      onChange={(e) => changeSettings('whatsapp', { ...((data.notificationSettings as any)?.whatsapp || {}), provider: e.target.value })}
+                    >
+                      <option value="meta">Meta</option>
+                      <option value="twilio">Twilio</option>
+                      <option value="custom">Custom</option>
+                    </select>
+                  </label>
+
+                  {((data.notificationSettings as any)?.whatsapp?.provider) === 'meta' && (
+                    <label className="field">
+                      رقم الهاتف (Phone Number ID)
+                      <input
+                        dir="ltr"
+                        value={((data.notificationSettings as any)?.whatsapp?.phoneNumberId) || ''}
+                        onChange={(e) => changeSettings('whatsapp', { ...((data.notificationSettings as any)?.whatsapp || {}), phoneNumberId: e.target.value })}
+                      />
+                    </label>
+                  )}
+
+                  <label className="field">
+                    مفتاح الواجهة (API Key / Access Token)
+                    <input
+                      type="password"
+                      dir="ltr"
+                      value={((data.notificationSettings as any)?.whatsapp?.apiKey) || ''}
+                      onChange={(e) => changeSettings('whatsapp', { ...((data.notificationSettings as any)?.whatsapp || {}), apiKey: e.target.value })}
+                      placeholder={((data.notificationSettings as any)?.whatsapp?.apiKey) === '********' ? '********' : ''}
+                    />
+                  </label>
+
+                  <div className="field admin-field--full" style={{ display: 'flex', gap: '32px', flexWrap: 'wrap', marginTop: '8px' }}>
+                    <CheckboxRow
+                      label="إرسال رقم المرجع (Send Complaint Reference)"
+                      checked={((data.notificationSettings as any)?.whatsapp?.sendReference) ?? true}
+                      onChange={(e) => changeSettings('whatsapp', { ...((data.notificationSettings as any)?.whatsapp || {}), sendReference: e.target.checked })}
+                    />
+                    <CheckboxRow
+                      label="إرسال رمز التتبع (Send Tracking PIN)"
+                      checked={((data.notificationSettings as any)?.whatsapp?.sendPin) ?? true}
+                      onChange={(e) => changeSettings('whatsapp', { ...((data.notificationSettings as any)?.whatsapp || {}), sendPin: e.target.checked })}
+                    />
+                  </div>
+                </>
+              )}
             </div>
             </fieldset>
             {canManage && <footer className="admin-form-footer">

@@ -90,19 +90,28 @@ describe('Security fixes verification', () => {
     expect(res.status).toBe(422);
   });
 
-  it('يقصر سجل التدقيق على المدير وسياق المؤسسة الحالي', async () => {
+  it('يبذر صلاحية audit.view ويربطها بدور المدير النظامي', async () => {
+    const permission = await prisma.permissions.findUnique({ where: { code: 'audit.view' } });
+    expect(permission).not.toBeNull();
+
+    const mapping = await prisma.role_permissions.findFirst({
+      where: {
+        role_id: global.__rbacRoles.adminRole.id,
+        permission_id: permission.id,
+      },
+    });
+    expect(mapping).not.toBeNull();
+  });
+
+  it('يسمح لمدير المؤسسة الحالي بصلاحية audit.view بقراءة سجل التدقيق', async () => {
     const adminResponse = await request(app)
       .get('/api/audit-logs')
       .set('Authorization', `Bearer ${adminAToken}`);
     expect(adminResponse.status).toBe(200);
     expect(adminResponse.body).toMatchObject({ success: true, pagination: expect.any(Object) });
+  });
 
-    const reportResponse = await request(app)
-      .get('/api/reports/complaints')
-      .set('Authorization', `Bearer ${adminAToken}`);
-    expect(reportResponse.status).toBe(200);
-    expect(reportResponse.body.data).toMatchObject({ summary: expect.any(Object), byStatus: expect.any(Array) });
-
+  it('يرفض قراءة سجل التدقيق لمستخدم بلا صلاحية audit.view في المؤسسة الحالية', async () => {
     const { user: staffA } = await createUserWithRole(
       { fullName: 'موظف سجل التدقيق', email: 'audit.staff.a@cfms.local', roleCode: 'staff', organizationId: orgA.id },
       'Password123'
@@ -112,7 +121,72 @@ describe('Security fixes verification', () => {
       .get('/api/audit-logs')
       .set('Authorization', `Bearer ${staffLogin.body.data.token}`);
     expect(staffResponse.status).toBe(403);
+  });
 
+  it('يمنع مدير مؤسسة أ من قراءة سجل تدقيق مؤسسة ب عند انتحال سياقها (لا تسرّب صلاحية admin عبر المؤسسات)', async () => {
+    const { user: crossTenantUser } = await createUserWithRole(
+      {
+        fullName: 'مدير عبر المؤسسات',
+        email: 'audit.cross.tenant@cfms.local',
+        roleCode: 'admin',
+        organizationId: orgA.id,
+      },
+      'Password123'
+    );
+
+    const now = new Date();
+    await prisma.user_organizations.create({
+      data: {
+        user_id: crossTenantUser.id,
+        organization_id: orgB.id,
+        is_primary: false,
+        is_active: true,
+        create_date: now,
+        write_date: now,
+      },
+    });
+    await prisma.user_roles.create({
+      data: {
+        user_id: crossTenantUser.id,
+        role_id: global.__rbacRoles.staffRole.id,
+        organization_id: orgB.id,
+        create_date: now,
+        write_date: now,
+      },
+    });
+
+    const login = await request(app)
+      .post('/api/auth/login')
+      .send({ email: crossTenantUser.email, password: 'Password123' });
+    expect(login.status).toBe(200);
+    const token = login.body.data.token;
+
+    const deniedInOrgB = await request(app)
+      .get('/api/audit-logs')
+      .set('Authorization', `Bearer ${token}`)
+      .set('X-Organization-Id', String(orgB.id));
+    expect(deniedInOrgB.status).toBe(403);
+
+    const allowedInOrgA = await request(app)
+      .get('/api/audit-logs')
+      .set('Authorization', `Bearer ${token}`)
+      .set('X-Organization-Id', String(orgA.id));
+    expect(allowedInOrgA.status).toBe(200);
+    expect(allowedInOrgA.body).toMatchObject({ success: true, pagination: expect.any(Object) });
+  });
+
+  it('يقصر تقارير الشكاوى على المدير وسياق المؤسسة الحالي', async () => {
+    const reportResponse = await request(app)
+      .get('/api/reports/complaints')
+      .set('Authorization', `Bearer ${adminAToken}`);
+    expect(reportResponse.status).toBe(200);
+    expect(reportResponse.body.data).toMatchObject({ summary: expect.any(Object), byStatus: expect.any(Array) });
+
+    const { user: staffA } = await createUserWithRole(
+      { fullName: 'موظف تقارير', email: 'report.staff.a@cfms.local', roleCode: 'staff', organizationId: orgA.id },
+      'Password123'
+    );
+    const staffLogin = await request(app).post('/api/auth/login').send({ email: staffA.email, password: 'Password123' });
     const staffReportResponse = await request(app)
       .get('/api/reports/complaints')
       .set('Authorization', `Bearer ${staffLogin.body.data.token}`);

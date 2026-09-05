@@ -5,7 +5,7 @@ import TrackComplaintPage from './pages/TrackComplaintPage';
 import { OrganizationProvider, useOrganization } from './context/OrganizationContext';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/admin/ProtectedRoute';
-import AdminLayout from './components/admin/AdminLayout';
+import AppShell from './components/shell/AppShell';
 import LoginPage from './pages/admin/LoginPage';
 import DashboardPage from './pages/admin/DashboardPage';
 import ComplaintListPage from './pages/admin/ComplaintListPage';
@@ -65,7 +65,7 @@ function AppFooter() {
 function OrganizationPortalLayout({ children }: { children: ReactNode }) {
   return (
     <OrganizationProvider>
-      <div className="app-shell">
+      <div className="public-portal">
         <AppHeader />
         <main className="app-main">{children}</main>
         <AppFooter />
@@ -76,7 +76,7 @@ function OrganizationPortalLayout({ children }: { children: ReactNode }) {
 
 function NoOrganizationSelected() {
   return (
-    <div className="app-shell">
+    <div className="public-portal">
       <main className="app-main">
         <div className="card">
           <div className="card__body">
@@ -114,7 +114,7 @@ export default function App() {
           </AuthProvider>
         }
       >
-        <Route element={<AdminLayout />}>
+        <Route element={<AppShell />}>
           <Route index element={<PermissionGate permission="complaints.view_all"><DashboardPage /></PermissionGate>} />
           <Route path="complaints" element={<PermissionGate permission="complaints.view_all"><ComplaintListPage /></PermissionGate>} />
           <Route path="complaints/:id" element={<PermissionGate permission="complaints.view_all"><ComplaintDetailPage /></PermissionGate>} />

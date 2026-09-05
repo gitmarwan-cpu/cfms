@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { X } from 'lucide-react';
 import {
+  activateOrganizationNode,
   deactivateOrganizationNode,
   fetchOrganizationNodes,
   fetchOrgUnitTypes,
@@ -7,7 +9,8 @@ import {
   type OrgUnitType,
 } from '../../api/adminApi';
 import type { ApiClientError } from '../../api/axiosClient';
-import { ConfirmDialog, DataState, PageHeader } from '../../components/admin/AdminUi';
+import { ConfirmDialog, DataState } from '../../components/admin/AdminUi';
+import { PageHeader } from '../../components/patterns/PageHeader';
 import OrganizationDetails from '../../components/admin/organization/OrganizationDetails';
 import OrganizationNodeForm from '../../components/admin/organization/OrganizationNodeForm';
 import OrganizationTree from '../../components/admin/organization/OrganizationTree';
@@ -16,8 +19,8 @@ import { fromOrganizationNodeDto, type OrganizationNode } from '../../types/orga
 import { buildOrgTree, filterOrgTree } from '../../utils/organizationTree';
 
 export default function OrgStructurePage() {
-  const { user, hasPermission } = useAuth();
-  const orgId = user?.defaultOrganizationId ?? null;
+  const { user, hasPermission, currentOrganizationId } = useAuth();
+  const orgId = currentOrganizationId ?? user?.defaultOrganizationId ?? null;
 
   const canView = orgId !== null && hasPermission('org_structure.view', orgId);
   const canManage = orgId !== null && hasPermission('org_structure.manage', orgId);
@@ -39,6 +42,10 @@ export default function OrgStructurePage() {
   // ── Deactivate confirmation ─────────────────────────────────────────────────
   const [deactivatingNode, setDeactivatingNode] = useState<OrganizationNodeDto | null>(null);
   const [deactivatingBusy, setDeactivatingBusy] = useState(false);
+
+  // ── Activate (reactivation) confirmation ────────────────────────────────────
+  const [activatingNode, setActivatingNode] = useState<OrganizationNodeDto | null>(null);
+  const [activatingBusy, setActivatingBusy] = useState(false);
 
   // ── Load data from backend (/organization/nodes and /org-structure/unit-types) ──
   const loadData = useCallback(() => {
@@ -121,6 +128,27 @@ export default function OrgStructurePage() {
     }
   };
 
+  const handleActivatePrompt = (node: OrganizationNode) => {
+    const dto = nodes.find((n) => n.id === node.id) || node;
+    setActivatingNode(dto);
+  };
+
+  const confirmActivate = async () => {
+    if (!activatingNode) return;
+    setActivatingBusy(true);
+    try {
+      await activateOrganizationNode(activatingNode.id);
+      setNotice(`تم تفعيل الوحدة التنظيمية «${activatingNode.name}» بنجاح.`);
+      setActivatingNode(null);
+      loadData();
+    } catch (err) {
+      setError((err as ApiClientError).message || 'تعذر تفعيل الوحدة التنظيمية.');
+      setActivatingNode(null);
+    } finally {
+      setActivatingBusy(false);
+    }
+  };
+
   const handleSaved = (savedNode: OrganizationNodeDto) => {
     setFormOpen(false);
     setSelectedNodeId(savedNode.id);
@@ -165,11 +193,11 @@ export default function OrgStructurePage() {
           <button
             type="button"
             className="admin-text-button"
-            style={{ marginRight: '12px', fontSize: '12px' }}
+            style={{ marginInlineStart: '12px', fontSize: '12px' }}
             onClick={() => setNotice('')}
             aria-label="إغلاق الإشعار"
           >
-            ✕
+            <X size={14} aria-hidden="true" />
           </button>
         </div>
       )}
@@ -204,6 +232,7 @@ export default function OrgStructurePage() {
               onAddChild={handleAddChildNode}
               onEdit={handleEditNode}
               onDeactivate={handleDeactivatePrompt}
+              onActivate={handleActivatePrompt}
             />
           </div>
 
@@ -217,6 +246,7 @@ export default function OrgStructurePage() {
                 onAddChild={handleAddChildNode}
                 onEdit={handleEditNode}
                 onDeactivate={handleDeactivatePrompt}
+                onActivate={handleActivatePrompt}
                 onClose={() => setSelectedNodeId(null)}
               />
             </div>
@@ -253,6 +283,17 @@ export default function OrgStructurePage() {
           onClose={() => setDeactivatingNode(null)}
           onConfirm={confirmDeactivate}
           busy={deactivatingBusy}
+        />
+      )}
+
+      {/* Activate Confirmation Dialog */}
+      {activatingNode && (
+        <ConfirmDialog
+          title="تأكيد تفعيل الوحدة التنظيمية"
+          message={`هل أنت متأكد من تفعيل الوحدة التنظيمية «${activatingNode.name}»؟`}
+          onClose={() => setActivatingNode(null)}
+          onConfirm={confirmActivate}
+          busy={activatingBusy}
         />
       )}
     </div>

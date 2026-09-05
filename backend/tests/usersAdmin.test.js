@@ -228,6 +228,50 @@ describe('User Administration API', () => {
     expect([400, 401]).toContain(res.status);
   });
 
+  it('(Fix 1.5) يرفض إلغاء تفعيل المدير عندما تكون عضوية باقي المدراء موقفة (400) ثم ينجح بعد إعادة تفعيلها مع كتابة سجل تدقيق', async () => {
+    const { deactivateUser } = require('../src/services/userAdminService');
+    const staleAdminOrg = await createOrganization({ legalName: 'مؤسسة المدير المعلق', slug: `stale-admin-org-${Date.now()}` });
+    const { user: targetAdmin } = await createUserWithRole(
+      { fullName: 'المدير المستهدف', email: `stale.target.${Date.now()}@cfms.local`, roleCode: 'admin', organizationId: staleAdminOrg.id },
+      'Password123'
+    );
+    const { user: staleAdmin } = await createUserWithRole(
+      { fullName: 'مدير عضويته موقفة', email: `stale.holder.${Date.now()}@cfms.local`, roleCode: 'admin', organizationId: staleAdminOrg.id },
+      'Password123'
+    );
+    // Stale admin row: ACTIVE user whose membership was soft-removed (the
+    // exact state removeMembership produces). It must NOT keep the tenant
+    // administrable — counting raw admin-role rows would let deactivating the
+    // last functioning admin lock the organization out (Fix 1.5).
+    await prisma.user_organizations.updateMany({
+      where: { user_id: staleAdmin.id, organization_id: staleAdminOrg.id },
+      data: { is_active: false, write_date: new Date() },
+    });
+
+    // Act as the stale admin (different user, so the self-deactivation guard
+    // does not fire and ONLY the last-active-admin guard is exercised).
+    await expect(deactivateUser(staleAdminOrg.id, targetAdmin.id, staleAdmin.id))
+      .rejects.toMatchObject({ statusCode: 400 });
+
+    // The target must remain untouched by the blocked deactivation.
+    const untouched = await prisma.users.findUnique({ where: { id: targetAdmin.id }, select: { is_active: true } });
+    expect(untouched?.is_active).toBe(true);
+
+    // Reactivating the stale membership restores a second active admin and
+    // the deactivation succeeds — atomically, with its audit row.
+    await prisma.user_organizations.updateMany({
+      where: { user_id: staleAdmin.id, organization_id: staleAdminOrg.id },
+      data: { is_active: true, write_date: new Date() },
+    });
+    const deactivated = await deactivateUser(staleAdminOrg.id, targetAdmin.id, staleAdmin.id);
+    expect(deactivated.isActive).toBe(false);
+
+    const auditCount = await prisma.audit_logs.count({
+      where: { action: 'user.deactivated', organization_id: staleAdminOrg.id, entity_id: targetAdmin.id },
+    });
+    expect(auditCount).toBe(1);
+  });
+
   // ── Inactive Filter ─────────────────────────────────────────────────────────
 
   it('يعيد فلتر isActive=false المستخدمين غير المفعّلين فقط', async () => {

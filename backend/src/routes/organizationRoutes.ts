@@ -23,6 +23,7 @@ router.get('/nodes', authorizePermission('org_structure.view'), organizationCont
 router.post('/nodes', authorizePermission('org_structure.manage'), validate(createNodeValidation), organizationController.createNode);
 router.put('/nodes/:id', authorizePermission('org_structure.manage'), validate(updateNodeValidation), organizationController.updateNode);
 router.patch('/nodes/:id/deactivate', authorizePermission('org_structure.manage'), validate(nodeIdParamValidation), organizationController.deactivateNode);
+router.patch('/nodes/:id/activate', authorizePermission('org_structure.manage'), validate(nodeIdParamValidation), organizationController.activateNode);
 
 module.exports = router;
 

@@ -717,10 +717,12 @@ export const listOrganizationNodes = async (
 ): Promise<OrganizationNodeResponse[]> => {
   const rootOrgId = await resolveRootOrgId(tenantOrgId);
 
+  // Deactivated (soft-deleted) nodes are included on purpose: the tree must be
+  // able to offer reactivation for them. Active/inactive state is exposed via
+  // is_active; tenant scoping is still enforced strictly by the OR clause below.
   const nodes = await prisma.organizations.findMany({
     where: {
       OR: [{ id: rootOrgId }, { root_organization_id: rootOrgId }],
-      deleted_at: null,
     },
     orderBy: [{ parent_id: 'asc' }, { id: 'asc' }],
     select: NODE_SELECT,
@@ -742,10 +744,13 @@ export const createOrganizationNode = async (
   }
 
   const typeRecord = await prisma.org_unit_types.findFirst({
+    // Tenant scope: the type MUST be owned by the authenticated tenant root
+    // organization. org_unit_types.root_organization_id is legacy and must not
+    // grant ownership (it is NULL for every type created via the API).
     where: {
       id: parsedTypeId,
+      organization_id: rootOrgId,
       is_active: true,
-      OR: [{ root_organization_id: rootOrgId }, { organization_id: rootOrgId }, { root_organization_id: null }],
     },
   });
 
@@ -888,10 +893,13 @@ export const updateOrganizationNode = async (
     }
 
     const typeRecord = await prisma.org_unit_types.findFirst({
+      // Tenant scope: the type MUST be owned by the authenticated tenant root
+      // organization. org_unit_types.root_organization_id is legacy and must not
+      // grant ownership (it is NULL for every type created via the API).
       where: {
         id: parsedTypeId,
+        organization_id: rootOrgId,
         is_active: true,
-        OR: [{ root_organization_id: rootOrgId }, { organization_id: rootOrgId }, { root_organization_id: null }],
       },
     });
 
@@ -1037,6 +1045,58 @@ export const deactivateOrganizationNode = async (
     organizationId: rootOrgId,
     actorUserId: authUserId ?? null,
     action: 'organization_node.deactivated',
+    entityType: 'organization_node',
+    entityId: updated.id,
+  });
+
+  return mapNode(updated);
+};
+
+export const reactivateOrganizationNode = async (
+  tenantOrgId: OrganizationId,
+  nodeId: OrganizationId,
+  authUserId?: number | null
+): Promise<OrganizationNodeResponse> => {
+  const rootOrgId = await resolveRootOrgId(tenantOrgId);
+  const parsedNodeId = Number(nodeId);
+
+  if (!Number.isSafeInteger(parsedNodeId) || parsedNodeId <= 0) {
+    throw new ApiError(404, 'الوحدة التنظيمية غير موجودة');
+  }
+
+  // The node is usually soft-deleted (deactivated), so deleted_at is
+  // deliberately NOT filtered here — otherwise a deactivated node could
+  // never be found again.
+  const node = await prisma.organizations.findFirst({
+    where: { id: parsedNodeId },
+    select: { id: true, root_organization_id: true, is_active: true, deleted_at: true },
+  });
+
+  if (!node || (node.root_organization_id || node.id) !== rootOrgId) {
+    throw new ApiError(404, 'الوحدة التنظيمية غير موجودة');
+  }
+  if (parsedNodeId === rootOrgId) {
+    throw new ApiError(400, 'لا يمكن تفعيل المؤسسة الجذرية من مسار الهيكل التنظيمي');
+  }
+  if (node.is_active && node.deleted_at === null) {
+    throw new ApiError(400, 'الوحدة التنظيمية مفعّلة بالفعل');
+  }
+
+  const updated = await prisma.organizations.update({
+    where: { id: node.id },
+    data: {
+      is_active: true,
+      deleted_at: null,
+      write_date: new Date(),
+      ...(authUserId ? { write_uid: authUserId } : {}),
+    },
+    select: NODE_SELECT,
+  });
+
+  await recordAuditEvent(prisma, {
+    organizationId: rootOrgId,
+    actorUserId: authUserId ?? null,
+    action: 'organization_node.reactivated',
     entityType: 'organization_node',
     entityId: updated.id,
   });

@@ -1,5 +1,11 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, MemoryRouter, Routes, Route, useSearchParams } from 'react-router-dom';
+import { Dialog } from '../../components/admin/AdminUi';
+import ComplaintForm from '../../components/ComplaintForm';
+import SuccessPage from '../SuccessPage';
+import type { SubmittedComplaint } from '../../api/complaintApi';
+import { useAuth } from '../../context/AuthContext';
+import { OrganizationProvider } from '../../context/OrganizationContext';
 import {
   fetchComplaints,
   type AdminComplaint,
@@ -9,6 +15,7 @@ import {
 } from '../../api/adminApi';
 import type { ApiClientError } from '../../api/axiosClient';
 import { formatDate, formatDateTime } from '../../utils/dateTime';
+import { AlertTriangle } from 'lucide-react';
 
 const STATUS_LABELS: Record<ComplaintStatus, string> = {
   new: 'جديد',
@@ -18,29 +25,30 @@ const STATUS_LABELS: Record<ComplaintStatus, string> = {
   rejected: 'مرفوض',
 };
 
-const STATUS_COLORS: Record<ComplaintStatus, { bg: string; text: string }> = {
-  new: { bg: '#dbeafe', text: '#1e40af' },
-  in_review: { bg: '#fef3c7', text: '#92400e' },
-  resolved: { bg: '#d1fae5', text: '#065f46' },
-  closed: { bg: '#e2e8f0', text: '#374151' },
-  rejected: { bg: '#fecaca', text: '#991b1b' },
-};
 
-const SLA_STATUS_LABELS: Record<SlaStatus, { label: string; color: string }> = {
-  on_track: { label: 'ضمن المهلة', color: 'var(--color-success)' },
-  overdue: { label: 'متأخر', color: 'var(--color-danger)' },
-  met: { label: 'تم الالتزام', color: 'var(--color-primary)' },
-  none: { label: '-', color: 'var(--color-text-muted)' },
+
+const SLA_STATUS_LABELS: Record<SlaStatus, { label: string; tone: string }> = {
+  on_track: { label: 'ضمن المهلة', tone: 'on_track' },
+  overdue: { label: 'متأخر', tone: 'overdue' },
+  met: { label: 'تم الالتزام', tone: 'met' },
+  none: { label: '-', tone: 'none' },
 };
 
 export default function ComplaintListPage() {
+  const { currentOrganization } = useAuth();
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [submitted, setSubmitted] = useState<SubmittedComplaint | null>(null);
   const [complaints, setComplaints] = useState<AdminComplaint[]>([]);
   const [pagination, setPagination] = useState<PaginationInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const [page, setPage] = useState(1);
-  const [statusFilter, setStatusFilter] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [page, setPage] = useState(() => {
+    const p = parseInt(searchParams.get('page') ?? '1', 10);
+    return Number.isFinite(p) && p > 0 ? p : 1;
+  });
+  const [statusFilter, setStatusFilter] = useState(() => searchParams.get('status') ?? '');
   const [isSensitiveFilter, setIsSensitiveFilter] = useState('');
 
   const loadComplaints = useCallback(() => {
@@ -71,27 +79,37 @@ export default function ComplaintListPage() {
   }, [loadComplaints]);
 
   const handleFilterChange =
-    (setter: React.Dispatch<React.SetStateAction<string>>) =>
+    (setter: React.Dispatch<React.SetStateAction<string>>, paramName: string) =>
     (e: React.ChangeEvent<HTMLSelectElement>) => {
-      setter(e.target.value);
+      const val = e.target.value;
+      setter(val);
       setPage(1);
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        if (val) next.set(paramName, val); else next.delete(paramName);
+        next.delete('page');
+        return next;
+      }, { replace: true });
     };
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+      <div className="cd-page-head">
         <h1 className="admin-page-title">صندوق الشكاوى والمقترحات</h1>
+        <div className="admin-page-actions">
+          <button className="btn btn-primary" onClick={() => setIsFormOpen(true)}>إضافة شكوى</button>
+        </div>
       </div>
 
       {/* Filters */}
-      <div className="card" style={{ marginBottom: '20px' }}>
-        <div className="card__body" style={{ padding: '16px 20px', display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-          <div className="field" style={{ flex: '1', minWidth: '150px' }}>
+      <div className="card cl-card">
+        <div className="card__body cl-filter-row">
+          <div className="field cl-filter-field">
             <label htmlFor="statusFilter">الحالة</label>
             <select
               id="statusFilter"
               value={statusFilter}
-              onChange={handleFilterChange(setStatusFilter)}
+              onChange={handleFilterChange(setStatusFilter, 'status')}
             >
               <option value="">الكل</option>
               {Object.entries(STATUS_LABELS).map(([value, label]) => (
@@ -99,12 +117,12 @@ export default function ComplaintListPage() {
               ))}
             </select>
           </div>
-          <div className="field" style={{ flex: '1', minWidth: '150px' }}>
+          <div className="field cl-filter-field">
             <label htmlFor="isSensitiveFilter">مستوى الحساسية</label>
             <select
               id="isSensitiveFilter"
               value={isSensitiveFilter}
-              onChange={handleFilterChange(setIsSensitiveFilter)}
+              onChange={handleFilterChange(setIsSensitiveFilter, 'sensitive')}
             >
               <option value="">الكل</option>
               <option value="true">حساس فقط</option>
@@ -114,11 +132,11 @@ export default function ComplaintListPage() {
         </div>
       </div>
 
-      {error && <div className="alert alert-danger" style={{ marginBottom: '20px' }}>{error}</div>}
+      {error && <div className="alert alert-danger cl-alert">{error}</div>}
 
       {/* Table */}
       <div className="card">
-        <div style={{ overflowX: 'auto' }}>
+        <div className="cl-scroll">
           <table className="admin-table">
             <thead>
               <tr>
@@ -135,7 +153,7 @@ export default function ComplaintListPage() {
             <tbody>
               {loading && complaints.length === 0 ? (
                 <tr>
-                  <td colSpan={8} style={{ padding: '30px', textAlign: 'center' }}>
+                  <td colSpan={8} className="cl-empty">
                     جاري التحميل...
                   </td>
                 </tr>
@@ -143,14 +161,14 @@ export default function ComplaintListPage() {
                 <tr>
                   <td
                     colSpan={8}
-                    style={{ padding: '30px', textAlign: 'center', color: 'var(--color-text-muted)' }}
+                    className="cl-empty"
                   >
                     لا توجد طلبات تطابق معايير البحث
                   </td>
                 </tr>
               ) : (
                 complaints.map((item) => {
-                  const statusStyle = STATUS_COLORS[item.status] || { bg: '#f3f4f6', text: '#374151' };
+
                   const slaInfo = SLA_STATUS_LABELS[item.slaStatus] || SLA_STATUS_LABELS.none;
                   return (
                     <tr
@@ -165,8 +183,8 @@ export default function ComplaintListPage() {
                           {item.referenceCode}
                         </Link>
                         {item.isSensitive && (
-                          <span className="admin-badge admin-badge--danger" style={{ marginInlineStart: '8px' }}>
-                            ⚠️ حساس
+                          <span className="admin-badge admin-badge--danger cl-sens-badge">
+                            <AlertTriangle size={12} aria-hidden="true" /> حساس
                           </span>
                         )}
                       </td>
@@ -179,17 +197,16 @@ export default function ComplaintListPage() {
                           ? item.assignedTo.fullName
                           : item.assignedToOrganization
                             ? `قسم: ${item.assignedToOrganization.name}`
-                            : <span style={{ color: 'var(--color-text-muted)' }}>غير معيّن</span>}
+                            : <span className="admin-muted">غير معيّن</span>}
                       </td>
                       <td>
-                        <span style={{ color: slaInfo.color, fontWeight: 500, fontSize: '12px' }}>
+                        <span className={"cd-sla cs-" + slaInfo.tone}>
                           {slaInfo.label}
                         </span>
                       </td>
                       <td>
                         <span
-                          className="admin-status-badge"
-                          style={{ background: statusStyle.bg, color: statusStyle.text }}
+                          className={"admin-status-badge cd-status cs-" + item.status}
                         >
                           {STATUS_LABELS[item.status] || item.status}
                         </span>
@@ -227,6 +244,46 @@ export default function ComplaintListPage() {
           </div>
         )}
       </div>
+
+      {isFormOpen && currentOrganization?.shortName && (
+        <Dialog
+          title={submitted ? 'تم تسجيل الطلب بنجاح' : 'إضافة شكوى / مقترح'}
+          onClose={() => {
+            setIsFormOpen(false);
+            setSubmitted(null);
+          }}
+        >
+          {submitted ? (
+            <SuccessPage
+              referenceCode={submitted.referenceCode}
+              trackingPin={submitted.trackingPin}
+              onReset={() => {
+                setIsFormOpen(false);
+                setSubmitted(null);
+                loadComplaints();
+              }}
+            />
+          ) : (
+            <MemoryRouter initialEntries={[`/${currentOrganization.shortName}`]}>
+              <Routes>
+                <Route
+                  path="/:orgSlug"
+                  element={
+                    <OrganizationProvider>
+                      <ComplaintForm
+                        onSuccess={(result) => {
+                          setSubmitted(result);
+                          loadComplaints();
+                        }}
+                      />
+                    </OrganizationProvider>
+                  }
+                />
+              </Routes>
+            </MemoryRouter>
+          )}
+        </Dialog>
+      )}
     </div>
   );
 }

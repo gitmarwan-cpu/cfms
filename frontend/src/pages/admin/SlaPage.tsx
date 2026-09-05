@@ -8,8 +8,12 @@ import {
   type ReferenceItem,
   type SlaRule,
 } from '../../api/adminApi';
+import { CheckboxRow } from '../../components/ui/Checkbox';
 import type { ApiClientError } from '../../api/axiosClient';
-import { DataState, FormDialog, PageHeader } from '../../components/admin/AdminUi';
+import { CheckCircle2 } from 'lucide-react';
+import { DataState, FormDialog } from '../../components/admin/AdminUi';
+import { PageHeader } from '../../components/patterns/PageHeader';
+import { StatusBadge } from '../../components/ui/StatusBadge';
 import { useAuth } from '../../context/AuthContext';
 import { formatDateTime } from '../../utils/dateTime';
 
@@ -36,8 +40,8 @@ const emptyDraft: Draft = {
 const criteriaLabel = (item: ReferenceItem | undefined, id: number | null) => item?.labelAr || (id ? `معرّف #${id}` : 'كل القيم');
 
 export default function SlaPage() {
-  const { user, hasPermission } = useAuth();
-  const organizationId = user?.defaultOrganizationId;
+  const { user, hasPermission, currentOrganizationId } = useAuth();
+  const organizationId = currentOrganizationId;
   const canManage = organizationId !== null && organizationId !== undefined && hasPermission('organization.manage', organizationId);
   const canEvaluate = organizationId !== null && organizationId !== undefined && hasPermission('complaints.view_all', organizationId);
   const canViewReference = organizationId !== null && organizationId !== undefined && hasPermission('reference_data.view', organizationId);
@@ -145,7 +149,7 @@ export default function SlaPage() {
       {!canManage && <div className="admin-readonly-note" role="status">يمكنك استعراض قواعد SLA فقط؛ لا تملك صلاحية تعديلها.</div>}
       {canManage && !canViewReference && <div className="admin-readonly-note" role="status">لا يمكن اختيار التصنيف أو الأولوية دون صلاحية عرض البيانات المرجعية؛ ستظل المعايير الحالية محفوظة كما هي.</div>}
       {criteriaError && <div className="admin-readonly-note" role="status">تعذر تحميل أسماء التصنيفات والأولويات؛ ستظهر المعايير الحالية بالمعرّف فقط.</div>}
-      {evaluation && <div className="admin-success" role="status">{evaluation}</div>}
+      {evaluation && <div className="nla-notice" role="status"><CheckCircle2 size={16} aria-hidden="true" /><span>{evaluation}</span></div>}
 
       <DataState loading={loading} error={error} empty={!items.length} onRetry={load}>
         <div className="card admin-table-card"><div className="admin-table-wrap"><table className="admin-table">
@@ -157,7 +161,7 @@ export default function SlaPage() {
             <td>{criteriaLabel(priorities.find((option) => option.id === item.priorityItemId), item.priorityItemId)}</td>
             <td>{item.isSensitive === null ? 'كل الطلبات' : item.isSensitive ? 'حساس' : 'غير حساس'}</td>
             <td>{item.firstResponseHours} ساعة</td><td>{item.resolutionHours} ساعة</td><td>{item.escalationIntervalHours} ساعة</td>
-            <td><span className={`admin-status-pill ${item.isActive ? 'is-success' : ''}`}>{item.isActive ? 'نشطة' : 'معطلة'}</span></td>
+            <td><StatusBadge tone={item.isActive ? 'success' : 'neutral'}>{item.isActive ? 'نشطة' : 'معطلة'}</StatusBadge></td>
             {canManage && <td><button className="btn btn-outline" onClick={() => open(item)} type="button">تعديل</button></td>}
           </tr>)}</tbody>
         </table></div></div>
@@ -174,7 +178,7 @@ export default function SlaPage() {
           <label className="field">ساعات الحل<input type="number" min="1" max="8760" value={draft.resolutionHours} onChange={(event) => setDraft({ ...draft, resolutionHours: event.target.value })} required /></label>
           <label className="field">فاصل التصعيد<input type="number" min="1" max="8760" value={draft.escalationIntervalHours} onChange={(event) => setDraft({ ...draft, escalationIntervalHours: event.target.value })} required /></label>
           <label className="field">الحد الأقصى للتصعيد<input type="number" min="1" max="10" value={draft.maxEscalationLevel} onChange={(event) => setDraft({ ...draft, maxEscalationLevel: event.target.value })} required /></label>
-          <label className="admin-check"><input type="checkbox" checked={draft.isActive} onChange={(event) => setDraft({ ...draft, isActive: event.target.checked })} /> نشطة</label>
+          <CheckboxRow label="نشطة" checked={draft.isActive} onChange={(event) => setDraft({ ...draft, isActive: event.target.checked })} />
         </div>
       </FormDialog>}
     </>

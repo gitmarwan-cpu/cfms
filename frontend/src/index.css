@@ -38,11 +38,14 @@ body {
   direction: rtl;
 }
 
-.app-shell {
-  min-height: 100vh;
+/* Public portal layout — vertical column: header → main → footer */
+.public-portal {
   display: flex;
   flex-direction: column;
+  min-height: 100vh;
 }
+
+/* .app-shell layout is defined in styles/shell.css — do not duplicate here */
 
 .app-header {
   background: var(--color-primary);
@@ -52,6 +55,9 @@ body {
   align-items: center;
   gap: 14px;
   border-bottom: 3px solid var(--color-accent);
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .app-header__nav {
@@ -216,6 +222,8 @@ body {
 .field--checkbox input[type='checkbox'] {
   width: 16px;
   height: 16px;
+  padding: 0;
+  flex-shrink: 0;
 }
 
 .field label {
@@ -229,11 +237,10 @@ body {
   margin-inline-start: 3px;
 }
 
-.field input[type='text'],
-.field input[type='tel'],
-.field input[type='email'],
+.field input:not([type='checkbox']):not([type='radio']),
 .field select,
 .field textarea {
+  width: 100%;
   font-family: inherit;
   font-size: 14px;
   padding: 10px 12px;
@@ -242,7 +249,18 @@ body {
   background: #fff;
   color: var(--color-text);
   outline: none;
+  box-sizing: border-box;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* All checkbox and radio controls — small fixed size, never inherit text-input dimensions */
+input[type='checkbox'],
+input[type='radio'] {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  flex-shrink: 0;
+  cursor: pointer;
 }
 
 .field input:focus,
@@ -412,6 +430,182 @@ body {
 }
 
 .ticket__perforation {
+}
+
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(14, 95, 102, 0.15);
+}
+
+.field textarea {
+  resize: vertical;
+  min-height: 96px;
+}
+
+.field-error {
+  color: var(--color-danger);
+  font-size: 12px;
+}
+
+.radio-group,
+.type-toggle {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.type-toggle button {
+  flex: 1;
+  min-width: 120px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: #fff;
+  color: var(--color-text-muted);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.type-toggle button[aria-pressed='true'] {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.checkbox-row input {
+  margin-top: 3px;
+}
+
+.divider-label {
+  grid-column: 1 / -1;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-primary-dark);
+  border-bottom: 1px dashed var(--color-border);
+  padding-bottom: 6px;
+  margin-top: 4px;
+}
+
+.file-drop {
+  border: 1.5px dashed var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  background: #fafcfc;
+}
+
+.file-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.submit-row {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.btn {
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 11px 26px;
+  border-radius: var(--radius-sm);
+  border: none;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.btn-primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.alert {
+  grid-column: 1 / -1;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+}
+
+.alert-danger {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.ticket {
+  text-align: center;
+  padding: 8px 8px 28px;
+}
+
+.ticket__seal {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 2px solid var(--color-accent);
+  color: var(--color-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  font-weight: 700;
+  margin: 0 auto 16px;
+}
+.ticket__seal--success {
+  background: var(--color-success-bg);
+  border-color: var(--color-success);
+  color: var(--color-success);
+}
+
+
+
+.ticket__title {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 600;
+  margin: 0 0 6px;
+  color: var(--color-ink);
+}
+
+.ticket__lede {
+  margin: 0 auto 20px;
+  max-width: 440px;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.ticket__perforation {
   border-top: 2px dashed var(--color-border);
   margin: 0 auto 20px;
   max-width: 420px;
@@ -422,10 +616,14 @@ body {
   align-items: center;
   justify-content: space-between;
   max-width: 420px;
+  min-width: 0;
   margin: 0 auto 10px;
   padding: 12px 18px;
   border-radius: var(--radius-sm);
   background: var(--color-primary-light);
+  flex-wrap: wrap;
+  gap: 8px;
+  box-sizing: border-box;
 }
 
 .ticket__row--pin {
@@ -444,6 +642,8 @@ body {
   letter-spacing: 1px;
   color: var(--color-primary-dark);
   direction: ltr;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .ticket__value--pin {
@@ -460,8 +660,23 @@ body {
 }
 
 .ticket__actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
   text-align: center;
   padding-top: 4px;
+}
+
+@media (max-width: 480px) {
+  .ticket__row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .ticket__perforation,
+  .ticket__lede,
+  .ticket__warning { max-width: 100%; }
 }
 
 .app-footer {
@@ -799,6 +1014,11 @@ textarea:focus-visible {
   min-width: 0;
 }
 
+/* Roles row spans both columns of the detail grid */
+.user-detail-roles-row {
+  grid-column: 1 / -1;
+}
+
 .admin-detail-fields {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -924,6 +1144,7 @@ textarea:focus-visible {
 
 .notification-center {
   position: relative;
+  overflow: visible;
 }
 
 .notification-trigger {
@@ -938,38 +1159,41 @@ textarea:focus-visible {
 
 .notification-badge {
   position: absolute;
-  top: 0;
-  inset-inline-start: 0;
+  top: 2px;
+  inset-inline-end: 2px;
   background: var(--color-danger);
   color: white;
   border-radius: 9999px;
   font-size: 10px;
-  padding: 2px 6px;
+  padding: 1px 5px;
   font-weight: bold;
   min-width: 16px;
   text-align: center;
+  line-height: 1.4;
+  pointer-events: none;
 }
 
 .notification-dropdown {
   position: absolute;
-  top: 100%;
-  inset-inline-start: 0;
-  width: 320px;
+  top: calc(100% + 8px);
+  inset-inline-end: 0;
+  width: min(340px, calc(100vw - 32px));
   background: white;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-  border-radius: 8px;
+  box-shadow: 0 10px 24px rgba(15, 40, 44, 0.18);
+  border-radius: 10px;
   border: 1px solid var(--color-border);
-  z-index: 50;
-  max-height: 400px;
+  z-index: 200;
+  max-height: 440px;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .notification-dropdown__header {
   padding: 12px 16px;
   border-bottom: 1px solid var(--color-border);
   background: #f9fafb;
-  border-radius: 8px 8px 0 0;
+  border-radius: 9px 9px 0 0;
 }
 
 .notification-dropdown__header h3 {
@@ -1107,6 +1331,33 @@ textarea:focus-visible {
   .admin-dialog__form footer .btn, .admin-confirm footer .btn { flex: 1; }
   .admin-table th, .admin-table td { padding: 10px 12px; }
 }
+
+/* ── Users page layout ───────────────────────────────────────────────────────── */
+
+.users-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.users-detail-panel--empty { display: none; }
+.users-detail-panel--hidden-mobile { display: block; }
+.users-list-panel--hidden-mobile { display: block; }
+
+@media (max-width: 900px) {
+  .users-detail-panel--hidden-mobile { display: none; }
+  .users-list-panel--hidden-mobile { display: none; }
+}
+
+.admin-table-row--selected { background: var(--color-primary-light) !important; }
+
+/* fieldset reset: remove default browser styling for disabled fieldsets */
+.admin-fieldset-reset {
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+.admin-fieldset-reset:disabled * { opacity: 0.65; pointer-events: none; }
 
 /* ── Organizational Hierarchy Tree & Two-Panel Layout ───────────────────────── */
 

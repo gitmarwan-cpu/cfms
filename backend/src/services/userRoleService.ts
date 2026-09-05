@@ -1,6 +1,7 @@
 import prisma from '../prisma/client';
 import ApiError from '../utils/ApiError';
 import { recordAuditEvent } from './auditService';
+import { countActiveAdmins } from './membershipService';
 
 export type OrganizationId = string | number;
 export type UserId = string | number;
@@ -184,18 +185,14 @@ export const revokeRole = async (
 
     const role = await tx.roles.findUnique({ where: { id: userRole.role_id }, select: { code: true } });
     if (role?.code === 'admin') {
-      // Only ACTIVE admin users count towards the last-admin guard: an inactive
-      // admin-role holder cannot administer the tenant, so counting them would
-      // let a revoke leave the organization with zero active admins (Fix 1.1).
-      const remainingOrgAdmins = await tx.user_roles.count({
-        where: {
-          role_id: userRole.role_id,
-          organization_id: parsedOrganizationId as number,
-          roles: { code: 'admin' },
-          users: { is_active: true },
-        },
-      });
-      if (remainingOrgAdmins <= 1) throw new ApiError(400, 'لا يمكن إلغاء آخر مدير في هذه المؤسسة');
+      // Canonical active-admin count (single authoritative implementation in
+      // membershipService.countActiveAdmins): an admin only keeps the tenant
+      // administrable while their USER record is active AND their membership
+      // in this organization is active (Fix 1.4). Counting raw user_roles rows
+      // would let a stale admin row (active user, removed membership) mask the
+      // removal of the last functioning admin and lock the tenant out.
+      const remainingActiveAdmins = await countActiveAdmins(tx, parsedOrganizationId as number);
+      if (remainingActiveAdmins <= 1) throw new ApiError(400, 'لا يمكن إلغاء آخر مدير في هذه المؤسسة');
     }
 
     await tx.user_roles.delete({ where: { id: userRole.id } });

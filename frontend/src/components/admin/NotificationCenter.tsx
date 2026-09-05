@@ -1,7 +1,8 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { fetchNotifications, markNotificationRead, type Notification } from '../../api/adminApi';
+import { Bell } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { formatDateTime } from '../../utils/dateTime';
+import { fetchNotifications, markNotificationRead, type Notification } from '../../api/adminApi';
+import { NotificationItem } from '../patterns/NotificationItem';
 
 const POLL_INTERVAL_MS = 60_000;
 
@@ -35,8 +36,15 @@ export default function NotificationCenter() {
         setIsOpen(false);
       }
     }
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') setIsOpen(false);
+    }
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
   }, []);
 
   const handleNotificationClick = async (notification: Notification) => {
@@ -66,9 +74,11 @@ export default function NotificationCenter() {
         className="notification-trigger"
         onClick={() => setIsOpen(!isOpen)}
         type="button"
+        aria-haspopup="dialog"
+        aria-expanded={isOpen}
         aria-label={`الإشعارات${unreadCount > 0 ? ` (${unreadCount} غير مقروءة)` : ''}`}
       >
-        <span aria-hidden="true" style={{ fontSize: '1.3rem' }}>🔔</span>
+        <Bell size={18} aria-hidden="true" />
         {unreadCount > 0 && (
           <span className="notification-badge">{unreadCount}</span>
         )}
@@ -87,18 +97,12 @@ export default function NotificationCenter() {
               </div>
             ) : (
               notifications.map((n) => (
-                <button
+                <NotificationItem
                   key={n.id}
-                  className={`notification-item ${!n.readAt ? 'notification-item--unread' : ''}`}
-                  onClick={() => handleNotificationClick(n)}
-                  type="button"
-                >
-                  <div className="notification-item__title">{n.title}</div>
-                  <div className="notification-item__message">{n.message}</div>
-                  <div className="notification-item__time">
-                    {formatDateTime(n.createdAt)}
-                  </div>
-                </button>
+                  notification={n}
+                  compact
+                  onOpen={handleNotificationClick}
+                />
               ))
             )}
           </div>

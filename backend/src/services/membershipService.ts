@@ -77,8 +77,14 @@ type DbClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
  * active. Mirrors the corrected counting logic in userRoleService.revokeRole
  * (Fix 1.1) — inactive users or inactive memberships never keep a tenant
  * administrable.
+ *
+ * Exported as the SINGLE AUTHORITATIVE active-admin counter: the last-admin
+ * guards in membershipService, userRoleService.revokeRole (Fix 1.4) and
+ * userAdminService.deactivateUser (Fix 1.5) must all share this definition —
+ * counting raw user_roles rows would let a stale admin row (active user,
+ * removed membership) mask the removal of the last functioning admin.
  */
-const countActiveAdmins = async (tx: DbClient, organizationId: number): Promise<number> => {
+export const countActiveAdmins = async (tx: DbClient, organizationId: number): Promise<number> => {
   const adminRoleHolders = await tx.user_roles.findMany({
     where: { organization_id: organizationId, roles: { code: 'admin' } },
     select: { user_id: true },

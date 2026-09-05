@@ -102,7 +102,7 @@ export default function UserEditDialog({ user, onClose, onSaved }: UserEditDialo
             <span style={{ fontSize: '14px' }}>
               {user.primaryOrganizationNode.legalName}
               {user.primaryOrganizationNode.code && (
-                <span style={{ color: 'var(--color-text-muted)', marginRight: '6px' }}>
+                <span style={{ color: 'var(--color-text-muted)', marginInlineEnd: '6px' }}>
                   ({user.primaryOrganizationNode.code})
                 </span>
               )}

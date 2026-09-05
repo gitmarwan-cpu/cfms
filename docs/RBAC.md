@@ -27,9 +27,11 @@ Users → UserRoles → Roles → RolePermissions → Permissions
 
 `middlewares/auth.ts::authorizePermission(code, nodeScopeResolver?)`:
 1. يتحقق أن الكود موجود ضمن صلاحيات المستخدم الفعلية.
-2. **إلزامي**: يتحقق أن `permission.organizationId === req.organizationId` — منع
-   استخدام صلاحية اكتسبها المستخدم في مؤسسة "أ" على بيانات مؤسسة "ب" لمجرد
-   كونه عضواً في كلتيهما.
+2. **إلزامي**: يتحقق من أن الصلاحية اكتُسبت ضمن السياق التنظيمي الصحيح — نطاق
+   المؤسسة يأتي من تعيين الدور (`user_roles.organization_id`) ويجب أن يطابق
+   `req.organizationId` — منع استخدام صلاحية اكتسبها المستخدم في مؤسسة "أ" على
+   بيانات مؤسسة "ب" لمجرد كونه عضواً في كلتيهما. الصلاحيات نفسها (`permissions`)
+   كتالوج نظامي مشترك لا تحمل `organization_id`.
 3. اختياري: يتحقق من نطاق `organization_node_id` عبر محلّل العقدة الخاص بالمسار.
 
 `authorize(...roleCodes)` القديم لا يزال يعمل (توافق خلفي) — يُفضَّل

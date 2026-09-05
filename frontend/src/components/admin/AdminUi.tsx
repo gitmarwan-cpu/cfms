@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, type FormEvent, type ReactNode } from 'react';
+import { Lock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export function PageHeader({ title, description, actions }: { title: string; description?: string; actions?: ReactNode }) {
@@ -17,7 +18,7 @@ export function DataState({ loading, error, empty, onRetry, children }: { loadin
 }
 
 export function ForbiddenState({ title = 'الوصول غير مسموح', permission }: { title?: string; permission?: string }) {
-  return <div className="admin-forbidden" role="alert"><div className="admin-forbidden__icon" aria-hidden="true">🔒</div><h2>{title}</h2><p>{permission ? `لا تملك الصلاحية «${permission}» للوصول إلى هذه الصفحة ضمن المؤسسة الحالية.` : 'لا تملك الصلاحية اللازمة للوصول إلى هذه الصفحة.'}</p><Link className="btn btn-outline" to="/admin">العودة إلى لوحة التحكم</Link></div>;
+  return <div className="admin-forbidden" role="alert"><div className="admin-forbidden__icon" aria-hidden="true"><Lock size={22} /></div><h2>{title}</h2><p>{permission ? `لا تملك الصلاحية «${permission}» للوصول إلى هذه الصفحة ضمن المؤسسة الحالية.` : 'لا تملك الصلاحية اللازمة للوصول إلى هذه الصفحة.'}</p><Link className="btn btn-outline" to="/admin">العودة إلى لوحة التحكم</Link></div>;
 }
 
 export function Dialog({ title, onClose, children, describedBy }: { title: string; onClose: () => void; children: ReactNode; describedBy?: string }) {

@@ -70,6 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
     window.addEventListener('cfms_unauthorized', handleUnauthorized);
     return () => window.removeEventListener('cfms_unauthorized', handleUnauthorized);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

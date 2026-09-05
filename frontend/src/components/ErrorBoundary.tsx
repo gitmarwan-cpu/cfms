@@ -1,4 +1,5 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { TriangleAlert } from 'lucide-react';
 
 interface Props {
   children?: ReactNode;
@@ -23,7 +24,7 @@ export default class ErrorBoundary extends Component<Props, State> {
     console.error('Uncaught error:', error, errorInfo);
   }
 
-  public render() {
+  public render(): ReactNode {
     if (this.state.hasError) {
       return (
         <div style={{
@@ -36,7 +37,7 @@ export default class ErrorBoundary extends Component<Props, State> {
           direction: 'rtl'
         }}>
           <div className="card" style={{ maxWidth: '500px', width: '100%', padding: '32px', textAlign: 'center' }}>
-            <div style={{ fontSize: '3rem', marginBottom: '16px' }}>⚠️</div>
+            <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'center' }}><TriangleAlert size={44} aria-hidden="true" color="var(--color-warning)" /></div>
             <h1 style={{ margin: '0 0 16px 0', fontSize: '1.5rem', color: 'var(--color-danger)' }}>عذراً، حدث خطأ غير متوقع</h1>
             <p style={{ color: 'var(--color-text-muted)', marginBottom: '24px' }}>
               نأسف لذلك. يرجى تحديث الصفحة أو المحاولة مرة أخرى لاحقاً.

@@ -55,6 +55,27 @@
 
 `docs/TENANT_ISOLATION.md`
 
+## Organization Hierarchy (الهيكل التنظيمي)
+
+جدول `organizations` هو **الجدول الفيزيائي الوحيد** للهيكل التنظيمي:
+
+* المؤسسة/المستأجر نفسها هي **العقدة الجذر**: `parent_id = NULL`,
+  `org_unit_type_id = NULL`, `root_organization_id = NULL`. لا يوجد كيان جذر
+  منفصل ولا عقدة جذر اصطناعية.
+* الوحدات التنظيمية (فروع/قطاعات/أقسام/فرق...) هي عُقد في نفس الجدول:
+  `parent_id` هو علاقة التسلسل الهرمي المعتمدة، `org_unit_type_id` مُميِّز نوع
+  الوحدة، و`root_organization_id` هو المرجع الدائم لحدود المستأجر
+  (tenant boundary).
+* تُسمح عدة وحدات عليا تحت الجذر مباشرة؛ وحدة بلا أصل صريح تُلحق تحت العقدة
+  الجذر ولا يُنشئ ذلك جذراً ثانياً.
+* لا توجد جداول فيزيائية حالية منفصلة للفروع/القطاعات/الأقسام/الفرق أو
+  `org_units`.
+
+التفاصيل الكاملة والثوابت الدقيقة (بما فيها قيد `allowed_parent_type_id`
+التنفيذي الحالي والحقول القديمة) موثقة في:
+
+`modules/organizations/README.md`
+
 ## Application Layers
 
 ```text
@@ -246,7 +267,7 @@ CFMS
 * Workflow Engine قابل للتخصيص.
 * Notification Engine.
 * Dashboard/Reporting Engine.
-* Assignment متقدم للأقسام والفرق.
+* Assignment متقدم لعُقد تنظيمية (Organization Nodes).
 * Refresh Tokens.
 * Audit Trail عام كامل.
 

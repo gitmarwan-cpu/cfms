@@ -8,7 +8,7 @@ Multi-Tenant, RBAC, Reference Data).
 |---|---|---|
 | [`complaints/`](./complaints/README.md) | 🔶 قيد التطوير (الأكثر نضجاً) | الوحدة الأولى للمنصة — إدارة الشكاوى والملاحظات |
 | [`organizations/`](./organizations/README.md) | ✅ منجز جزئياً | المؤسسات والهيكل التنظيمي المرن |
-| [`users-permissions/`](./users-permissions/README.md) | ✅ منجز | المستخدمون، الأدوار، الصلاحيات، المجموعات |
+| [`users-permissions/`](./users-permissions/README.md) | ✅ منجز | المستخدمون، الأدوار، الصلاحيات، عضوية المؤسسات |
 | [`reference-data/`](./reference-data/README.md) | ✅ منجز | البيانات المرجعية القابلة للتخصيص |
 
 وحدات مستقبلية (HR، إدارة المشاريع، المنح...) — راجع

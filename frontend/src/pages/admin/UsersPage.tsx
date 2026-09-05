@@ -1,30 +1,18 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
-import { PageHeader, LoadingSkeleton, DataState, ConfirmDialog, FormDialog } from '../../components/admin/AdminUi';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { StatusBadge } from '../../components/ui/StatusBadge';
+import { User, X } from 'lucide-react';
+import { DataState, ConfirmDialog } from '../../components/admin/AdminUi';
+import { PageHeader } from '../../components/patterns/PageHeader';
 import { useAuth } from '../../context/AuthContext';
 import { fetchRoles, type Role } from '../../api/adminApi';
-import {
-  activateUser,
-  addMembership as addMembershipApi,
-  assignUserRole,
-  deactivateUser,
-  fetchUser,
-  fetchUserMemberships,
-  fetchUserRoles,
-  fetchUsers,
-  removeMembership as removeMembershipApi,
-  resetUserPassword,
-  revokeUserRole,
-  setPrimaryMembership as setPrimaryMembershipApi,
-  type ManagedUser,
-  type Membership,
-  type UserRoleAssignment,
-} from '../../api/usersApi';
+import { activateUser, addMembership as addMembershipApi, assignUserRole, deactivateUser, fetchUser, fetchUserMemberships, fetchUserRoles, fetchUsers, removeMembership as removeMembershipApi, revokeUserRole, setPrimaryMembership as setPrimaryMembershipApi, type ManagedUser, type Membership, type UserRoleAssignment } from '../../api/usersApi';
 import type { ApiClientError } from '../../api/axiosClient';
-import AuditMetadata from '../../components/admin/AuditMetadata';
 import UserCreateDialog from '../../components/admin/users/UserCreateDialog';
 import UserEditDialog from '../../components/admin/users/UserEditDialog';
-import UserRolesPanel from '../../components/admin/users/UserRolesPanel';
 import { formatDate } from '../../utils/dateTime';
+import { UserDetailPanel } from "../../components/admin/users/UserDetailPanel";
+import { ResetPasswordDialog } from "../../components/admin/users/ResetPasswordDialog";
+
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -45,7 +33,7 @@ const DEBOUNCE_MS = 350;
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export default function UsersPage() {
-  const { user, hasPermission, currentOrganizationId, refreshMe } = useAuth();
+  const { user, hasPermission, currentOrganization, currentOrganizationId, refreshMe } = useAuth();
   const orgId = currentOrganizationId;
 
   const canView = orgId !== null && hasPermission('users.view', orgId);
@@ -251,7 +239,9 @@ export default function UsersPage() {
     addMembershipApi(selectedUser.id)
       .then(() => {
         loadMemberships(selectedUser.id);
-        setNotice(`تمت إضافة «${selectedUser.fullName}» كعضو في المؤسسة بنجاح.`);
+        setNotice(
+          `تمت إضافة «${selectedUser.fullName}» كعضو في «${currentOrganization?.name ?? 'المؤسسة الحالية'}» بنجاح.`
+        );
       })
       .catch((err: ApiClientError) => setAccessError(err.message || 'تعذر إضافة العضوية.'))
       .finally(() => setBusy(false));
@@ -325,11 +315,11 @@ export default function UsersPage() {
           <button
             type="button"
             className="admin-text-button"
-            style={{ marginRight: '12px', fontSize: '12px' }}
+            style={{ marginInlineStart: '12px', fontSize: '12px' }}
             onClick={() => setNotice('')}
             aria-label="إغلاق الإشعار"
           >
-            ✕
+            <X size={14} aria-hidden="true" />
           </button>
         </div>
       )}
@@ -405,9 +395,7 @@ export default function UsersPage() {
                             : <span style={{ color: 'var(--color-text-muted)' }}>—</span>}
                         </td>
                         <td>
-                          <span className={`admin-status-pill ${u.isActive ? 'is-success' : ''}`}>
-                            {u.isActive ? 'نشط' : 'معطّل'}
-                          </span>
+                          <StatusBadge tone={u.isActive ? 'success' : 'neutral'}>{u.isActive ? 'نشط' : 'معطّل'}</StatusBadge>
                         </td>
                         <td style={{ fontSize: '13px', color: 'var(--color-text-muted)' }}>
                           {formatDate(u.createdAt)}
@@ -475,6 +463,7 @@ export default function UsersPage() {
               busyAssignmentId={busyAssignmentId}
               busyMembershipId={busyMembershipId}
               canManage={canManage}
+              organizationName={currentOrganization?.name}
               onEdit={() => setEditOpen(true)}
               onDeactivate={() => setConfirmDeactivate(true)}
               onActivate={handleActivate}
@@ -491,7 +480,7 @@ export default function UsersPage() {
           <div className="users-detail-panel users-detail-panel--empty">
             <div className="card">
               <div className="card__body" style={{ textAlign: 'center', padding: '40px 24px', color: 'var(--color-text-muted)' }}>
-                <div style={{ fontSize: '32px', marginBottom: '12px' }}>👤</div>
+                <div style={{ marginBottom: '12px' }}><User size={32} aria-hidden="true" style={{ color: 'var(--color-text-faint)' }} /></div>
                 <p style={{ margin: 0 }}>اختر مستخدماً من القائمة لعرض تفاصيله وإدارة صلاحياته.</p>
               </div>
             </div>
@@ -541,338 +530,3 @@ export default function UsersPage() {
 }
 
 // ── Detail Panel ───────────────────────────────────────────────────────────────
-
-interface UserDetailPanelProps {
-  user: ManagedUser;
-  roles: Role[];
-  userRoles: UserRoleAssignment[];
-  memberships: Membership[];
-  accessLoading: boolean;
-  accessError: string;
-  busy: boolean;
-  busyAssignmentId: number | null;
-  busyMembershipId: number | null;
-  canManage: boolean;
-  onEdit: () => void;
-  onDeactivate: () => void;
-  onActivate: () => void;
-  onClose: () => void;
-  onAssignRole: (roleId: number) => void;
-  onRevokeRole: (assignmentId: number) => void;
-  onAddMembership: () => void;
-  onRemoveMembership: (membershipId: number) => void;
-  onSetPrimary: (membershipId: number) => void;
-  onResetPassword: () => void;
-}
-
-function UserDetailPanel({
-  user,
-  roles,
-  userRoles,
-  memberships,
-  accessLoading,
-  accessError,
-  busy,
-  busyAssignmentId,
-  busyMembershipId,
-  canManage,
-  onEdit,
-  onDeactivate,
-  onActivate,
-  onClose,
-  onAssignRole,
-  onRevokeRole,
-  onAddMembership,
-  onRemoveMembership,
-  onSetPrimary,
-  onResetPassword,
-}: UserDetailPanelProps) {
-  return (
-    <div>
-      {/* Identity card */}
-      <div className="card" style={{ marginBottom: '12px' }}>
-        <div
-          className="card__header"
-          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}
-        >
-          <div>
-            <h2 style={{ fontSize: '1.1rem', margin: '0 0 2px' }}>{user.fullName}</h2>
-            <span dir="ltr" style={{ fontSize: '13px', color: 'var(--color-text-muted)' }}>{user.email}</span>
-          </div>
-          <span className="admin-actions" style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-            <span className={`admin-status-pill ${user.isActive ? 'is-success' : ''}`}>
-              {user.isActive ? 'نشط' : 'معطّل'}
-            </span>
-            {canManage && (
-              <>
-                <button type="button" className="btn btn-outline" style={{ fontSize: '13px' }} onClick={onEdit}>
-                  تعديل
-                </button>
-                <button type="button" className="btn btn-outline" style={{ fontSize: '13px' }} onClick={onResetPassword} disabled={busy}>
-                  إعادة تعيين كلمة المرور
-                </button>
-                {user.isActive ? (
-                  <button type="button" className="btn btn-outline" style={{ fontSize: '13px', color: 'var(--color-danger, #c0392b)' }} onClick={onDeactivate} disabled={busy}>
-                    إلغاء التفعيل
-                  </button>
-                ) : (
-                  <button type="button" className="btn btn-outline" style={{ fontSize: '13px' }} onClick={onActivate} disabled={busy}>
-                    {busy ? '…' : 'تفعيل'}
-                  </button>
-                )}
-              </>
-            )}
-            <button type="button" className="btn btn-outline" style={{ fontSize: '13px' }} onClick={onClose} aria-label="إغلاق لوحة التفاصيل">
-              ✕
-            </button>
-          </span>
-        </div>
-
-        <div className="card__body">
-          {accessError && (
-            <div className="alert alert-danger" role="alert" style={{ marginBottom: '12px' }}>
-              {accessError}
-            </div>
-          )}
-
-          <div className="admin-detail-fields">
-            <div>
-              <span className="admin-detail-label">البريد الإلكتروني</span>
-              <span className="admin-detail-value" dir="ltr" style={{ display: 'inline-block' }}>{user.email}</span>
-            </div>
-            {user.primaryOrganizationNode && (
-              <div>
-                <span className="admin-detail-label">العقدة التنظيمية</span>
-                <span className="admin-detail-value">
-                  {user.primaryOrganizationNode.legalName}
-                  {user.primaryOrganizationNode.code && (
-                    <span style={{ color: 'var(--color-text-muted)', fontSize: '12px', marginRight: '6px' }}>
-                      ({user.primaryOrganizationNode.code})
-                    </span>
-                  )}
-                </span>
-              </div>
-            )}
-            {!user.primaryOrganizationNode && (
-              <div>
-                <span className="admin-detail-label">العقدة التنظيمية</span>
-                <span className="admin-detail-value" style={{ color: 'var(--color-text-muted)' }}>غير محددة</span>
-              </div>
-            )}
-          </div>
-
-          <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '16px', marginTop: '16px' }}>
-            <h3 style={{ fontSize: '0.95rem', margin: '0 0 8px', color: 'var(--color-text-muted)' }}>معلومات السجل</h3>
-            <AuditMetadata createdAt={user.createdAt} updatedAt={user.updatedAt} />
-          </div>
-        </div>
-      </div>
-
-      {/* Direct roles panel */}
-      {accessLoading ? (
-        <div className="admin-detail-grid">
-          <div className="card">
-            <div className="card__header"><LoadingSkeleton rows={1} /></div>
-            <div className="card__body"><LoadingSkeleton rows={3} /></div>
-          </div>
-        </div>
-      ) : (
-        <div className="admin-detail-grid">
-          <UserRolesPanel
-            key={`roles-${user.id}`}
-            roles={roles}
-            assignments={userRoles}
-            busy={busy || busyAssignmentId !== null}
-            busyAssignmentId={busyAssignmentId}
-            canManage={canManage}
-            onAssign={onAssignRole}
-            onRevoke={onRevokeRole}
-          />
-          <UserMembershipsPanel
-            key={`memberships-${user.id}`}
-            memberships={memberships}
-            busy={busy}
-            busyMembershipId={busyMembershipId}
-            canManage={canManage}
-            onAdd={onAddMembership}
-            onRemove={onRemoveMembership}
-            onSetPrimary={onSetPrimary}
-          />
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Memberships Panel ──────────────────────────────────────────────────────────
-
-interface UserMembershipsPanelProps {
-  memberships: Membership[];
-  busy: boolean;
-  busyMembershipId: number | null;
-  canManage: boolean;
-  onAdd: () => void;
-  onRemove: (membershipId: number) => void;
-  onSetPrimary: (membershipId: number) => void;
-}
-
-/**
- * Membership manager for a single user (GET/POST /users/:userId/memberships,
- * DELETE /users/memberships/:id, PATCH /users/memberships/:id/primary).
- * Server-side invariant messages (last-membership / last-active-admin /
- * self-removal) are surfaced verbatim by the parent — this panel only renders.
- */
-function UserMembershipsPanel({
-  memberships,
-  busy,
-  busyMembershipId,
-  canManage,
-  onAdd,
-  onRemove,
-  onSetPrimary,
-}: UserMembershipsPanelProps) {
-  return (
-    <div className="card">
-      <div className="card__header">
-        <h2 style={{ fontSize: '1.1rem', margin: 0 }}>العضويات</h2>
-      </div>
-      <div className="card__body">
-        {memberships.length === 0 ? (
-          <p className="admin-assign-note">لا توجد عضويات مسجلة لهذا المستخدم في هذه المؤسسة.</p>
-        ) : (
-          <ul className="admin-assign-list">
-            {memberships.map((m) => (
-              <li key={m.id} className="admin-assign-item">
-                <span>
-                  <strong>{m.organization ? m.organization.legalName : `مؤسسة #${m.organizationId}`}</strong>
-                  {m.isPrimary && (
-                    <span className="admin-status-pill is-success" style={{ marginInlineStart: '8px' }}>
-                      أساسية
-                    </span>
-                  )}
-                  <span className={`admin-status-pill ${m.isActive ? 'is-success' : ''}`} style={{ marginInlineStart: '8px' }}>
-                    {m.isActive ? 'نشطة' : 'معطّلة'}
-                  </span>
-                </span>
-                {canManage && (
-                  <span style={{ display: 'flex', gap: '6px' }}>
-                    {!m.isPrimary && m.isActive && (
-                      <button
-                        type="button"
-                        className="admin-text-button"
-                        onClick={() => onSetPrimary(m.id)}
-                        disabled={busy || busyMembershipId !== null}
-                        aria-label="تعيين كعضوية أساسية"
-                      >
-                        {busyMembershipId === m.id ? '…' : 'تعيين أساسية'}
-                      </button>
-                    )}
-                    {m.isActive && (
-                      <button
-                        type="button"
-                        className="admin-text-button danger"
-                        onClick={() => onRemove(m.id)}
-                        disabled={busy || busyMembershipId !== null}
-                        aria-label="إزالة العضوية"
-                      >
-                        {busyMembershipId === m.id ? '…' : 'إزالة'}
-                      </button>
-                    )}
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {canManage && (
-          <div className="admin-inline-form">
-            <button
-              type="button"
-              className="btn btn-outline"
-              onClick={onAdd}
-              disabled={busy || memberships.some((m) => m.isActive)}
-            >
-              {memberships.some((m) => m.isActive) ? 'عضو نشط بالفعل' : 'إضافة عضوية'}
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ── Reset Password Dialog ──────────────────────────────────────────────────────
-
-interface ResetPasswordDialogProps {
-  user: ManagedUser;
-  onClose: () => void;
-  onReset: (userFullName: string) => void;
-}
-
-/**
- * Admin-issued password reset (POST /users/:userId/reset-password, users.manage).
- * The new password is typed by the admin and is never stored, logged, or echoed.
- */
-function ResetPasswordDialog({ user, onClose, onReset }: ResetPasswordDialogProps) {
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [error, setError] = useState('');
-  const [saving, setSaving] = useState(false);
-
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
-    setError('');
-    if (!newPassword) {
-      setError('الرجاء إدخال كلمة المرور الجديدة.');
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setError('كلمتا المرور غير متطابقتين.');
-      return;
-    }
-    setSaving(true);
-    try {
-      await resetUserPassword(user.id, newPassword);
-      onReset(user.fullName);
-    } catch (err) {
-      const apiErr = err as ApiClientError;
-      // Surface server-side policy messages verbatim; never echo the password.
-      setError(apiErr.message || 'تعذر إعادة تعيين كلمة المرور. حاول مرة أخرى.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <FormDialog
-      title={`إعادة تعيين كلمة المرور: ${user.fullName}`}
-      onClose={onClose}
-      onSubmit={submit}
-      saving={saving}
-      error={error}
-      submitLabel="إعادة التعيين"
-    >
-      <label className="field">
-        كلمة المرور الجديدة
-        <input
-          type="password"
-          value={newPassword}
-          onChange={(e) => setNewPassword(e.target.value)}
-          autoComplete="new-password"
-          required
-        />
-      </label>
-      <label className="field">
-        تأكيد كلمة المرور الجديدة
-        <input
-          type="password"
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-          autoComplete="new-password"
-          required
-        />
-      </label>
-    </FormDialog>
-  );
-}

@@ -4,6 +4,7 @@ import { createOrganizationNode, updateOrganizationNode } from '../../../api/adm
 import type { ApiClientError } from '../../../api/axiosClient';
 import { FormDialog } from '../AdminUi';
 import LocationSelect from '../../LocationSelect';
+import { CheckboxRow } from '../../ui/Checkbox';
 
 interface OrganizationNodeFormProps {
   editingNode: OrganizationNodeDto | null;
@@ -218,7 +219,7 @@ export default function OrganizationNodeForm({
               </option>
             ))}
           </select>
-          <small style={{ color: 'var(--color-text-muted)', display: 'block', marginTop: '2px' }}>
+          <small className="admin-muted admin-field-hint">
             تحدد الموضع في الشجرة الهرمية
           </small>
         </label>
@@ -281,14 +282,12 @@ export default function OrganizationNodeForm({
         </label>
 
         {editingNode && (
-          <label className="admin-check admin-field--full" style={{ marginTop: '8px' }}>
-            <input
-              type="checkbox"
-              checked={isActive}
-              onChange={(e) => setIsActive(e.target.checked)}
-            />
-            <span>وحدة مفعّلة ونشطة</span>
-          </label>
+          <CheckboxRow
+            className="admin-field--full onf-check"
+            label="وحدة مفعّلة ونشطة"
+            checked={isActive}
+            onChange={(e) => setIsActive(e.target.checked)}
+          />
         )}
       </div>
     </FormDialog>

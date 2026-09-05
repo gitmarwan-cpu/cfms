@@ -453,6 +453,10 @@ export const updateOrganizationNode = (id: number, payload: UpdateOrganizationNo
 export const deactivateOrganizationNode = (id: number): Promise<OrganizationNodeDto> =>
   unwrap<OrganizationNodeDto>(axiosClient.patch(`/organization/nodes/${id}/deactivate`));
 
+/** Reactivates a previously deactivated organization node (/organization/nodes/:id/activate). */
+export const activateOrganizationNode = (id: number): Promise<OrganizationNodeDto> =>
+  unwrap<OrganizationNodeDto>(axiosClient.patch(`/organization/nodes/${id}/activate`));
+
 // ── Organization (Tenant) Creation API ───────────────────────────────
 // Distinct from creating an organizational unit: this creates a new
 // Organization/Tenant together with its automatic Root Organizational Unit.

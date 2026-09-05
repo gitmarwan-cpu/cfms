@@ -10,8 +10,8 @@ interface PermissionGateProps {
 
 /** UX guard only; backend authorization remains authoritative. */
 export default function PermissionGate({ permission, children, title }: PermissionGateProps) {
-  const { user, hasPermission } = useAuth();
-  const organizationId = user?.defaultOrganizationId;
+  const { user, hasPermission, currentOrganizationId } = useAuth();
+  const organizationId = currentOrganizationId ?? user?.defaultOrganizationId ?? null;
 
   if (!user || organizationId === null || organizationId === undefined) return <ForbiddenState title={title} permission={permission} />;
   if (!hasPermission(permission, organizationId)) return <ForbiddenState title={title} permission={permission} />;

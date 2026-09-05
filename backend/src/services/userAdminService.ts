@@ -2,6 +2,7 @@ import type { Prisma } from '@prisma/client';
 import prisma from '../prisma/client';
 import ApiError from '../utils/ApiError';
 import { recordAuditEvent } from './auditService';
+import { countActiveAdmins } from './membershipService';
 
 /**
  * Backend User Administration service.
@@ -286,38 +287,46 @@ export const deactivateUser = async (
     where: { code: 'admin', OR: [{ organization_id: null }, { organization_id: organizationId }] },
     select: { id: true },
   });
-  if (adminRole) {
-    const isTargetAdmin = await prisma.user_roles.findFirst({
-      where: { user_id: parsedUserId, role_id: adminRole.id, organization_id: organizationId },
-      select: { id: true },
-    });
-    if (isTargetAdmin) {
-      // Count active admins in this org
-      const activeAdminCount = await prisma.user_roles.count({
-        where: {
-          role_id: adminRole.id,
-          organization_id: organizationId,
-          users: { is_active: true },
-        },
-      });
+  const isTargetAdmin = adminRole
+    ? await prisma.user_roles.findFirst({
+        where: { user_id: parsedUserId, role_id: adminRole.id, organization_id: organizationId },
+        select: { id: true },
+      })
+    : null;
+
+  // Deactivation + audit must succeed or fail together (Phase 3 atomicity
+  // contract): a deactivated user without its audit row is a partial state.
+  const updated = await prisma.$transaction(async (tx) => {
+    // Last-admin protection: evaluated INSIDE the transaction so a concurrent
+    // admin-membership removal cannot slip between the check and the update
+    // and leave the tenant with zero active admins.
+    if (adminRole && isTargetAdmin) {
+      // Canonical active-admin count (single authoritative implementation in
+      // membershipService.countActiveAdmins): an admin only counts while their
+      // user record AND their membership in this organization are active
+      // (Fix 1.5) — a stale admin row (active user, removed membership) must
+      // never mask the deactivation of the last functioning admin.
+      const activeAdminCount = await countActiveAdmins(tx, organizationId);
       if (activeAdminCount <= 1) {
         throw new ApiError(400, 'لا يمكن إلغاء تفعيل آخر مدير نشط في هذه المؤسسة');
       }
     }
-  }
 
-  const updated = await prisma.users.update({
-    where: { id: parsedUserId },
-    data: { is_active: false, write_date: new Date() },
-    select: USER_SAFE_SELECT,
-  });
+    const deactivated = await tx.users.update({
+      where: { id: parsedUserId },
+      data: { is_active: false, write_date: new Date() },
+      select: USER_SAFE_SELECT,
+    });
 
-  await recordAuditEvent(prisma, {
-    organizationId,
-    actorUserId: actorUserId ?? null,
-    action: 'user.deactivated',
-    entityType: 'user',
-    entityId: parsedUserId,
+    await recordAuditEvent(tx, {
+      organizationId,
+      actorUserId: actorUserId ?? null,
+      action: 'user.deactivated',
+      entityType: 'user',
+      entityId: parsedUserId,
+    });
+
+    return deactivated;
   });
 
   return mapUser(updated);
@@ -343,18 +352,22 @@ export const activateUser = async (
   if (!user) throw new ApiError(404, USER_NOT_FOUND);
   if (user.is_active) throw new ApiError(400, 'المستخدم مفعّل بالفعل');
 
-  const updated = await prisma.users.update({
-    where: { id: parsedUserId },
-    data: { is_active: true, write_date: new Date() },
-    select: USER_SAFE_SELECT,
-  });
+  const updated = await prisma.$transaction(async (tx) => {
+    const activated = await tx.users.update({
+      where: { id: parsedUserId },
+      data: { is_active: true, write_date: new Date() },
+      select: USER_SAFE_SELECT,
+    });
 
-  await recordAuditEvent(prisma, {
-    organizationId,
-    actorUserId: actorUserId ?? null,
-    action: 'user.activated',
-    entityType: 'user',
-    entityId: parsedUserId,
+    await recordAuditEvent(tx, {
+      organizationId,
+      actorUserId: actorUserId ?? null,
+      action: 'user.activated',
+      entityType: 'user',
+      entityId: parsedUserId,
+    });
+
+    return activated;
   });
 
   return mapUser(updated);

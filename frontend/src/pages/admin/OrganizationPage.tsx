@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { createOrganization, fetchOrganization, updateOrganization, type OrganizationSettings } from '../../api/adminApi';
 import type { ApiClientError } from '../../api/axiosClient';
-import { DataState, FormDialog, PageHeader } from '../../components/admin/AdminUi';
+import { DataState, FormDialog } from '../../components/admin/AdminUi';
+import { PageHeader } from '../../components/patterns/PageHeader';
 import LocationSelect from '../../components/LocationSelect';
 import { useAuth } from '../../context/AuthContext';
 
@@ -28,11 +29,11 @@ const emptyCreateForm: CreateOrganizationFormState = {
 };
 
 export default function OrganizationPage() {
-  const { user, hasPermission } = useAuth();
-  const canManage = user?.defaultOrganizationId !== null && user?.defaultOrganizationId !== undefined
-    && hasPermission('organization.manage', user.defaultOrganizationId);
-  const canCreateOrganization = user?.defaultOrganizationId !== null && user?.defaultOrganizationId !== undefined
-    && hasPermission('organization.create', user.defaultOrganizationId);
+  const { user, hasPermission, currentOrganizationId } = useAuth();
+  const canManage = currentOrganizationId !== null && currentOrganizationId !== undefined
+    && hasPermission('organization.manage', currentOrganizationId);
+  const canCreateOrganization = currentOrganizationId !== null && currentOrganizationId !== undefined
+    && hasPermission('organization.create', currentOrganizationId);
   const [data, setData] = useState<OrganizationSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');

@@ -178,7 +178,7 @@ function AccountMenu() {
           style={{
             position: 'absolute',
             top: 'calc(100% + 6px)',
-            left: 0,
+            insetInlineStart: 0,
             background: 'var(--color-surface, #fff)',
             border: '1px solid var(--color-border)',
             borderRadius: '8px',

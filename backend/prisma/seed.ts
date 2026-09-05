@@ -135,6 +135,7 @@ const PERMISSIONS = [
   ['complaints.create', 'complaints', 'تسجيل شكوى نيابة عن مستفيد (حالة حضورية/هاتفية)'], ['complaints.assign', 'complaints', 'إسناد الشكاوى لموظف/قسم/فريق'],
   ['complaints.transfer', 'complaints', 'تحويل الشكوى بين الأقسام/الفروع'], ['complaints.close', 'complaints', 'إغلاق الشكوى'],
   ['complaints.escalate', 'complaints', 'تصعيد الشكوى'],
+  ['audit.view', 'audit', 'عرض سجل التدقيق'],
 ] as const;
 const STAFF_DEFAULT_CODES = ['organization.view', 'reference_data.view', 'org_structure.view', 'complaints.view_own'];
 

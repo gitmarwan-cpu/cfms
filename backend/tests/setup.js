@@ -181,6 +181,7 @@ beforeAll(async () => {
     'complaints.transfer',
     'complaints.close',
     'complaints.escalate',
+    'audit.view',
   ];
   await prisma.permissions.createMany({
     data: permissionCodes.map((code) => ({

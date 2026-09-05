@@ -1,0 +1,365 @@
+﻿/* ============================================================
+   CFMS Shell — application chrome (sidebar, header, mobile nav,
+   command menu, user menu). Self-contained: defines its own --sh-*
+   variables so it cannot break when other stylesheets evolve.
+   RTL-first: logical properties only.
+   ============================================================ */
+
+.app-shell {
+  --sh-sidebar-w: 264px;
+  --sh-sidebar-w-collapsed: 68px;
+  --sh-header-h: 56px;
+  --sh-bg: #f5f7f7;
+  --sh-surface: #ffffff;
+  --sh-text: #1d2b2d;
+  --sh-muted: #5d7072;
+  --sh-border: #e2e8e8;
+  --sh-primary: #0e5f66;
+  --sh-primary-strong: #0a464b;
+  --sh-primary-soft: #e7f0f0;
+  --sh-danger: #b3372e;
+  --sh-ring: rgba(14, 95, 102, 0.35);
+  --sh-e1: 0 1px 2px rgba(16, 34, 36, 0.06);
+  --sh-e2: 0 4px 16px rgba(16, 34, 36, 0.12);
+
+  display: flex;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--sh-bg);
+  color: var(--sh-text);
+}
+
+/* Skip link — visible only on keyboard focus */
+.skip-link {
+  position: fixed;
+  inset-block-start: 8px;
+  inset-inline-start: 8px;
+  z-index: 100;
+  padding: 10px 16px;
+  background: var(--sh-primary-strong);
+  color: #fff;
+  border-radius: 8px;
+  font-weight: 600;
+  text-decoration: none;
+  transform: translateY(-200%);
+}
+.skip-link:focus-visible { transform: translateY(0); }
+
+/* ---------------- Sidebar ---------------- */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  inline-size: var(--sh-sidebar-w);
+  flex-shrink: 0;
+  background: var(--sh-surface);
+  border-inline-end: 1px solid var(--sh-border);
+  position: sticky;
+  inset-block-start: 0;
+  height: 100vh;
+  height: 100dvh;
+  overflow-y: auto;
+  z-index: 30;
+  transition: inline-size 180ms ease;
+}
+.sidebar--collapsed { inline-size: var(--sh-sidebar-w-collapsed); }
+
+.sidebar__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-block-end: 1px solid var(--sh-border);
+  min-height: var(--sh-header-h);
+  box-sizing: border-box;
+}
+.sidebar__brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 32px;
+  block-size: 32px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  background: var(--sh-primary);
+  color: #fff;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 15px;
+}
+.sidebar__brand-name { font-weight: 700; font-size: 15px; white-space: nowrap; }
+.sidebar--collapsed .sidebar__brand-name,
+.sidebar--collapsed .sidebar__group-label,
+.sidebar--collapsed .sidebar__link-text { display: none; }
+
+.sidebar__nav { flex: 1; padding: 10px 8px; display: flex; flex-direction: column; }
+.sidebar__group { display: flex; flex-direction: column; gap: 2px; }
+.sidebar__group + .sidebar__group { margin-block-start: 14px; }
+.sidebar__group-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.sidebar__group-label {
+  padding: 0 10px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--sh-muted);
+  white-space: nowrap;
+}
+.sidebar__link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  color: var(--sh-text);
+  text-decoration: none;
+  font-size: 13.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+.sidebar__link:hover { background: var(--sh-primary-soft); color: var(--sh-primary-strong); }
+.sidebar__link--active,
+.sidebar__link--active:hover { background: var(--sh-primary); color: #fff; }
+.sidebar__link-icon { flex-shrink: 0; display: inline-flex; }
+.sidebar--collapsed .sidebar__link { justify-content: center; padding-inline: 0; }
+.sidebar__collapse-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 8px;
+  padding: 8px;
+  border: 1px solid var(--sh-border);
+  border-radius: 8px;
+  background: var(--sh-surface);
+  color: var(--sh-muted);
+  cursor: pointer;
+}
+.sidebar__collapse-btn:hover { color: var(--sh-primary-strong); background: var(--sh-primary-soft); }
+.sidebar--collapsed .sidebar__collapse-btn { align-self: center; }
+
+/* ---------------- Body / Header ---------------- */
+.app-shell__body { display: flex; flex-direction: column; flex: 1; min-inline-size: 0; }
+.app-shell__main { flex: 1; padding: 20px; min-inline-size: 0; }
+.header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-inline: 16px;
+  min-height: var(--sh-header-h);
+  background: var(--sh-surface);
+  border-block-end: 1px solid var(--sh-border);
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 20;
+}
+.header__menu-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border: none;
+  background: transparent;
+  color: var(--sh-text);
+  cursor: pointer;
+  border-radius: 8px;
+}
+.header__org { min-inline-size: 0; }
+.header__spacer { flex: 1; }
+.header__command-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border: 1px solid var(--sh-border);
+  border-radius: 8px;
+  background: var(--sh-bg);
+  color: var(--sh-muted);
+  font-size: 12.5px;
+  font-family: inherit;
+  cursor: pointer;
+}
+.header__command-btn:hover { color: var(--sh-primary-strong); border-color: var(--sh-primary); }
+.header__kbd {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+  padding: 2px 6px;
+  border: 1px solid var(--sh-border);
+  border-radius: 5px;
+  background: var(--sh-surface);
+  color: var(--sh-muted);
+}
+
+/* ---------------- User menu ---------------- */
+.usermenu-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  color: inherit;
+}
+.usermenu-trigger:hover { border-color: var(--sh-border); background: var(--sh-bg); }
+.usermenu-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 30px;
+  block-size: 30px;
+  border-radius: 50%;
+  background: var(--sh-primary-soft);
+  color: var(--sh-primary-strong);
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.usermenu-name { font-size: 13px; font-weight: 600; max-inline-size: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.usermenu-content {
+  min-inline-size: 220px;
+  max-inline-size: min(260px, calc(100vw - 24px));
+  background: var(--sh-surface);
+  border: 1px solid var(--sh-border);
+  border-radius: 10px;
+  box-shadow: var(--sh-e2);
+  padding: 6px;
+  z-index: 60;
+  animation: sh-pop 140ms ease;
+}
+.usermenu-meta { padding: 8px 10px; }
+.usermenu-meta-name { font-size: 13px; font-weight: 700; }
+.usermenu-meta-email { font-size: 12px; color: var(--sh-muted); }
+.usermenu-sep { block-size: 1px; background: var(--sh-border); margin: 4px 0; }
+.usermenu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 7px;
+  font-size: 13px;
+  color: var(--sh-danger);
+  cursor: pointer;
+  outline: none;
+}
+.usermenu-item[data-highlighted] { background: #fbeeec; }
+
+/* ---------------- Mobile nav drawer ---------------- */
+.mnav-overlay { position: fixed; inset: 0; background: rgba(16, 34, 36, 0.45); z-index: 70; animation: sh-fade 140ms ease; }
+.mnav-panel {
+  position: fixed;
+  inset-block: 0;
+  inset-inline-start: 0;
+  z-index: 71;
+  inline-size: min(300px, 84vw);
+  background: var(--sh-surface);
+  box-shadow: var(--sh-e2);
+  display: flex;
+  flex-direction: column;
+  animation: sh-slide-in 180ms ease;
+}
+.mnav-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-block-end: 1px solid var(--sh-border); }
+.mnav-title { margin: 0; font-size: 15px; font-weight: 700; }
+.mnav-close {
+  display: inline-flex;
+  padding: 6px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  color: var(--sh-muted);
+  cursor: pointer;
+}
+.mnav-close:hover { background: var(--sh-bg); color: var(--sh-text); }
+.mnav-nav { padding: 10px 8px; overflow-y: auto; }
+.mnav-group-label { padding: 12px 10px 4px; font-size: 11px; font-weight: 600; color: var(--sh-muted); }
+.mnav-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 10px;
+  border-radius: 8px;
+  color: var(--sh-text);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+}
+.mnav-link--active { background: var(--sh-primary); color: #fff; }
+
+/* ---------------- Command menu (cmdk) ---------------- */
+[cmdk-overlay] { position: fixed; inset: 0; background: rgba(16, 34, 36, 0.45); z-index: 80; animation: sh-fade 140ms ease; }
+[cmdk-dialog] {
+  position: fixed;
+  inset-block-start: 16vh;
+  inset-inline: 0;
+  margin-inline: auto;
+  z-index: 81;
+  inline-size: min(560px, calc(100vw - 32px));
+}
+[cmdk-root] {
+  background: var(--sh-surface);
+  border: 1px solid var(--sh-border);
+  border-radius: 12px;
+  box-shadow: var(--sh-e2);
+  overflow: hidden;
+  animation: sh-pop 140ms ease;
+}
+[cmdk-input] {
+  inline-size: 100%;
+  padding: 14px 16px;
+  border: none;
+  border-block-end: 1px solid var(--sh-border);
+  font-family: inherit;
+  font-size: 14px;
+  outline: none;
+  background: transparent;
+  color: inherit;
+}
+[cmdk-list] { max-block-size: 320px; overflow-y: auto; padding: 6px; list-style: none; margin: 0; }
+[cmdk-group-heading] { padding: 8px 10px 4px; font-size: 11px; font-weight: 600; color: var(--sh-muted); }
+[cmdk-item] { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; font-size: 13.5px; cursor: pointer; }
+[cmdk-item][data-selected='true'] { background: var(--sh-primary-soft); color: var(--sh-primary-strong); }
+[cmdk-empty] { padding: 20px; text-align: center; font-size: 13px; color: var(--sh-muted); }
+
+/* ---------------- Focus visibility ---------------- */
+.sidebar__link:focus-visible,
+.header__command-btn:focus-visible,
+.header__menu-btn:focus-visible,
+.usermenu-trigger:focus-visible,
+.mnav-close:focus-visible,
+.sidebar__collapse-btn:focus-visible {
+  outline: 2px solid var(--sh-ring);
+  outline-offset: 2px;
+}
+
+/* ---------------- Motion ---------------- */
+@keyframes sh-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes sh-pop { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+/* RTL: the drawer is anchored to the inline-start edge (the right edge in
+   Arabic), so it slides in from off-screen right. */
+@keyframes sh-slide-in { from { transform: translateX(100%); } to { transform: translateX(0); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .skip-link,
+  .sidebar,
+  .mnav-panel,
+  .mnav-overlay,
+  .usermenu-content,
+  [cmdk-root],
+  [cmdk-overlay] {
+    animation: none;
+    transition: none;
+  }
+}
+
+/* ---------------- Responsive ---------------- */
+@media (max-width: 900px) {
+  .sidebar { display: none; }
+  .header__menu-btn { display: inline-flex; }
+  .header__command-label,
+  .header__kbd { display: none; }
+  .app-shell__main { padding: 14px; }
+}
+@media (max-width: 480px) {
+  .usermenu-name { display: none; }
+  .app-shell__main { padding: 10px; }
+}

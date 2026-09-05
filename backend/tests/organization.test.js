@@ -324,6 +324,67 @@ describe('Organization Hierarchy Nodes API (Unified organizations table)', () =>
     expect(res.status).toBe(422);
   });
 
+  it('يرفض إنشاء عقدة بنوع وحدة تابع لمؤسسة أخرى (Reject cross-tenant unit type on create)', async () => {
+    const res = await request(app)
+      .post('/api/organization/nodes')
+      .set('Authorization', `Bearer ${adminTokenA}`)
+      .send({ name: 'فرع بنوع مؤسسة أخرى', orgUnitTypeId: unitTypeB });
+
+    expect(res.status).toBe(422);
+    expect(res.body.message).toContain('نوع الوحدة التنظيمية');
+
+    const leaked = await prisma.organizations.findFirst({
+      where: { legal_name: 'فرع بنوع مؤسسة أخرى' },
+      select: { id: true, org_unit_type_id: true },
+    });
+    expect(leaked).toBeNull();
+  });
+
+  it('ينشئ عقدة بنوع وحدة نشط تابع للمؤسسة نفسها (Own active type on create)', async () => {
+    const res = await request(app)
+      .post('/api/organization/nodes')
+      .set('Authorization', `Bearer ${adminTokenA}`)
+      .send({ name: 'فرع بنوع مؤسستي', orgUnitTypeId: unitTypeA });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.orgUnitTypeId).toBe(unitTypeA);
+    expect(res.body.data.rootOrganizationId).toBe(orgA.id);
+    expect(res.body.data.parentId).toBe(orgA.id);
+  });
+
+  it('يرفض تغيير نوع عقدة موجودة إلى نوع تابع لمؤسسة أخرى ويحافظ على نوعها (Reject cross-tenant unit type on update)', async () => {
+    const res = await request(app)
+      .put(`/api/organization/nodes/${childNodeA.id}`)
+      .set('Authorization', `Bearer ${adminTokenA}`)
+      .send({ orgUnitTypeId: unitTypeB });
+
+    expect(res.status).toBe(422);
+    expect(res.body.message).toContain('نوع الوحدة التنظيمية');
+
+    const unchanged = await prisma.organizations.findUnique({
+      where: { id: childNodeA.id },
+      select: { org_unit_type_id: true },
+    });
+    expect(unchanged.org_unit_type_id).toBe(unitTypeA);
+  });
+
+  it('يحدّث نوع العقدة إلى نوع نشط تابع للمؤسسة نفسها (Own active type on update)', async () => {
+    const secondTypeRes = await request(app)
+      .post('/api/org-structure/unit-types')
+      .set('Authorization', `Bearer ${adminTokenA}`)
+      .send({ code: `type_a2_${Date.now()}`, nameAr: 'إدارة داخلية', hierarchyLevel: 1 });
+    expect(secondTypeRes.status).toBe(201);
+    const secondOwnTypeId = secondTypeRes.body.data.id;
+
+    const res = await request(app)
+      .put(`/api/organization/nodes/${childNodeA.id}`)
+      .set('Authorization', `Bearer ${adminTokenA}`)
+      .send({ orgUnitTypeId: secondOwnTypeId });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.orgUnitTypeId).toBe(secondOwnTypeId);
+  });
+
   it('يحمي المؤسسة الجذرية من التعطيل عبر مسار العقد التنظيمية', async () => {
     const deactivateRes = await request(app)
       .patch(`/api/organization/nodes/${orgA.id}/deactivate`)
@@ -382,5 +443,41 @@ describe('Organization Hierarchy Nodes API (Unified organizations table)', () =>
     expect(res.status).toBe(200);
     expect(res.body.data.isActive).toBe(false);
     expect(res.body.data.deletedAt).not.toBeNull();
+  });
+
+  it('يفعّل عقدة معطّلة بنجاح (Deactivate then activate success)', async () => {
+    const res = await request(app)
+      .patch(`/api/organization/nodes/${grandChildNodeA.id}/activate`)
+      .set('Authorization', `Bearer ${adminTokenA}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.isActive).toBe(true);
+    expect(res.body.data.deletedAt).toBeNull();
+  });
+
+  it('يرفض تفعيل عقدة نشطة بالفعل (Already active activation → 400)', async () => {
+    const res = await request(app)
+      .patch(`/api/organization/nodes/${childNodeA.id}/activate`)
+      .set('Authorization', `Bearer ${adminTokenA}`);
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toContain('مفعّلة');
+  });
+
+  it('يرفض تفعيل عقدة تابعة لمؤسسة أخرى (Cross-tenant activation → 404)', async () => {
+    const res = await request(app)
+      .patch(`/api/organization/nodes/${childNodeA.id}/activate`)
+      .set('Authorization', `Bearer ${adminTokenB}`);
+
+    expect(res.status).toBe(404);
+  });
+
+  it('يرفض تفعيل العقدة الجذرية للمؤسسة (Root activation → 400)', async () => {
+    const res = await request(app)
+      .patch(`/api/organization/nodes/${orgA.id}/activate`)
+      .set('Authorization', `Bearer ${adminTokenA}`);
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toContain('الجذرية');
   });
 });

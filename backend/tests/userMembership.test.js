@@ -420,6 +420,53 @@ describe('Phase 3 — Membership Lifecycle API', () => {
     expect(revokedRows[0].metadata).toMatchObject({ userId: activeAdmin.id, roleCode: 'admin' });
   });
 
+  // ── Fix 1.4 regression: revokeRole counts only admins with an ACTIVE membership ──
+
+  it('(Fix 1.4) يمنع سحب دور المدير عندما تكون عضوية باقي المدراء موقفة (400) ويسمح بعد إعادة تفعيلها', async () => {
+    const orgE = await createOrganization({ legalName: 'مؤسسة الأدوار هـ', slug: `membership-org-e-${runId}` });
+    const { user: activeAdmin } = await createUserWithRole(
+      { fullName: 'مدير العضوية النشطة', email: `membership.role.active.m.${runId}@cfms.local`, roleCode: 'admin', organizationId: orgE.id },
+      'Password123'
+    );
+    const { user: staleAdmin } = await createUserWithRole(
+      { fullName: 'مدير عضويته موقفة', email: `membership.role.stale.${runId}@cfms.local`, roleCode: 'admin', organizationId: orgE.id },
+      'Password123'
+    );
+    // The stale admin row: ACTIVE user whose membership was soft-removed —
+    // exactly the state removeMembership produces. This row must NOT keep the
+    // tenant administrable (Fix 1.4).
+    await prisma.user_organizations.updateMany({
+      where: { user_id: staleAdmin.id, organization_id: orgE.id },
+      data: { is_active: false, write_date: new Date() },
+    });
+
+    const assignment = await prisma.user_roles.findFirst({
+      where: { user_id: activeAdmin.id, organization_id: orgE.id, roles: { code: 'admin' } },
+    });
+    expect(assignment).not.toBeNull();
+
+    const token = await login(activeAdmin.email);
+    const blocked = await request(app)
+      .delete(`/api/users/roles/${assignment.id}`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(blocked.status).toBe(400);
+
+    // The role row must be untouched by the blocked revoke.
+    const stillThere = await prisma.user_roles.findUnique({ where: { id: assignment.id } });
+    expect(stillThere).not.toBeNull();
+
+    // Reactivating the stale membership restores a second active admin.
+    await prisma.user_organizations.updateMany({
+      where: { user_id: staleAdmin.id, organization_id: orgE.id },
+      data: { is_active: true, write_date: new Date() },
+    });
+    const allowed = await request(app)
+      .delete(`/api/users/roles/${assignment.id}`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(allowed.status).toBe(200);
+  });
+
+  // ── Fix 1.2 regression: assignRole / revokeRole write audit events ───────────
   // ── Fix 1.2 regression: assignRole / revokeRole write audit events ───────────
 
   it('(Fix 1.2) يسجّل user_role.assigned و user_role.revoked في audit_logs بالبيانات الوصفية الصحيحة', async () => {
@@ -597,6 +644,39 @@ describe('Phase 3 — Membership Lifecycle API', () => {
       where: { action: 'membership.granted', organization_id: orgT.id },
     });
     expect(granted).toBe(1);
+  });
+
+  // ── Fix 2.3 regression: reserved system role codes can never be recreated ────
+
+  it('(Fix 2.3) يرفض إنشاء دور مخصص بكود محجوز للنظام (admin/staff) ويبقى الدور النظامي وحيداً', async () => {
+    // A tenant-scoped role with code 'admin' would shadow the global system
+    // role inside every code-based server-side guard (last-admin protection,
+    // auth middleware) and enable privilege escalation.
+    for (const reservedCode of ['admin', 'staff']) {
+      const res = await request(app)
+        .post('/api/roles')
+        .set('Authorization', `Bearer ${adminAToken}`)
+        .send({ code: reservedCode, nameAr: `دور مخصص مزيف ${reservedCode}`, nameEn: 'Fake Custom Role' });
+      expect(res.status).toBe(422);
+    }
+
+    // The system roles remain unique in their (code, organization_id=null) form
+    // and no tenant-scoped shadow role was created.
+    const shadows = await prisma.roles.findMany({
+      where: { code: { in: ['admin', 'staff'] }, organization_id: orgAId },
+    });
+    expect(shadows).toHaveLength(0);
+    const systemRoles = await prisma.roles.findMany({
+      where: { code: { in: ['admin', 'staff'] }, organization_id: null },
+    });
+    expect(systemRoles).toHaveLength(2);
+
+    // A legitimate custom code is still accepted (normal creation path intact).
+    const ok = await request(app)
+      .post('/api/roles')
+      .set('Authorization', `Bearer ${adminAToken}`)
+      .send({ code: `auditor_${runId}`, nameAr: 'مراجع', nameEn: 'Auditor' });
+    expect(ok.status).toBe(201);
   });
 
 });

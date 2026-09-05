@@ -95,10 +95,11 @@
 بعد اكتمال Core Platform، المنصة مصمَّمة لاستيعاب أي عدد من وحدات الأعمال دون
 إعادة تصميم الأساس. القائمة أدناه توضيحية وليست شاملة أو نهائية:
 
-**الأساس المشترك (Core Platform)**: Authentication, Organizations, Branches,
-Departments, Teams, Users, Roles & Permissions, Workflow Engine, Notification
-Engine, Audit Trail, File Management, Dashboard Framework, AI Services,
-Reporting Engine.
+**الأساس المشترك (Core Platform)**: Authentication, Organizations (الهيكل
+التنظيمي الكامل عبر عقد `organizations` — Organization Nodes / Organization
+Hierarchy — دون جداول فيزيائية منفصلة للفروع/القطاعات/الأقسام/الفرق)، Users,
+Roles & Permissions, Workflow Engine, Notification Engine, Audit Trail, File
+Management, Dashboard Framework, AI Services, Reporting Engine.
 
 **وحدات الأعمال (Business Modules)**:
 - Complaints & Feedback Management (**الوحدة الأولى الحالية، الأكثر نضجاً**)

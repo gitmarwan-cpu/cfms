@@ -9,8 +9,11 @@ import {
   type ReferenceList,
 } from '../../api/adminApi';
 import type { ApiClientError } from '../../api/axiosClient';
-import { ConfirmDialog, DataState, FormDialog, PageHeader } from '../../components/admin/AdminUi';
+import { ConfirmDialog, DataState, FormDialog } from '../../components/admin/AdminUi';
+import { PageHeader } from '../../components/patterns/PageHeader';
+import { StatusBadge } from '../../components/ui/StatusBadge';
 import { useAuth } from '../../context/AuthContext';
+import { CheckboxRow } from '../../components/ui/Checkbox';
 import { formatDate } from '../../utils/dateTime';
 
 type Draft = {
@@ -25,8 +28,8 @@ type Draft = {
 const emptyDraft: Draft = { code: '', labelAr: '', labelEn: '', sortOrder: '0', isActive: true, isDefault: false };
 
 export default function ReferenceDataPage() {
-  const { user, hasPermission } = useAuth();
-  const organizationId = user?.defaultOrganizationId;
+  const { user, hasPermission, currentOrganizationId } = useAuth();
+  const organizationId = currentOrganizationId;
   const canManage = organizationId !== null && organizationId !== undefined && hasPermission('reference_data.manage', organizationId);
   const [lists, setLists] = useState<ReferenceList[]>([]);
   const [key, setKey] = useState('');
@@ -122,7 +125,7 @@ export default function ReferenceDataPage() {
           <thead><tr><th>التسمية</th><th>الرمز</th><th>الترتيب</th><th>الحالة</th><th>تاريخ الإنشاء</th><th>آخر تحديث</th>{canManage && <th>إجراء</th>}</tr></thead>
           <tbody>{items.map((item) => <tr key={item.id}>
             <td>{item.labelAr}</td><td dir="ltr">{item.code}</td><td>{item.sortOrder}</td>
-            <td><span className={`admin-status-pill ${item.isActive ? 'is-success' : ''}`}>{item.isActive ? 'نشط' : 'معطل'}</span></td>
+            <td><StatusBadge tone={item.isActive ? 'success' : 'neutral'}>{item.isActive ? 'نشط' : 'معطل'}</StatusBadge></td>
             <td>{formatDate(item.createdAt)}</td><td>{formatDate(item.updatedAt)}</td>
             {canManage && <td className="admin-actions"><button className="btn btn-outline" onClick={() => open(item)} type="button">تعديل</button>{item.isActive && <button className="admin-text-button danger" onClick={() => setDeleting(item)} type="button">إلغاء التفعيل</button>}</td>}
           </tr>)}</tbody>
@@ -134,8 +137,8 @@ export default function ReferenceDataPage() {
           <label className="field">التسمية العربية<input value={draft.labelAr} onChange={(event) => setDraft({ ...draft, labelAr: event.target.value })} required /></label>
           <label className="field">التسمية الإنجليزية<input dir="ltr" value={draft.labelEn} onChange={(event) => setDraft({ ...draft, labelEn: event.target.value })} /></label>
           <label className="field">الترتيب<input type="number" value={draft.sortOrder} onChange={(event) => setDraft({ ...draft, sortOrder: event.target.value })} /></label>
-          <label className="admin-check"><input type="checkbox" checked={draft.isActive} onChange={(event) => setDraft({ ...draft, isActive: event.target.checked })} /> نشط</label>
-          <label className="admin-check"><input type="checkbox" checked={draft.isDefault} onChange={(event) => setDraft({ ...draft, isDefault: event.target.checked })} /> افتراضي</label>
+          <CheckboxRow label="نشط" checked={draft.isActive} onChange={(event) => setDraft({ ...draft, isActive: event.target.checked })} />
+          <CheckboxRow label="افتراضي" checked={draft.isDefault} onChange={(event) => setDraft({ ...draft, isDefault: event.target.checked })} />
         </div>
       </FormDialog>}
       {deleting && canManage && <ConfirmDialog title="إلغاء تفعيل العنصر" message={`سيتم إلغاء تفعيل «${deleting.labelAr}».`} onClose={() => setDeleting(null)} onConfirm={deactivate} />}

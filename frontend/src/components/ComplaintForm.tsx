@@ -4,6 +4,7 @@ import { fetchGovernorates, type GovernorateSummary } from '../api/locationApi';
 import { submitComplaint, type ComplaintFormValues, type SubmittedComplaint } from '../api/complaintApi';
 import { fetchReferenceItems, type ReferenceItem } from '../api/referenceDataApi';
 import { useOrganization } from '../context/OrganizationContext';
+import { CheckboxRow } from './ui/Checkbox';
 
 // القوائم التالية (التصنيف، القناة، الجنس، الفئة العمرية) لم تعد ثوابت في الكود؛
 // تُجلب من reference-data API (قابلة للإدارة من لوحة الإدارة دون تعديل برمجي).
@@ -241,14 +242,11 @@ export default function ComplaintForm({ onSuccess }: ComplaintFormProps) {
       <div className="divider-label">بيانات مقدّم الطلب</div>
 
       <div className="field field--span-2">
-        <label className="checkbox-row">
-          <input
-            type="checkbox"
-            checked={values.isAnonymous}
-            onChange={(e) => setField('isAnonymous', e.target.checked)}
-          />
-          أرغب في تقديم الطلب دون الإفصاح عن هويتي (مجهول الاسم)
-        </label>
+        <CheckboxRow
+          label="أرغب في تقديم الطلب دون الإفصاح عن هويتي (مجهول الاسم)"
+          checked={values.isAnonymous}
+          onChange={(e) => setField('isAnonymous', e.target.checked)}
+        />
       </div>
 
       {!values.isAnonymous && (
@@ -391,14 +389,11 @@ export default function ComplaintForm({ onSuccess }: ComplaintFormProps) {
       </div>
 
       <div className="field field--span-2">
-        <label className="checkbox-row">
-          <input
-            type="checkbox"
-            checked={values.isSensitive}
-            onChange={(e) => setField('isSensitive', e.target.checked)}
-          />
-          هذه شكوى حساسة (مثل استغلال، عنف، أو فساد) وتتطلب مساراً سرّياً خاصاً
-        </label>
+        <CheckboxRow
+          label="هذه شكوى حساسة (مثل استغلال، عنف، أو فساد) وتتطلب مساراً سرّياً خاصاً"
+          checked={values.isSensitive}
+          onChange={(e) => setField('isSensitive', e.target.checked)}
+        />
       </div>
 
       <div className="field field--span-2">
@@ -434,16 +429,13 @@ export default function ComplaintForm({ onSuccess }: ComplaintFormProps) {
         />
       </div>
 
-      <div className="field field--span-2 field--checkbox">
-        <label htmlFor="isRelatedToStaff">
-          <input
-            id="isRelatedToStaff"
-            type="checkbox"
-            checked={values.isRelatedToStaff}
-            onChange={(e) => setField('isRelatedToStaff', e.target.checked)}
-          />
-          هل تتعلق هذه الشكوى بموظف معين؟
-        </label>
+      <div className="field field--span-2">
+        <CheckboxRow
+          id="isRelatedToStaff"
+          label="هل تتعلق هذه الشكوى بموظف معين؟"
+          checked={values.isRelatedToStaff}
+          onChange={(e) => setField('isRelatedToStaff', e.target.checked)}
+        />
       </div>
 
       {values.isRelatedToStaff && (
@@ -490,15 +482,12 @@ export default function ComplaintForm({ onSuccess }: ComplaintFormProps) {
       </div>
 
       <div className="field field--span-2">
-        <label className="checkbox-row">
-          <input
-            type="checkbox"
-            checked={values.consentGiven}
-            onChange={(e) => setField('consentGiven', e.target.checked)}
-          />
-          أوافق على معالجة بياناتي لغرض متابعة هذا الطلب <span className="required">*</span>
-        </label>
-        {errors.consentGiven && <span className="field-error">{errors.consentGiven}</span>}
+        <CheckboxRow
+          label={<>أوافق على معالجة بياناتي لغرض متابعة هذا الطلب <span className="required">*</span></>}
+          checked={values.consentGiven}
+          onChange={(e) => setField('consentGiven', e.target.checked)}
+          error={errors.consentGiven}
+        />
       </div>
 
       <div className="submit-row">

@@ -17,6 +17,7 @@ import type { ApiClientError } from '../../api/axiosClient';
 import AuditMetadata from '../../components/admin/AuditMetadata';
 import { useAuth } from '../../context/AuthContext';
 import { formatDateTime } from '../../utils/dateTime';
+import { AlertTriangle, Paperclip } from 'lucide-react';
 
 const STATUS_LABELS: Record<ComplaintStatus, string> = {
   new: 'جديد',
@@ -26,25 +27,19 @@ const STATUS_LABELS: Record<ComplaintStatus, string> = {
   rejected: 'مرفوض',
 };
 
-const STATUS_COLORS: Record<ComplaintStatus, string> = {
-  new: '#dbeafe',
-  in_review: '#fef3c7',
-  resolved: '#d1fae5',
-  closed: '#e2e8f0',
-  rejected: '#fecaca',
-};
 
-const SLA_STATUS_LABELS: Record<SlaStatus, { label: string; color: string }> = {
-  on_track: { label: 'ضمن المهلة', color: 'var(--color-success)' },
-  overdue: { label: 'متأخر', color: 'var(--color-danger)' },
-  met: { label: 'تم الالتزام', color: 'var(--color-primary)' },
-  none: { label: 'غير محدد', color: 'var(--color-text-muted)' },
+
+const SLA_STATUS_LABELS: Record<SlaStatus, { label: string; tone: string }> = {
+  on_track: { label: 'ضمن المهلة', tone: 'on_track' },
+  overdue: { label: 'متأخر', tone: 'overdue' },
+  met: { label: 'تم الالتزام', tone: 'met' },
+  none: { label: 'غير محدد', tone: 'none' },
 };
 
 export default function ComplaintDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { user, hasPermission } = useAuth();
-  const organizationId = user?.defaultOrganizationId;
+  const { user, hasPermission, currentOrganizationId } = useAuth();
+  const organizationId = currentOrganizationId ?? user?.defaultOrganizationId ?? null;
   const canAssign = organizationId !== null && organizationId !== undefined && hasPermission('complaints.assign', organizationId);
   const canEscalate = organizationId !== null && organizationId !== undefined && hasPermission('complaints.escalate', organizationId);
   const [data, setData] = useState<AdminComplaintDetail | null>(null);
@@ -182,7 +177,7 @@ export default function ComplaintDetailPage() {
   };
 
   if (loading && !data) {
-    return <div style={{ padding: '40px', textAlign: 'center' }}>جاري التحميل...</div>;
+    return <div className="cd-loading">جاري التحميل...</div>;
   }
 
   if (error || !data) {
@@ -190,7 +185,7 @@ export default function ComplaintDetailPage() {
       <div className="alert alert-danger">
         {error || 'لم يتم العثور على تفاصيل الطلب'}
         <br />
-        <Link to="/admin/complaints" style={{ color: 'inherit', marginTop: '8px', display: 'inline-block' }}>
+        <Link to="/admin/complaints" className="cd-error-link">
           العودة للصندوق
         </Link>
       </div>
@@ -202,7 +197,7 @@ export default function ComplaintDetailPage() {
   return (
     <div>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+      <div className="cd-page-head">
         <h1 className="admin-page-title">طلب {data.referenceCode}</h1>
         <Link to="/admin/complaints" className="btn btn-outline">عودة</Link>
       </div>
@@ -211,20 +206,19 @@ export default function ComplaintDetailPage() {
         {/* Main Content */}
         <div className="admin-detail-main">
           {/* Basic Info */}
-          <div className="card" style={{ marginBottom: '24px' }}>
-            <div className="card__header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h2 style={{ fontSize: '1.2rem', margin: 0 }}>التفاصيل الأساسية</h2>
+          <div className="card cd-card">
+            <div className="card__header cd-card-head">
+              <h2 className="cd-card-heading">التفاصيل الأساسية</h2>
               <span
-                className="admin-status-badge"
-                style={{ background: STATUS_COLORS[data.status] || '#f3f4f6' }}
+                className={"admin-status-badge cd-status cs-" + data.status}
               >
                 {STATUS_LABELS[data.status] || data.status}
               </span>
             </div>
             <div className="card__body">
               {data.isSensitive && (
-                <div className="alert alert-danger" style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span>⚠️</span>
+                <div className="alert alert-danger cd-sensitive">
+                  <AlertTriangle size={16} aria-hidden="true" />
                   هذا الطلب مصنف كطلب <strong>حساس</strong>
                 </div>
               )}
@@ -257,22 +251,22 @@ export default function ComplaintDetailPage() {
               </div>
 
               {/* Description */}
-              <div style={{ marginTop: '20px' }}>
+              <div className="cd-block">
                 <div className="admin-detail-label">الوصف</div>
                 <div className="admin-detail-description">{data.description}</div>
               </div>
               {data.desiredResolution && (
-                <div style={{ marginTop: '16px' }}>
+                <div className="cd-block">
                   <div className="admin-detail-label">الحل المطلوب</div>
                   <div className="admin-detail-description">{data.desiredResolution}</div>
                 </div>
               )}
 
               {/* Complainant */}
-              <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '20px', marginTop: '20px' }}>
-                <h3 style={{ fontSize: '1.1rem', marginTop: 0, marginBottom: '16px' }}>بيانات المتقدم</h3>
+              <div className="cd-section">
+                <h3 className="cd-section-title">بيانات المتقدم</h3>
                 {data.isAnonymous ? (
-                  <div style={{ color: 'var(--color-text-muted)' }}>تقديم مجهول</div>
+                  <div className="admin-muted">تقديم مجهول</div>
                 ) : (
                   <div className="admin-detail-fields">
                     <div>
@@ -281,7 +275,7 @@ export default function ComplaintDetailPage() {
                     </div>
                     <div>
                       <div className="admin-detail-label">رقم الهاتف</div>
-                      <div className="admin-detail-value" style={{ direction: 'ltr', textAlign: 'right' }}>
+                      <div className="admin-detail-value cd-phone">
                         {data.complainant?.phone || '-'}
                       </div>
                     </div>
@@ -300,8 +294,8 @@ export default function ComplaintDetailPage() {
               </div>
 
               {/* Location */}
-              <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '20px', marginTop: '20px' }}>
-                <h3 style={{ fontSize: '1.1rem', marginTop: 0, marginBottom: '16px' }}>الموقع</h3>
+              <div className="cd-section">
+                <h3 className="cd-section-title">الموقع</h3>
                 <div className="admin-detail-fields">
                   <div>
                     <div className="admin-detail-label">المحافظة</div>
@@ -322,9 +316,9 @@ export default function ComplaintDetailPage() {
 
               {/* Staff-related */}
               {data.isRelatedToStaff && (
-                <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '20px', marginTop: '20px' }}>
-                  <h3 style={{ fontSize: '1.1rem', marginTop: 0, marginBottom: '16px', color: 'var(--color-danger)' }}>
-                    ⚠️ مرتبط بموظف
+                <div className="cd-section">
+                  <h3 className="cd-section-title cd-section-title--danger">
+                    مرتبط بموظف
                   </h3>
                   <div className="admin-detail-fields">
                     <div>
@@ -337,7 +331,7 @@ export default function ComplaintDetailPage() {
                     </div>
                   </div>
                   {data.staffIncidentDetails && (
-                    <div style={{ marginTop: '12px' }}>
+                    <div className="cd-block">
                       <div className="admin-detail-label">تفاصيل الحادثة</div>
                       <div className="admin-detail-description">{data.staffIncidentDetails}</div>
                     </div>
@@ -347,13 +341,13 @@ export default function ComplaintDetailPage() {
 
               {/* Attachments */}
               {data.attachments.length > 0 && (
-                <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '20px', marginTop: '20px' }}>
-                  <h3 style={{ fontSize: '1.1rem', marginTop: 0, marginBottom: '16px' }}>المرفقات</h3>
-                  <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                <div className="cd-section">
+                  <h3 className="cd-section-title">المرفقات</h3>
+                  <ul className="cd-attachment-list">
                     {data.attachments.map((att) => (
-                      <li key={att.id} style={{ padding: '8px 0', borderBottom: '1px solid var(--color-border)', fontSize: '14px' }}>
-                        📎 {att.originalName}
-                        <span style={{ color: 'var(--color-text-muted)', marginInlineStart: '8px', fontSize: '12px' }}>
+                      <li key={att.id} className="cd-attachment">
+                        <Paperclip size={14} aria-hidden="true" className="cd-attachment-icon" /> {att.originalName}
+                        <span className="cd-file-size">
                           ({(att.sizeBytes / 1024).toFixed(0)} KB)
                         </span>
                       </li>
@@ -364,26 +358,26 @@ export default function ComplaintDetailPage() {
 
               {/* Status History */}
               {data.statusHistory.length > 0 && (
-                <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '20px', marginTop: '20px' }}>
-                  <h3 style={{ fontSize: '1.1rem', marginTop: 0, marginBottom: '16px' }}>سجل الحالات</h3>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div className="cd-section">
+                  <h3 className="cd-section-title">سجل الحالات</h3>
+                  <div className="cd-timeline">
                     {data.statusHistory.map((entry) => (
                       <div
                         key={entry.id}
-                        style={{ padding: '10px 14px', background: '#f9fafb', borderRadius: '6px', fontSize: '14px' }}
+                        className="cd-timeline-item"
                       >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                        <div className="cd-timeline-head">
                           <span>
                             {entry.fromStatus
                               ? `${STATUS_LABELS[entry.fromStatus as ComplaintStatus] || entry.fromStatus} ← ${STATUS_LABELS[entry.toStatus as ComplaintStatus] || entry.toStatus}`
                               : STATUS_LABELS[entry.toStatus as ComplaintStatus] || entry.toStatus}
                           </span>
-                          <span style={{ color: 'var(--color-text-muted)', fontSize: '12px' }}>
+                          <span className="cd-timeline-time">
                             {formatDateTime(entry.createdAt)}
                           </span>
                         </div>
                         {entry.note && (
-                          <div style={{ color: 'var(--color-text-muted)', fontSize: '13px' }}>{entry.note}</div>
+                          <div className="cd-timeline-note">{entry.note}</div>
                         )}
                       </div>
                     ))}
@@ -392,8 +386,8 @@ export default function ComplaintDetailPage() {
               )}
 
               {/* Record Information — audit metadata (secondary to business data) */}
-              <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '20px', marginTop: '20px' }}>
-                <h3 style={{ fontSize: '1.1rem', marginTop: 0, marginBottom: '16px' }}>معلومات السجل</h3>
+              <div className="cd-section">
+                <h3 className="cd-section-title">معلومات السجل</h3>
                 <AuditMetadata createdAt={data.createdAt} updatedAt={data.updatedAt} />
               </div>
             </div>
@@ -403,9 +397,9 @@ export default function ComplaintDetailPage() {
         {/* Sidebar Actions */}
         <div className="admin-detail-sidebar">
           {/* Assignment */}
-          <div className="card" style={{ marginBottom: '24px' }}>
+          <div className="card cd-card">
             <div className="card__header">
-              <h2 style={{ fontSize: '1.1rem', margin: 0 }}>التعيين الحالي</h2>
+              <h2 className="cd-card-heading">التعيين الحالي</h2>
             </div>
             <div className="card__body">
               {data.assignedTo ? (
@@ -417,24 +411,24 @@ export default function ComplaintDetailPage() {
                   معين للعقدة التنظيمية: <strong>{data.assignedToOrganization.name}</strong>
                 </div>
               ) : (
-                <div style={{ marginBottom: '16px', color: 'var(--color-text-muted)' }}>غير معين</div>
+                <div className="cd-assign-hint">غير معين</div>
               )}
 
               {canAssign ? (
-                <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '16px', marginTop: '16px' }}>
-                  {assignError && <div className="alert alert-danger" role="alert" aria-live="polite" style={{ marginBottom: '12px', fontSize: '13px' }}>{assignError}</div>}
-                  <div className="field" style={{ marginBottom: '8px' }}>
+                <div className="cd-section">
+                  {assignError && <div className="alert alert-danger cd-alert-sm" role="alert" aria-live="polite">{assignError}</div>}
+                  <div className="field cd-label-spaced">
                     <label htmlFor="assignUserId">تعيين لموظف (المعرّف)</label>
                     <input id="assignUserId" type="number" placeholder="معرّف الموظف" value={assignUserId} onChange={(e) => setAssignUserId(e.target.value)} min="1" inputMode="numeric" />
                   </div>
-                  <div className="field" style={{ marginBottom: '8px' }}>
+                  <div className="field cd-label-spaced">
                     <label htmlFor="assignOrganizationNodeId">تعيين لعقدة تنظيمية</label>
                     <select id="assignOrganizationNodeId" value={assignOrganizationNodeId} onChange={(e) => setAssignOrganizationNodeId(e.target.value)}>
                       <option value="">— لا يوجد —</option>
                       {organizationNodes.filter((node) => node.isActive).map((node) => <option key={node.id} value={node.id}>{node.name}</option>)}
                     </select>
                   </div>
-                  <button className="btn btn-primary" style={{ width: '100%' }} onClick={handleAssign} disabled={assignSaving} type="button">{assignSaving ? 'جارٍ تحديث التعيين…' : 'تحديث التعيين'}</button>
+                  <button className="btn btn-primary cd-full-btn" onClick={handleAssign} disabled={assignSaving} type="button">{assignSaving ? 'جارٍ تحديث التعيين…' : 'تحديث التعيين'}</button>
                 </div>
               ) : (
                 <div className="admin-readonly-note" role="status">لا تملك صلاحية تعديل التعيين.</div>
@@ -443,36 +437,35 @@ export default function ComplaintDetailPage() {
           </div>
 
           {/* Status Updates */}
-          <div className="card" style={{ marginBottom: '24px' }}>
+          <div className="card cd-card">
             <div className="card__header">
-              <h2 style={{ fontSize: '1.1rem', margin: 0 }}>تحديث الحالة</h2>
+              <h2 className="cd-card-heading">تحديث الحالة</h2>
             </div>
             <div className="card__body">
               {canAssign ? <>
-                {statusError && <div className="alert alert-danger" role="alert" aria-live="polite" style={{ marginBottom: '12px', fontSize: '13px' }}>{statusError}</div>}
+                {statusError && <div className="alert alert-danger cd-alert-sm" role="alert" aria-live="polite">{statusError}</div>}
                 {transitionsLoading && <div className="admin-readonly-note" role="status" aria-live="polite">جارٍ تحميل الإجراءات المتاحة…</div>}
                 {!transitionsLoading && transitionsError && <div className="alert alert-danger" role="alert" aria-live="polite">تعذر التحقق من الانتقالات المتاحة، لذلك لن تُعرض إجراءات الحالة حالياً. {transitionsError}</div>}
                 {!transitionsLoading && !transitionsError && transitions.length === 0 && <div className="admin-readonly-note" role="status">لا توجد انتقالات متاحة من الحالة الحالية.</div>}
                 {!transitionsLoading && !transitionsError && transitions.length > 0 && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
-                    {transitions.map((transition) => <button key={transition.id} className="btn btn-outline" style={{ flex: '1', minWidth: '100px', fontSize: '12px', padding: '6px' }} onClick={() => setUpdatingStatus(transition.toStatus)} disabled={statusSaving} type="button">{transition.nameAr || STATUS_LABELS[transition.toStatus] || transition.toStatus}</button>)}
+                  <div className="cd-status-actions">
+                    {transitions.map((transition) => <button key={transition.id} className="btn btn-outline cd-status-btn" onClick={() => setUpdatingStatus(transition.toStatus)} disabled={statusSaving} type="button">{transition.nameAr || STATUS_LABELS[transition.toStatus] || transition.toStatus}</button>)}
                   </div>
                 )}
               </> : <div className="admin-readonly-note" role="status">لا تملك صلاحية تغيير حالة الطلب.</div>}
 
               {canAssign && updatingStatus && (
-                <div style={{ padding: '12px', background: '#f9fafb', borderRadius: '6px' }}>
-                  <div style={{ marginBottom: '8px', fontWeight: 600 }}>
+                <div className="cd-assign-panel">
+                  <div className="cd-panel-title">
                     تغيير إلى: {STATUS_LABELS[updatingStatus]}
                   </div>
-                  <div className="field" style={{ marginBottom: '8px' }}>
+                  <div className="field cd-label-spaced">
                     <label htmlFor="statusUpdateNote">ملاحظة التغيير (اختيارية)</label>
                     <input id="statusUpdateNote" type="text" placeholder="أضف ملاحظة اختيارية…" value={statusUpdateNote} onChange={(e) => setStatusUpdateNote(e.target.value)} />
                   </div>
-                  <div style={{ display: 'flex', gap: '8px' }}>
+                  <div className="cd-inline">
                     <button
-                      className="btn btn-primary"
-                      style={{ flex: 1 }}
+                      className="btn btn-primary cd-flex-1"
                       onClick={() => handleStatusUpdate(updatingStatus)}
                       disabled={statusSaving}
                       type="button"
@@ -480,8 +473,7 @@ export default function ComplaintDetailPage() {
                       {statusSaving ? 'جارٍ الحفظ…' : 'تأكيد'}
                     </button>
                     <button
-                      className="btn btn-outline"
-                      style={{ flex: 1 }}
+                      className="btn btn-outline cd-flex-1"
                       onClick={() => {
                         setUpdatingStatus(null);
                         setStatusUpdateNote('');
@@ -500,35 +492,30 @@ export default function ComplaintDetailPage() {
           {/* SLA & Escalation */}
           <div className="card">
             <div className="card__header">
-              <h2 style={{ fontSize: '1.1rem', margin: 0 }}>مؤشرات الأداء والتصعيد</h2>
+              <h2 className="cd-card-heading">مؤشرات الأداء والتصعيد</h2>
             </div>
             <div className="card__body">
-              <div style={{ marginBottom: '16px' }}>
+              <div className="cd-spaced">
                 <div className="admin-detail-label">حالة SLA</div>
-                <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: slaInfo.color }}>
+                <div className={"cd-kpi cs-" + slaInfo.tone}>
                   {slaInfo.label}
                 </div>
               </div>
-              <div style={{ marginBottom: '16px' }}>
-                <div className="admin-detail-label">مستوى التصعيد</div>
-                <div style={{
-                  fontSize: '1.5rem',
-                  fontWeight: 'bold',
-                  color: data.escalationLevel > 0 ? 'var(--color-danger)' : 'inherit',
-                }}>
+              <div className="cd-spaced">
+                <div className="admin-detail-label">مستوى التصعيد</div>`n      <div className={"cd-kpi cd-kpi--lg" + (data.escalationLevel > 0 ? " cs-danger" : "")}>
                   {data.escalationLevel}
                 </div>
               </div>
-              <div style={{ marginBottom: '16px' }}>
+              <div className="cd-spaced">
                 <div className="admin-detail-label">تاريخ الاستحقاق</div>
-                <div style={{ fontWeight: 500 }}>
+                <div className="cd-strong">
                   {formatDateTime(data.slaDueAt)}
                 </div>
               </div>
               {data.lastEscalatedAt && (
-                <div style={{ marginBottom: '16px' }}>
+                <div className="cd-spaced">
                   <div className="admin-detail-label">آخر تصعيد</div>
-                  <div style={{ fontWeight: 500 }}>
+                  <div className="cd-strong">
                     {formatDateTime(data.lastEscalatedAt)}
                   </div>
                 </div>
@@ -536,16 +523,16 @@ export default function ComplaintDetailPage() {
 
               {/* Escalation Events */}
               {data.escalationEvents.length > 0 && (
-                <div style={{ marginBottom: '16px' }}>
-                  <div className="admin-detail-label" style={{ marginBottom: '8px' }}>أحداث التصعيد</div>
+                <div className="cd-spaced">
+                  <div className="admin-detail-label cd-label-spaced">أحداث التصعيد</div>
                   {data.escalationEvents.map((evt) => (
                     <div
                       key={evt.id}
-                      style={{ padding: '8px 10px', background: '#fef2f2', borderRadius: '4px', fontSize: '13px', marginBottom: '6px' }}
+                      className="cd-escalation-event"
                     >
                       مستوى {evt.fromLevel} → {evt.toLevel}
-                      {evt.note && <span style={{ color: 'var(--color-text-muted)' }}> — {evt.note}</span>}
-                      <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginTop: '4px' }}>
+                      {evt.note && <span className="admin-muted"> — {evt.note}</span>}
+                      <div className="cd-ev-time">
                         {formatDateTime(evt.createdAt)}
                       </div>
                     </div>
@@ -553,10 +540,10 @@ export default function ComplaintDetailPage() {
                 </div>
               )}
 
-              {canEscalate ? <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '16px', marginTop: '16px' }}>
-                {escalateError && <div className="alert alert-danger" role="alert" aria-live="polite" style={{ marginBottom: '12px', fontSize: '13px' }}>{escalateError}</div>}
-                <div className="field" style={{ marginBottom: '8px' }}><label htmlFor="escalateNote">ملاحظة التصعيد اليدوي</label><input id="escalateNote" type="text" placeholder="أضف ملاحظة اختيارية…" value={escalateNote} onChange={(e) => setEscalateNote(e.target.value)} /></div>
-                <button className="btn" style={{ width: '100%', background: 'var(--color-danger)', color: 'white', border: 'none' }} onClick={handleEscalate} disabled={escalateSaving} type="button">{escalateSaving ? 'جارٍ التصعيد…' : 'تصعيد يدوي'}</button>
+              {canEscalate ? <div className="cd-section">
+                {escalateError && <div className="alert alert-danger cd-alert-sm" role="alert" aria-live="polite">{escalateError}</div>}
+                <div className="field cd-label-spaced"><label htmlFor="escalateNote">ملاحظة التصعيد اليدوي</label><input id="escalateNote" type="text" placeholder="أضف ملاحظة اختيارية…" value={escalateNote} onChange={(e) => setEscalateNote(e.target.value)} /></div>
+                <button className="btn btn cd-escalate-btn" onClick={handleEscalate} disabled={escalateSaving} type="button">{escalateSaving ? 'جارٍ التصعيد…' : 'تصعيد يدوي'}</button>
               </div> : <div className="admin-readonly-note" role="status">لا تملك صلاحية التصعيد اليدوي.</div>}
             </div>
           </div>

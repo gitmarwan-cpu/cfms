@@ -5,6 +5,20 @@ import { recordAuditEvent } from './auditService';
 export type OrganizationId = string | number;
 export type RoleId = string | number;
 
+/** Minimal type accepted anywhere Prisma accepts a client/transaction client. */
+type DbClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
+
+/**
+ * Role codes that power server-side authorization decisions. Several guards
+ * (last-admin protection in membershipService/userRoleService/userAdminService,
+ * auth middleware role checks) resolve roles by `code === 'admin'` within the
+ * tenant scope. An organization-scoped role created with such a code would be
+ * indistinguishable from the global system role inside that tenant and let its
+ * holders pass every admin guard — so these codes are RESERVED and can never
+ * be used for custom (organization-scoped) roles (Fix 2.3).
+ */
+const RESERVED_ROLE_CODES = ['admin', 'staff'] as const;
+
 export interface RolePayload {
   code: string;
   nameAr: string;
@@ -140,10 +154,15 @@ const loadRole = async (organizationId: number, id: number): Promise<RoleRespons
   return mapRole(role);
 };
 
-const replaceRolePermissions = async (roleId: number, permissionIds: number[]): Promise<void> => {
-  await prisma.role_permissions.deleteMany({ where: { role_id: roleId } });
+/** Accepts any Prisma client/transaction client so callers can stay atomic. */
+const replaceRolePermissions = async (
+  client: DbClient,
+  roleId: number,
+  permissionIds: number[]
+): Promise<void> => {
+  await client.role_permissions.deleteMany({ where: { role_id: roleId } });
   if (permissionIds.length === 0) return;
-  await prisma.role_permissions.createMany({
+  await client.role_permissions.createMany({
     data: permissionIds.map((permission_id) => ({ role_id: roleId, permission_id, created_at: new Date() })),
     skipDuplicates: true,
   });
@@ -175,36 +194,49 @@ export const createRole = async (
 ): Promise<RoleResponse> => {
   const parsedOrganizationId = toSafeInteger(organizationId);
   if (parsedOrganizationId === null) throw new ApiError(422, 'المؤسسة غير موجودة');
+  if (RESERVED_ROLE_CODES.includes(payload.code as 'admin' | 'staff')) {
+    // Reserved system codes: an org-scoped role with code 'admin'/'staff'
+    // would shadow the global system role inside every code-based server-side
+    // guard and enable privilege escalation (Fix 2.3).
+    throw new ApiError(422, 'هذا الكود محجوز للأدوار النظامية ولا يمكن استخدامه لدور مخصص');
+  }
   const existing = await prisma.roles.findFirst({ where: { code: payload.code, organization_id: parsedOrganizationId } });
   if (existing) throw new ApiError(409, 'يوجد دور بنفس الكود مسبقاً في مؤسستك');
 
   const now = new Date();
-  const role = await prisma.roles.create({
-    data: {
-      code: payload.code,
-      name_ar: payload.nameAr,
-      name_en: payload.nameEn,
-      description: payload.description,
-      is_system: false,
-      is_active: true,
-      organization_id: parsedOrganizationId,
-      create_date: now,
-      write_date: now,
-    },
-    select: ROLE_SELECT,
+  // Role creation, permission grants and the audit row are one atomic unit:
+  // a role without its intended permissions must never be visible (Fix 2.4).
+  const created = await prisma.$transaction(async (tx) => {
+    const role = await tx.roles.create({
+      data: {
+        code: payload.code,
+        name_ar: payload.nameAr,
+        name_en: payload.nameEn,
+        description: payload.description,
+        is_system: false,
+        is_active: true,
+        organization_id: parsedOrganizationId,
+        create_date: now,
+        write_date: now,
+        create_uid: actorUserId ?? null,
+        write_uid: actorUserId ?? null,
+      },
+      select: ROLE_SELECT,
+    });
+    if (Array.isArray(payload.permissionIds) && payload.permissionIds.length) {
+      await replaceRolePermissions(tx, role.id, payload.permissionIds.map((id) => toSafeInteger(id) as number));
+    }
+    await recordAuditEvent(tx, {
+      organizationId: parsedOrganizationId,
+      actorUserId: actorUserId ?? null,
+      action: 'role.created',
+      entityType: 'role',
+      entityId: role.id,
+      metadata: { code: role.code },
+    });
+    return role;
   });
-  if (Array.isArray(payload.permissionIds) && payload.permissionIds.length) {
-    await replaceRolePermissions(role.id, payload.permissionIds.map((id) => toSafeInteger(id) as number));
-  }
-  await recordAuditEvent(prisma, {
-    organizationId: parsedOrganizationId,
-    actorUserId: actorUserId ?? null,
-    action: 'role.created',
-    entityType: 'role',
-    entityId: role.id,
-    metadata: { code: role.code },
-  });
-  return loadRole(parsedOrganizationId, role.id);
+  return loadRole(parsedOrganizationId, created.id);
 };
 
 export const updateRole = async (
@@ -228,18 +260,23 @@ export const updateRole = async (
   if (payload.nameEn !== undefined) data.name_en = payload.nameEn;
   if (payload.description !== undefined) data.description = payload.description;
   if (payload.isActive !== undefined) data.is_active = payload.isActive;
-  await prisma.roles.update({ where: { id: parsedId as number }, data: data as any });
 
-  if (Array.isArray(payload.permissionIds)) {
-    await replaceRolePermissions(parsedId as number, payload.permissionIds.map((permissionId) => toSafeInteger(permissionId) as number));
-  }
-  await recordAuditEvent(prisma, {
-    organizationId: parsedOrganizationId,
-    actorUserId: actorUserId ?? null,
-    action: payload.isActive === false ? 'role.deactivated' : 'role.updated',
-    entityType: 'role',
-    entityId: parsedId,
-    metadata: { fields: Object.keys(payload) },
+  // Role field updates and permission replacement are one atomic unit: the
+  // delete-then-recreate permission swap must never leave a role with zero
+  // permissions on a partial failure (Fix 2.4).
+  await prisma.$transaction(async (tx) => {
+    await tx.roles.update({ where: { id: parsedId as number }, data: data as any });
+    if (Array.isArray(payload.permissionIds)) {
+      await replaceRolePermissions(tx, parsedId as number, payload.permissionIds.map((permissionId) => toSafeInteger(permissionId) as number));
+    }
+    await recordAuditEvent(tx, {
+      organizationId: parsedOrganizationId,
+      actorUserId: actorUserId ?? null,
+      action: payload.isActive === false ? 'role.deactivated' : 'role.updated',
+      entityType: 'role',
+      entityId: parsedId,
+      metadata: { fields: Object.keys(payload) },
+    });
   });
   return loadRole(parsedOrganizationId as number, parsedId as number);
 };
@@ -261,13 +298,18 @@ export const deleteRole = async (
   if (assignmentsCount > 0) {
     throw new ApiError(400, 'لا يمكن حذف دور مُسند حالياً لمستخدمين؛ ألغِ التعيينات أولاً');
   }
-  await prisma.roles.delete({ where: { id: parsedId as number } });
-  await recordAuditEvent(prisma, {
-    organizationId: parsedOrganizationId,
-    actorUserId: actorUserId ?? null,
-    action: 'role.deleted',
-    entityType: 'role',
-    entityId: parsedId,
+  // Role deletion and its audit row are one atomic unit — a deleted role
+  // without its audit record is a partial state (same Phase 3 atomicity
+  // contract as createRole/updateRole).
+  await prisma.$transaction(async (tx) => {
+    await tx.roles.delete({ where: { id: parsedId as number } });
+    await recordAuditEvent(tx, {
+      organizationId: parsedOrganizationId,
+      actorUserId: actorUserId ?? null,
+      action: 'role.deleted',
+      entityType: 'role',
+      entityId: parsedId,
+    });
   });
 };
 

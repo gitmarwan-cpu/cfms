@@ -11,29 +11,66 @@
 | Middleware | يُستخدم في | كيف يُحدَّد `organizationId` |
 |---|---|---|
 | `resolvePublicTenant` | مسارات عامة (`/api/public/:orgSlug/...`) | من `organizations.slug` في الرابط. لا مصادقة. |
-| `resolveAuthenticatedTenant` | كل المسارات الداخلية | من هيدر `X-Organization-Id` **بعد التحقق الفعلي** من عضوية المستخدم عبر `UserOrganization`، أو من عضويته الأساسية (`is_primary`) إن لم يُرسَل الهيدر. رفض صريح (403) عند محاولة انتحال مؤسسة. |
+| `resolveAuthenticatedTenant` | كل المسارات الداخلية | من هيدر `X-Organization-Id` **بعد التحقق الفعلي** من وجود عضوية نشطة للمستخدم في تلك المؤسسة عبر `user_organizations` (`UserOrganization`)، أو — إن لم يُرسَل الهيدر — من `users.default_organization_id` مع التحقق من وجود عضوية نشطة لنفس المؤسسة. رفض صريح (403) عند محاولة انتحال مؤسسة. |
 
 **لا يوجد مسار ثالث.** أي controller جديد (في CFMS أو أي وحدة مستقبلية) يحتاج
 سياق مؤسسة يجب أن يستخدم أحد هذين.
 
-## القاعدة العملية لأي service جديد
+## القاعدة العملية لأي service جديد (Prisma)
 
-```js
+الـ controller يمرر السياق الموثوق `req.organizationId` كمعامل صريح للـ service،
+والـ service يستخدمه في كل استعلامات Prisma ولا يقرأ أي `organizationId` من
+body/query:
+
+```ts
 // صحيح
-const listX = async (organizationId, filters) => {
-  return Model.findAll(withTenantScope(organizationId, { where: filters }));
+const listX = async (organizationId: OrganizationId, filters: Filters) => {
+  return prisma.x.findMany({
+    where: { organization_id: Number(organizationId), ...filters },
+  });
 };
 
 // خطأ - لا يُقبل أبداً في مراجعة الكود
-const listX = async (filters) => {
-  return Model.findAll({ where: { ...filters, organizationId: filters.organizationId } });
+const listX = async (filters: Filters) => {
+  return prisma.x.findMany({ where: { ...filters, organization_id: filters.organizationId } });
 };
 ```
 
-استخدم `utils/tenantScope.js`:
-- `withTenantScope(organizationId, options)` — يدمج `organizationId` في `where` قسراً.
-- `assertBelongsToTenant(record, organizationId, message)` — بعد `findByPk`، يرمي
-  **404** (وليس 403) لإخفاء وجود السجل من الأساس إن كان لمؤسسة أخرى.
+عند جلب/تعديل سجل واحد، اجلبه بشرط النطاق داخل الاستعلام نفسه ثم أرجع **404**
+(وليس 403) إن لم يوجد — لإخفاء وجود سجل مؤسسة أخرى من الأساس:
+
+```ts
+const record = await prisma.x.findFirst({
+  where: { id: parsedId, organization_id: parsedOrganizationId },
+});
+if (!record) throw new ApiError(404, NOT_FOUND);
+```
+
+### نطاق عُقد التنظيم (Organization Nodes)
+
+عُقد الهيكل التنظيمي صفوف داخل `organizations` نفسها (النموذج المعتمد موثق في
+`modules/organizations/README.md`: الجذر `root_organization_id = NULL`، وكل
+وحدة تحمل `root_organization_id` معرّف الجذر — مرجع دائم لحدود المستأجر). النمط
+المنفَّذ فعلياً في الخدمات (`organizationService`, `complaintService`,
+`userRoleService`):
+
+```ts
+// 1) اشتق جذر المؤسسة من السياق الموثوق — وليس من العميل
+//    (resolveRootOrgId داخل organizationService)
+const rootOrgId = await resolveRootOrgId(req.organizationId);
+
+// 2) scope عمليات العقد إلى الجذر: العقدة الجذر نفسها أو أي وحدة تتبعها
+await prisma.organizations.findFirst({
+  where: {
+    id: parsedNodeId,
+    deleted_at: null,
+    OR: [{ id: rootOrgId }, { root_organization_id: rootOrgId }],
+  },
+});
+```
+
+لا يجوز تمرير معرف مؤسسة أو عقدة قادم من body/query إلى هذه المسارات — السياق
+الوحيد المعتمد هو `req.organizationId` بعد التحقق من العضوية.
 
 ## نمط Template + Override
 
@@ -43,7 +80,7 @@ const listX = async (filters) => {
 عند التحقق من الملكية:
 
 ```js
-where: { id, [Op.or]: [{ organizationId: null }, { organizationId }] }
+where: { id, OR: [{ organization_id: null }, { organization_id: parsedOrganizationId }] }
 ```
 
 ## ثغرتان حقيقيتان اكتُشفتا وأُصلحتا (أمثلة تعليمية، لا تُكرَّر)

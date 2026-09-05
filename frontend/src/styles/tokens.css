@@ -1,0 +1,141 @@
+/*
+ * CFMS Design System — AUTHORITATIVE token layer (Stage 2 / Phase A).
+ *
+ * This file is the single source of truth for new design-system work.
+ * The `:root` block in index.css predates the design system and is kept
+ * untouched (preservation rule); its values are MIRRORED here verbatim so
+ * both layers agree while pages migrate incrementally.
+ *
+ * Rules:
+ *  - New CSS/components must consume tokens, never raw values.
+ *  - Pages must never invent semantic colors — use the semantic layer.
+ *  - RTL: logical properties only (margin-inline, inset-inline, …).
+ */
+
+:root {
+  /* ── Surfaces & lines (mirrored from index.css — do not drift) ─────── */
+  --color-bg: #f2f5f4;
+  --color-bg-subtle: #e9f0ef; /* referenced by admin-foundation.css but was never defined — real gap, fixed here */
+  --color-surface: #ffffff;
+  --color-border: #d8e3e3;
+  --color-border-strong: #b9cbca;
+
+  /* ── Brand (mirrored) ─────────────────────────────────────────────── */
+  --color-primary: #0e5f66;
+  --color-primary-dark: #0a464b;
+  --color-primary-light: #e4f1f1;
+  /* الماسي "الختم" النحاسي: للمعنى "موثَّق/مُعتمَد" فقط — ليس لون واجهة عام */
+  --color-accent: #a9782e;
+  --color-accent-soft: #f3ead9;
+
+  /* ── Text (mirrored) ─────────────────────────────────────────────── */
+  --color-ink: #16241f;
+  --color-text: #1c2b2c;
+  --color-text-muted: #5b6b6c;
+  --color-text-faint: #7d8c8d;
+
+  /* ── Semantic states (bg/border/text triplets; contrast-checked) ──── */
+  --color-success: #1c7c4c;
+  --color-success-bg: #e7f5ee;
+  --color-success-border: #bfe3d0;
+  --color-warning: #8a5a08;
+  --color-warning-bg: #fdf3df;
+  --color-warning-border: #ecd9ae;
+  --color-danger: #b3261e;
+  --color-danger-bg: #fbeceb;
+  --color-danger-border: #f0c8c5;
+  --color-info: #1d5a96;
+  --color-info-bg: #e8f1fa;
+  --color-info-border: #c4d9ee;
+  --color-neutral-bg: #eef2f1;
+  --color-neutral-border: #d8e3e3;
+
+  /* ── Typography ──────────────────────────────────────────────────── */
+  --font-body: 'Tajawal', 'Segoe UI', sans-serif;
+  /* سيريف عربي مؤسسي — للعناوين الكبرى فقط */
+  --font-display: 'Markazi Text', 'Tajawal', serif;
+  /* للمعرّفات والأكواد الرسمية */
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  --text-xs: 11px;
+  --text-sm: 13px;
+  --text-base: 14px;
+  --text-md: 15px;
+  --text-lg: 17px;
+  --text-xl: 20px;
+  --text-2xl: 24px;
+  --text-3xl: 28px;
+  --leading-tight: 1.35;
+  --leading-normal: 1.6;
+  --leading-relaxed: 1.75;
+  --fw-normal: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+
+  /* ── Spacing (4px grid) ──────────────────────────────────────────── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* ── Radius — restrained; not everything is a pill ────────────────── */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-full: 999px;
+
+  /* ── Elevation — subtle, hierarchy-only ──────────────────────────── */
+  --shadow-card: 0 1px 3px rgba(14, 95, 102, 0.08), 0 1px 2px rgba(14, 95, 102, 0.06);
+  --shadow-dropdown: 0 10px 24px rgba(15, 40, 44, 0.16);
+  --shadow-overlay: 0 16px 40px rgba(15, 40, 44, 0.22);
+
+  /* ── Motion — respected via prefers-reduced-motion below ─────────── */
+  --duration-fast: 120ms;
+  --duration-base: 180ms;
+  --duration-slow: 240ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0.2, 1);
+
+  /* ── Focus (visible, consistent) ─────────────────────────────────── */
+  --focus-outline-color: #0e5f66;
+  --focus-outline: 2px solid var(--focus-outline-color);
+  --focus-outline-offset: 2px;
+
+  /* ── Layout / component metrics ──────────────────────────────────── */
+  --control-h-sm: 32px;
+  --control-h: 38px;
+  --control-h-lg: 44px;
+  --sidebar-w: 264px;
+  --sidebar-w-collapsed: 68px;
+  --header-h: 60px;
+  --content-max: 1240px;
+
+  /* ── Z-index scale ───────────────────────────────────────────────── */
+  --z-dropdown: 60;
+  --z-drawer: 80;
+  --z-dialog: 90;
+  --z-toast: 100;
+}
+
+/* Reduced-motion: collapse all design-system motion to ~0. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 1ms;
+    --duration-base: 1ms;
+    --duration-slow: 1ms;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

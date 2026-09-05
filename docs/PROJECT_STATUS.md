@@ -73,7 +73,10 @@ All 19 test suites and 155 tests pass cleanly against `cfms_test`. Backend TypeS
 
 - ✅ مراجعة أمنية منهجية شاملة (tenant isolation, RBAC, rate limiting, رفع
   ملفات) — ثغرتان حقيقيتان مُصلحتان + 4 إصلاحات إضافية (Rate Limiting، امتداد
-  الملفات، توحيد 404/403، تحقق ملكية `managerUserId`/`allowedParentTypeId`).
+  الملفات، توحيد 404/403، تحقق ملكية `managerUserId`، وتحقق ملكية النوع
+  المُشار إليه في `allowedParentTypeId` — قيد تحقق تنفيذي حالي في طبقة الخدمة
+  لوضع العُقد التنظيمية (node-type placement validation)، وليس ثابتاً
+  معمارياً).
 - ✅ تحقق حي متكرر على PostgreSQL حقيقي (وليس فقط بنية SQLite التاريخية) لكل تغيير مخطط منذ
   اكتشاف تناقض نموذج/migration حقيقي بهذه الطريقة تحديداً.
 

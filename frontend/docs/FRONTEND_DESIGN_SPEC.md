@@ -242,6 +242,13 @@ The organization model must follow the approved backend architecture.
 
 Use the unified `organizations` model and its hierarchy.
 
+The tenant/organization itself is the root of the hierarchy tree
+(`parent_id = NULL`, `org_unit_type_id = NULL`, `root_organization_id = NULL`).
+Organizational units beneath it carry `parent_id`, `org_unit_type_id`, and
+`root_organization_id` pointing at the tenant root. Multiple top-level units
+are allowed; attaching a unit with no explicit parent beneath the tenant root
+never creates an additional root.
+
 The hierarchy is represented through:
 
 ```text
@@ -260,11 +267,10 @@ unless explicitly approved by the architecture owners.
 
 Frontend terminology should distinguish clearly between:
 
-* Organization / Tenant
+* Organization / Tenant (the tenant itself is the tree root)
 * Organization Node
 * Organization Unit Type
 * Role
-* Legacy Group (read-only compatibility data)
 
 Do not use legacy terminology merely because it exists in older code.
 

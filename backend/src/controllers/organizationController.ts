@@ -42,5 +42,13 @@ const deactivateNode = catchAsync(async (req: AppRequest, res: AppResponse) =>
   })
 );
 
-module.exports = { getOwnSettings, updateSettings, createOrganization, listNodes, createNode, updateNode, deactivateNode };
+const activateNode = catchAsync(async (req: AppRequest, res: AppResponse) =>
+  res.status(200).json({
+    success: true,
+    message: 'تم تفعيل الوحدة التنظيمية بنجاح',
+    data: await organizationService.reactivateOrganizationNode(req.organizationId, req.params.id, req.user?.id),
+  })
+);
+
+module.exports = { getOwnSettings, updateSettings, createOrganization, listNodes, createNode, updateNode, deactivateNode, activateNode };
 

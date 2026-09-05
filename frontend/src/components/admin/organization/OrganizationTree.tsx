@@ -1,5 +1,7 @@
 import { useEffect, useState, type ReactNode, type KeyboardEvent } from 'react';
+import { StatusBadge } from '../../ui/StatusBadge';
 import type { OrganizationNode } from '../../../types/organization';
+import { Building2, ChevronDown, ChevronLeft, Layers } from 'lucide-react';
 
 interface OrganizationTreeProps {
   nodes: OrganizationNode[];
@@ -9,6 +11,7 @@ interface OrganizationTreeProps {
   onAddChild: (node: OrganizationNode) => void;
   onEdit: (node: OrganizationNode) => void;
   onDeactivate: (node: OrganizationNode) => void;
+  onActivate: (node: OrganizationNode) => void;
 }
 
 export default function OrganizationTree({
@@ -19,6 +22,7 @@ export default function OrganizationTree({
   onAddChild,
   onEdit,
   onDeactivate,
+  onActivate,
 }: OrganizationTreeProps) {
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
 
@@ -71,12 +75,11 @@ export default function OrganizationTree({
   return (
     <div className="card admin-tree-card">
       <div className="card__header admin-tree-header">
-        <h2 style={{ fontSize: '1.05rem', margin: 0 }}>الهيكل التنظيمي</h2>
-        <div style={{ display: 'flex', gap: '6px' }}>
+        <h2 className="ot-heading">الهيكل التنظيمي</h2>
+        <div className="ot-actions">
           <button
             type="button"
-            className="btn btn-outline"
-            style={{ fontSize: '12px', padding: '3px 8px' }}
+            className="btn btn-outline ot-btn"
             onClick={expandAll}
             title="توسيع الكل"
           >
@@ -84,8 +87,7 @@ export default function OrganizationTree({
           </button>
           <button
             type="button"
-            className="btn btn-outline"
-            style={{ fontSize: '12px', padding: '3px 8px' }}
+            className="btn btn-outline ot-btn"
             onClick={collapseAll}
             title="طي الكل"
           >
@@ -94,7 +96,7 @@ export default function OrganizationTree({
         </div>
       </div>
 
-      <div className="card__body" style={{ padding: '8px' }}>
+      <div className="card__body ot-body">
         <div className="admin-tree" role="tree" aria-label="شجرة الهيكل التنظيمي">
           {nodes.map((node) => (
             <TreeNode
@@ -108,6 +110,7 @@ export default function OrganizationTree({
               onAddChild={onAddChild}
               onEdit={onEdit}
               onDeactivate={onDeactivate}
+              onActivate={onActivate}
             />
           ))}
         </div>
@@ -126,6 +129,7 @@ interface TreeNodeProps {
   onAddChild: (node: OrganizationNode) => void;
   onEdit: (node: OrganizationNode) => void;
   onDeactivate: (node: OrganizationNode) => void;
+  onActivate: (node: OrganizationNode) => void;
 }
 
 function TreeNode({
@@ -138,6 +142,7 @@ function TreeNode({
   onAddChild,
   onEdit,
   onDeactivate,
+  onActivate,
 }: TreeNodeProps): ReactNode {
   const hasChildren = node.children && node.children.length > 0;
   const isExpanded = expanded.has(node.id);
@@ -177,14 +182,14 @@ function TreeNode({
               aria-label={isExpanded ? `طي ${node.name}` : `توسيع ${node.name}`}
               type="button"
             >
-              {isExpanded ? '▾' : '▸'}
+              {isExpanded ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronLeft size={14} aria-hidden="true" />}
             </button>
           ) : (
             <span className="admin-tree-spacer" aria-hidden="true" />
           )}
 
           <span className="admin-tree-node-icon" aria-hidden="true">
-            {node.parentId === null ? '🏢' : '▦'}
+            {node.parentId === null ? <Building2 size={15} aria-hidden="true" /> : <Layers size={15} aria-hidden="true" />}
           </span>
 
           <span className="admin-tree-title">
@@ -201,16 +206,13 @@ function TreeNode({
         </span>
 
         <span className="admin-tree-actions" onClick={(e) => e.stopPropagation()}>
-          <span className={`admin-status-pill ${node.isActive ? 'is-success' : ''}`}>
-            {node.isActive ? 'نشط' : 'معطّل'}
-          </span>
+          <StatusBadge tone={node.isActive ? 'success' : 'neutral'}>{node.isActive ? 'نشط' : 'معطّل'}</StatusBadge>
 
           {canManage && (
             <>
               <button
                 type="button"
-                className="btn btn-outline"
-                style={{ fontSize: '11px', padding: '2px 7px' }}
+                className="btn btn-outline ot-btn"
                 onClick={() => onAddChild(node)}
                 title="إضافة فرع/وحدة جديدة تحت هذه الوحدة"
                 aria-label={`إضافة فرع تحت ${node.name}`}
@@ -219,8 +221,7 @@ function TreeNode({
               </button>
               <button
                 type="button"
-                className="btn btn-outline"
-                style={{ fontSize: '11px', padding: '2px 7px' }}
+                className="btn btn-outline ot-btn"
                 onClick={() => onEdit(node)}
                 aria-label={`تعديل ${node.name}`}
               >
@@ -229,12 +230,21 @@ function TreeNode({
               {node.isActive && (
                 <button
                   type="button"
-                  className="admin-text-button danger"
-                  style={{ fontSize: '11px' }}
+                  className="admin-text-button danger ot-danger"
                   onClick={() => onDeactivate(node)}
                   aria-label={`تعطيل ${node.name}`}
                 >
                   تعطيل
+                </button>
+              )}
+              {!node.isActive && (
+                <button
+                  type="button"
+                  className="admin-text-button ot-success"
+                  onClick={() => onActivate(node)}
+                  aria-label={`تفعيل ${node.name}`}
+                >
+                  تفعيل
                 </button>
               )}
             </>
@@ -256,6 +266,7 @@ function TreeNode({
               onAddChild={onAddChild}
               onEdit={onEdit}
               onDeactivate={onDeactivate}
+              onActivate={onActivate}
             />
           ))}
         </div>

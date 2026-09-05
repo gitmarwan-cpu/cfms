@@ -488,7 +488,7 @@ export interface Role {
 }
 export interface ReferenceList { id: number; key: string; nameAr: string; nameEn: string | null; items?: ReferenceItem[]; }
 export interface OrganizationSettings {
-  id: number; legalName: string; shortName: string | null; logoUrl: string | null; faviconUrl: string | null;
+  id: number; legalName: string; shortName: string | null; slug: string; logoUrl: string | null; faviconUrl: string | null;
   description: string | null; vision: string | null; mission: string | null; phone: string | null; email: string | null;
   website: string | null; country: string | null; countryId: number | null; governorateId: number | null; districtId: number | null;
   city: string | null; address: string | null; defaultLanguage: 'ar' | 'en'; timezone: string | null; primaryColor: string | null;

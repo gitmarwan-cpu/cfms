@@ -4,6 +4,7 @@ export interface MembershipOrganization {
   id: number;
   name: string;
   shortName: string | null;
+  slug: string;
   isPrimary: boolean;
 }
 

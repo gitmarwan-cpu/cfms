@@ -1,11 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Link, MemoryRouter, Routes, Route, useSearchParams } from 'react-router-dom';
-import { Dialog } from '../../components/admin/AdminUi';
-import ComplaintForm from '../../components/ComplaintForm';
-import SuccessPage from '../SuccessPage';
-import type { SubmittedComplaint } from '../../api/complaintApi';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { OrganizationProvider } from '../../context/OrganizationContext';
 import {
   fetchComplaints,
   type AdminComplaint,
@@ -36,8 +31,6 @@ const SLA_STATUS_LABELS: Record<SlaStatus, { label: string; tone: string }> = {
 
 export default function ComplaintListPage() {
   const { currentOrganization } = useAuth();
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [submitted, setSubmitted] = useState<SubmittedComplaint | null>(null);
   const [complaints, setComplaints] = useState<AdminComplaint[]>([]);
   const [pagination, setPagination] = useState<PaginationInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -97,7 +90,11 @@ export default function ComplaintListPage() {
       <div className="cd-page-head">
         <h1 className="admin-page-title">صندوق الشكاوى والمقترحات</h1>
         <div className="admin-page-actions">
-          <button className="btn btn-primary" onClick={() => setIsFormOpen(true)}>إضافة شكوى</button>
+          {currentOrganization?.slug && (
+            <Link to={`/${currentOrganization.slug}`} className="btn btn-primary">
+              إضافة شكوى
+            </Link>
+          )}
         </div>
       </div>
 
@@ -244,46 +241,6 @@ export default function ComplaintListPage() {
           </div>
         )}
       </div>
-
-      {isFormOpen && currentOrganization?.shortName && (
-        <Dialog
-          title={submitted ? 'تم تسجيل الطلب بنجاح' : 'إضافة شكوى / مقترح'}
-          onClose={() => {
-            setIsFormOpen(false);
-            setSubmitted(null);
-          }}
-        >
-          {submitted ? (
-            <SuccessPage
-              referenceCode={submitted.referenceCode}
-              trackingPin={submitted.trackingPin}
-              onReset={() => {
-                setIsFormOpen(false);
-                setSubmitted(null);
-                loadComplaints();
-              }}
-            />
-          ) : (
-            <MemoryRouter initialEntries={[`/${currentOrganization.shortName}`]}>
-              <Routes>
-                <Route
-                  path="/:orgSlug"
-                  element={
-                    <OrganizationProvider>
-                      <ComplaintForm
-                        onSuccess={(result) => {
-                          setSubmitted(result);
-                          loadComplaints();
-                        }}
-                      />
-                    </OrganizationProvider>
-                  }
-                />
-              </Routes>
-            </MemoryRouter>
-          )}
-        </Dialog>
-      )}
     </div>
   );
 }

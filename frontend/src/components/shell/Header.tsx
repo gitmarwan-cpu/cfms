@@ -1,6 +1,7 @@
-﻿import { Menu, Command as CommandIcon } from 'lucide-react';
+import { Menu, Command as CommandIcon } from 'lucide-react';
 import OrganizationSwitcher from '../admin/OrganizationSwitcher';
 import NotificationCenter from '../admin/NotificationCenter';
+import ThemeToggle from './ThemeToggle';
 import UserMenu from './UserMenu';
 
 interface HeaderProps {
@@ -30,6 +31,7 @@ export default function Header({ onMenuClick, onOpenCommand }: HeaderProps) {
         <span className="header__command-label">بحث سريع</span>
         <kbd className="header__kbd" dir="ltr" aria-hidden="true">Ctrl K</kbd>
       </button>
+      <ThemeToggle />
       <NotificationCenter />
       <UserMenu />
     </header>

@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -19,6 +20,9 @@ import { fetchReportData, fetchComplaints } from '../../api/adminApi';
 import type { AdminComplaint, ReportData } from '../../api/adminApi';
 import type { ApiClientError } from '../../api/axiosClient';
 import { PageHeader } from '../../components/patterns/PageHeader';
+import { StatusBadge, type StatusTone } from '../../components/ui/StatusBadge';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { Button } from '../../components/ui/Button';
 import { cn } from '../../utils/cn';
 import { formatDate } from '../../utils/dateTime';
 
@@ -41,13 +45,13 @@ function statusMeta(s: string) {
   return STATUS_META[s] ?? { label: s, color: '#5b6b6c', bg: '#f1f5f9' };
 }
 
-function toneFor(code: string): 'primary' | 'warning' | 'success' | 'danger' | 'neutral' {
+function toneFor(code: string): StatusTone {
   const c = code.toLowerCase();
   if (c === 'new' || c === 'in_review') return 'warning';
   if (c === 'resolved') return 'success';
   if (c === 'rejected') return 'danger';
   if (FINAL_STATUS.has(c)) return 'neutral';
-  return 'primary';
+  return 'info';
 }
 
 // ── Skeleton ─────────────────────────────────────────────────────────
@@ -63,7 +67,7 @@ interface KpiProps {
   value: number | string;
   icon: ReactNode;
   to?: string;
-  tone?: 'primary' | 'warning' | 'success' | 'danger' | 'neutral';
+  tone?: StatusTone | 'primary';
   sub?: string;
   loading?: boolean;
 }
@@ -127,20 +131,47 @@ function Panel({ title, icon, children, className, action }: {
 
 // ── SVG Bar Chart (trend) ─────────────────────────────────────────────
 
+const formatMonth = (isoDate: string) => {
+  try {
+    const d = new Date(isoDate);
+    if (Number.isNaN(d.getTime())) return isoDate;
+    return new Intl.DateTimeFormat('ar', { month: 'long', year: 'numeric' }).format(d);
+  } catch {
+    return isoDate;
+  }
+};
+
 function TrendChart({ data }: { data: Array<{ period: string; total: number }> }) {
   const shown = data.slice(-12);
-  if (shown.length === 0) return <p className="dv2-empty">لا توجد بيانات شهرية.</p>;
+  if (shown.length === 0) return <EmptyState title="لا توجد بيانات شهرية." icon={BarChart3} />;
   const maxVal = Math.max(1, ...shown.map((d) => d.total));
   const W = 560;
   const H = 140;
   const padLeft = 28;
   const padBottom = 28;
   const padRight = 8;
-  const padTop = 10;
+  const padTop = 24;
   const chartW = W - padLeft - padRight;
   const chartH = H - padBottom - padTop;
-  const barW = Math.max(8, (chartW / shown.length) * 0.55);
+  const barW = Math.max(8, (chartW / shown.length) * 0.25);
   const gap = chartW / shown.length;
+
+  const points = shown.map((d, i) => {
+    const x = padLeft + gap * i + gap / 2;
+    const y = padTop + chartH - ((d.total / maxVal) * chartH);
+    return { x, y, d };
+  });
+
+  let pathD = "";
+  if (points.length > 0) {
+    pathD = `M ${points[0]!.x} ${points[0]!.y}`;
+    for (let i = 1; i < points.length; i++) {
+      const prev = points[i - 1]!;
+      const curr = points[i]!;
+      const cpX = prev.x + (curr.x - prev.x) / 2;
+      pathD += ` C ${cpX} ${prev.y}, ${cpX} ${curr.y}, ${curr.x} ${curr.y}`;
+    }
+  }
 
   return (
     <div className="dv2-chart-wrap">
@@ -148,7 +179,7 @@ function TrendChart({ data }: { data: Array<{ period: string; total: number }> }
         viewBox={`0 0 ${W} ${H}`}
         className="dv2-chart-svg"
         role="img"
-        aria-label="مخطط أعمدة للشكاوى الشهرية"
+        aria-label="مخطط خطي للشكاوى الشهرية"
       >
         {/* Y-axis guides */}
         {[0, 0.25, 0.5, 0.75, 1].map((t) => {
@@ -160,62 +191,69 @@ function TrendChart({ data }: { data: Array<{ period: string; total: number }> }
                 x2={W - padRight}
                 y1={y}
                 y2={y}
-                stroke="#e2e8f0"
+                stroke="var(--color-border, #e2e8f0)"
                 strokeWidth={1}
+                strokeDasharray="4 4"
               />
               <text
                 x={padLeft - 4}
                 y={y + 4}
                 textAnchor="end"
                 fontSize={10}
-                fill="#94a3b8"
+                fill="var(--color-text-muted, #94a3b8)"
               >
                 {Math.round(maxVal * t)}
               </text>
             </g>
           );
         })}
-        {/* Bars */}
-        {shown.map((d, i) => {
-          const barH = Math.max(2, (d.total / maxVal) * chartH);
-          const x = padLeft + gap * i + gap / 2 - barW / 2;
-          const y = padTop + chartH - barH;
-          return (
-            <g key={d.period}>
-              <rect
-                x={x}
-                y={y}
-                width={barW}
-                height={barH}
-                rx={3}
-                fill="var(--color-primary, #0e5f66)"
-                opacity={0.85}
-                className="dv2-chart-bar"
-              />
-              <text
-                x={x + barW / 2}
-                y={H - padBottom + 14}
-                textAnchor="middle"
-                fontSize={9}
-                fill="#94a3b8"
-              >
-                {String(d.period).slice(-5)}
-              </text>
-              {d.total > 0 && (
-                <text
-                  x={x + barW / 2}
-                  y={y - 3}
-                  textAnchor="middle"
-                  fontSize={9}
-                  fill="var(--color-primary, #0e5f66)"
-                  fontWeight="600"
-                >
-                  {d.total}
-                </text>
-              )}
-            </g>
-          );
-        })}
+
+        {/* Line */}
+        {points.length > 0 && (
+          <path
+            d={pathD}
+            fill="none"
+            stroke="var(--color-primary, #0e5f66)"
+            strokeWidth={3}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="dv2-chart-line"
+          />
+        )}
+
+        {/* Points & Labels */}
+        {points.map(({ x, y, d }) => (
+          <g key={d.period} className="dv2-chart-point">
+            <circle
+              cx={x}
+              cy={y}
+              r={4}
+              fill="var(--color-surface, #ffffff)"
+              stroke="var(--color-primary, #0e5f66)"
+              strokeWidth={2}
+            />
+            <text
+              x={x}
+              y={H - padBottom + 14}
+              textAnchor="middle"
+              fontSize={9}
+              fill="var(--color-text-muted, #94a3b8)"
+            >
+              {formatMonth(d.period)}
+            </text>
+            <title>{formatMonth(d.period)}: {num(d.total)} شكوى</title>
+            <text
+              x={x}
+              y={y - 10}
+              textAnchor="middle"
+              fontSize={10}
+              fill="var(--color-primary, #0e5f66)"
+              fontWeight="600"
+            >
+              {num(d.total)}
+            </text>
+          </g>
+        ))}
       </svg>
     </div>
   );
@@ -232,9 +270,9 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 function DonutChart({ data }: { data: Array<{ status: string; total: number }> }) {
-  if (data.length === 0) return <p className="dv2-empty">لا توجد بيانات حالات.</p>;
+  if (data.length === 0) return <EmptyState title="لا توجد بيانات حالات." icon={ListChecks} />;
   const total = data.reduce((s, d) => s + num(d.total), 0);
-  if (total === 0) return <p className="dv2-empty">لا توجد بيانات حالات.</p>;
+  if (total === 0) return <EmptyState title="لا توجد بيانات حالات." icon={ListChecks} />;
 
   const R = 54;
   const CX = 68;
@@ -310,7 +348,7 @@ function CategoryBars({
   data: Array<{ code: string; labelAr: string; total: number }>;
 }) {
   const top = [...data].sort((a, b) => num(b.total) - num(a.total)).slice(0, 7);
-  if (top.length === 0) return <p className="dv2-empty">لا توجد بيانات تصنيفات.</p>;
+  if (top.length === 0) return <EmptyState title="لا توجد بيانات تصنيفات." icon={Layers} />;
   const max = Math.max(1, ...top.map((d) => num(d.total)));
   return (
     <ul className="dv2-catbars">
@@ -343,7 +381,7 @@ function RecentComplaints({ complaints, loading }: { complaints: AdminComplaint[
     );
   }
   if (complaints.length === 0) {
-    return <p className="dv2-empty">لا توجد طلبات حديثة.</p>;
+    return <EmptyState title="لا توجد طلبات حديثة." icon={FileText} />;
   }
   return (
     <div className="dv2-recent-scroll">
@@ -383,12 +421,9 @@ function RecentComplaints({ complaints, loading }: { complaints: AdminComplaint[
                     ?? (c.assignedToOrganization ? c.assignedToOrganization.name : <span className="dv2-muted">غير معيّن</span>)}
                 </td>
                 <td>
-                  <span
-                    className="dv2-status-chip"
-                    style={{ color: sm.color, background: sm.bg }}
-                  >
+                  <StatusBadge tone={toneFor(c.status)} noIcon>
                     {sm.label}
-                  </span>
+                  </StatusBadge>
                 </td>
               </tr>
             );
@@ -415,6 +450,7 @@ function toIso(d: Date): string {
 // ── Main Dashboard ────────────────────────────────────────────────────
 
 export default function DashboardPage() {
+  const { currentOrganization } = useAuth();
   const [report, setReport] = useState<ReportData | null>(null);
   const [recent, setRecent] = useState<AdminComplaint[]>([]);
   const [loadingReport, setLoadingReport] = useState(true);
@@ -522,9 +558,9 @@ export default function DashboardPage() {
               className="dv2-date-input"
             />
           </label>
-          <button type="button" className="dv2-refresh-btn" onClick={loadReport} aria-label="تحديث">
+          <Button variant="outline" size="icon" onClick={loadReport} aria-label="تحديث" className="dv2-refresh-btn">
             <RefreshCw size={14} />
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -532,9 +568,9 @@ export default function DashboardPage() {
       {error && (
         <div className="dv2-error" role="alert">
           <p>{error}</p>
-          <button type="button" className="dv2-refresh-btn" onClick={loadReport}>
+          <Button variant="outline" size="sm" onClick={loadReport}>
             إعادة المحاولة
-          </button>
+          </Button>
         </div>
       )}
 
@@ -638,10 +674,12 @@ export default function DashboardPage() {
           className="dv2-panel--actions"
         >
           <div className="dv2-actions-grid">
-            <Link to="/admin/complaints" className="dv2-action-btn dv2-action-btn--primary">
-              <Plus size={16} aria-hidden />
-              إضافة شكوى
-            </Link>
+            {currentOrganization?.slug && (
+              <Link to={`/${currentOrganization.slug}`} className="dv2-action-btn dv2-action-btn--primary">
+                <Plus size={16} aria-hidden />
+                إضافة شكوى
+              </Link>
+            )}
             {QUICK_ACTIONS.map((a) => (
               <Link key={a.to} to={a.to} className="dv2-action-link">
                 <span className="dv2-action-link__icon">{a.icon}</span>

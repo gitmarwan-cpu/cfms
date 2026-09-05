@@ -193,6 +193,7 @@ export interface MembershipOrganization {
   id: number;
   name: string;
   shortName: string | null;
+  slug: string;
   isPrimary: boolean;
 }
 
@@ -208,7 +209,7 @@ export const getMyOrganizations = async (userId: number): Promise<MembershipOrga
     where: { user_id: userId, is_active: true },
     select: {
       is_primary: true,
-      organizations: { select: { id: true, legal_name: true, short_name: true } },
+      organizations: { select: { id: true, legal_name: true, short_name: true, slug: true } },
     },
     orderBy: [{ is_primary: 'desc' }, { organization_id: 'asc' }],
   });
@@ -217,6 +218,7 @@ export const getMyOrganizations = async (userId: number): Promise<MembershipOrga
     id: membership.organizations.id,
     name: membership.organizations.legal_name,
     shortName: membership.organizations.short_name,
+    slug: membership.organizations.slug,
     isPrimary: membership.is_primary,
   }));
 };

@@ -232,6 +232,16 @@ export default function OrganizationPage() {
                 />
               </label>
               <label className="field">
+                معرّف البوابة (slug)
+                <input
+                  dir="ltr"
+                  value={data.slug || ''}
+                  onChange={(e) => change('slug', e.target.value)}
+                  pattern="[a-z0-9]+(-[a-z0-9]+)*"
+                  required
+                />
+              </label>
+              <label className="field">
                 الاسم المختصر
                 <input
                   value={data.shortName || ''}

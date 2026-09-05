@@ -33,6 +33,7 @@ export interface OrganizationUpdatePayload {
   anonymousComplaintsPolicy?: enum_organizations_anonymous_complaints_policy;
   notificationSettings?: Prisma.InputJsonValue;
   isActive?: boolean;
+  slug?: string;
 }
 
 export interface OrganizationResponse {
@@ -236,6 +237,24 @@ export const updateOrganization = async (
 
   const data: Record<string, unknown> = { write_date: new Date() };
   if (authUserId) data.write_uid = authUserId;
+
+  if (payload.slug !== undefined) {
+    const slug = payload.slug.trim().toLowerCase();
+    const ORGANIZATION_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+    if (!ORGANIZATION_SLUG_PATTERN.test(slug) || slug.length < 3 || slug.length > 80) {
+      throw new ApiError(422, 'معرّف المؤسسة (slug) غير صالح: أحرف لاتينية صغيرة وأرقام وشرطات فقط (3-80)');
+    }
+    if (slug !== organization.slug) {
+      const existingRoot = await prisma.organizations.findFirst({
+        where: { slug, parent_id: null },
+        select: { id: true },
+      });
+      if (existingRoot) {
+        throw new ApiError(409, 'معرّف المؤسسة (slug) مستخدم مسبقاً');
+      }
+      data.slug = slug;
+    }
+  }
   const fields = {
     legalName: 'legal_name',
     shortName: 'short_name',

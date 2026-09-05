@@ -557,6 +557,7 @@ export const createComplaint = async (
         created_at: new Date(),
       },
     });
+    
     await recordAuditEvent(tx, {
       organizationId: parsedOrganizationId,
       actorUserId: parsedCreatedByUserId,
@@ -565,6 +566,30 @@ export const createComplaint = async (
       entityId: complaint.id,
       metadata: { referenceCode, type: payload.type, status: 'new' },
     });
+
+    const staffMembers = await tx.user_roles.findMany({
+      where: {
+        organization_id: parsedOrganizationId,
+        users: { is_active: true },
+      },
+      select: { user_id: true },
+    });
+    const recipientIds = [...new Set(staffMembers.map((r) => r.user_id))];
+    
+    await Promise.all(
+      recipientIds.map((userId) =>
+        createNotification(tx, {
+          organizationId: parsedOrganizationId,
+          userId,
+          notificationType: 'complaint.created',
+          title: payload.type === 'proposal' ? 'مقترح جديد' : 'شكوى جديدة',
+          message: `تم استلام ${payload.type === 'proposal' ? 'مقترح جديد' : 'شكوى جديدة'} برقم مرجعي ${referenceCode}`,
+          entityType: 'complaint',
+          entityId: complaint.id,
+          metadata: { referenceCode, type: payload.type },
+        })
+      )
+    );
 
     const created = await tx.complaints.findUnique({
       where: { id: complaint.id },

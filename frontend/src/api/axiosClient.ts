@@ -31,7 +31,7 @@ const axiosClient: AxiosInstance = axios.create({
 export const ORGANIZATION_STORAGE_KEY = 'cfms_org_id';
 
 /** Requests that are context-free by design: authentication, public portal, and platform scope. */
-const NON_TENANT_PATH_MARKERS = ['/auth/', '/public/'];
+const NON_TENANT_PATH_MARKERS = ['/auth/', '/public/', '/locations/'];
 
 axiosClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('cfms_token');
@@ -46,8 +46,9 @@ axiosClient.interceptors.request.use((config) => {
   // and ignores it entirely for /auth/*, /public/:orgSlug/*, and /platform/* routes.
   const url = config.url ?? '';
   const isPlatformRequest = url === '/platform' || url.includes('/platform/');
+  const isLocationRequest = url === '/locations' || url.includes('/locations/');
   const isTenantScoped = !NON_TENANT_PATH_MARKERS.some((marker) => url.includes(marker));
-  if (isPlatformRequest) {
+  if (isPlatformRequest || isLocationRequest) {
     delete config.headers['X-Organization-Id'];
     delete config.headers['x-organization-id'];
   } else if (isTenantScoped) {

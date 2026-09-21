@@ -1,7 +1,8 @@
 ﻿import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Command } from 'cmdk';
-import { NAV_GROUPS } from './navConfig';
+import { getVisibleNavGroups } from './navConfig';
+import { useAuth } from '../../context/AuthContext';
 
 interface CommandMenuProps {
   open: boolean;
@@ -14,6 +15,8 @@ interface CommandMenuProps {
 export default function CommandMenu({ open, onOpenChange }: CommandMenuProps) {
   const navigate = useNavigate();
 
+  const { user } = useAuth();
+  const visibleGroups = getVisibleNavGroups(user);
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
@@ -35,7 +38,7 @@ export default function CommandMenu({ open, onOpenChange }: CommandMenuProps) {
       <Command.Input placeholder="انتقل إلى صفحة…" />
       <Command.List>
         <Command.Empty>لا توجد نتائج</Command.Empty>
-        {NAV_GROUPS.map((group) => (
+        {visibleGroups.map((group) => (
           <Command.Group key={group.label} heading={group.label}>
             {group.items.map((item) => (
               <Command.Item

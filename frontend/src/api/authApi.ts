@@ -17,6 +17,9 @@ export interface AuthUser {
   defaultOrganizationId: number | null;
   roleCodes: string[];
   permissions?: { code: string; organizationId: number; orgUnitId: number | null }[];
+  /** Platform-scoped roles and permissions — independent from tenant RBAC. */
+  platformRoleCodes: string[];
+  platformPermissions: string[];
   /** Active memberships (from /auth/me) — drives the organization switcher. */
   organizations?: MembershipOrganization[];
 }

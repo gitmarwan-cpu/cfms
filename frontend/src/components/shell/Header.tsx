@@ -1,4 +1,5 @@
 import { Menu, Command as CommandIcon } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import OrganizationSwitcher from '../admin/OrganizationSwitcher';
 import NotificationCenter from '../admin/NotificationCenter';
 import ThemeToggle from './ThemeToggle';
@@ -7,19 +8,25 @@ import UserMenu from './UserMenu';
 interface HeaderProps {
   onMenuClick: () => void;
   onOpenCommand: () => void;
+  showOrganizationSwitcher?: boolean;
 }
 
 /** Application header: mobile menu, org context, command trigger,
  *  notifications, account menu. Kept deliberately uncluttered. */
-export default function Header({ onMenuClick, onOpenCommand }: HeaderProps) {
+export default function Header({ onMenuClick, onOpenCommand, showOrganizationSwitcher = true }: HeaderProps) {
+  const location = useLocation();
+  const isPlatformRoute = location.pathname === '/admin/platform' || location.pathname.startsWith('/admin/platform/');
+
   return (
     <header className="header">
       <button type="button" className="header__menu-btn" onClick={onMenuClick} aria-label="فتح قائمة التنقل">
         <Menu size={20} />
       </button>
-      <div className="header__org">
-        <OrganizationSwitcher />
-      </div>
+      {showOrganizationSwitcher && (
+        <div className="header__org">
+          <OrganizationSwitcher />
+        </div>
+      )}
       <div className="header__spacer" />
       <button
         type="button"
@@ -32,7 +39,7 @@ export default function Header({ onMenuClick, onOpenCommand }: HeaderProps) {
         <kbd className="header__kbd" dir="ltr" aria-hidden="true">Ctrl K</kbd>
       </button>
       <ThemeToggle />
-      <NotificationCenter />
+      {!isPlatformRoute && <NotificationCenter />}
       <UserMenu />
     </header>
   );

@@ -30,7 +30,7 @@ const axiosClient: AxiosInstance = axios.create({
  */
 export const ORGANIZATION_STORAGE_KEY = 'cfms_org_id';
 
-/** Requests that are context-free by design: authentication + orgSlug-scoped public portal. */
+/** Requests that are context-free by design: authentication, public portal, and platform scope. */
 const NON_TENANT_PATH_MARKERS = ['/auth/', '/public/'];
 
 axiosClient.interceptors.request.use((config) => {
@@ -43,10 +43,14 @@ axiosClient.interceptors.request.use((config) => {
   // The header is set unconditionally (overwriting any caller-supplied value)
   // so no API module can inject an unrelated organization id. The backend
   // remains authoritative: it validates the header against active memberships
-  // and ignores it entirely for /auth/* and /public/:orgSlug/* routes.
+  // and ignores it entirely for /auth/*, /public/:orgSlug/*, and /platform/* routes.
   const url = config.url ?? '';
+  const isPlatformRequest = url === '/platform' || url.includes('/platform/');
   const isTenantScoped = !NON_TENANT_PATH_MARKERS.some((marker) => url.includes(marker));
-  if (isTenantScoped) {
+  if (isPlatformRequest) {
+    delete config.headers['X-Organization-Id'];
+    delete config.headers['x-organization-id'];
+  } else if (isTenantScoped) {
     const organizationId = sessionStorage.getItem(ORGANIZATION_STORAGE_KEY);
     if (organizationId) {
       config.headers['X-Organization-Id'] = organizationId;

@@ -2,8 +2,9 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import * as Dialog from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
-import { NAV_GROUPS } from './navConfig';
+import { getVisibleNavGroups } from './navConfig';
 import { cn } from '../../utils/cn';
+import { useAuth } from '../../context/AuthContext';
 
 interface MobileNavProps {
   open: boolean;
@@ -13,6 +14,8 @@ interface MobileNavProps {
 /** Mobile navigation drawer (RTL: slides from the inline-start edge). */
 export default function MobileNav({ open, onClose }: MobileNavProps) {
   const location = useLocation();
+  const { user } = useAuth();
+  const visibleGroups = getVisibleNavGroups(user);
 
   // Close the drawer whenever the route changes.
   useEffect(() => {
@@ -32,7 +35,7 @@ export default function MobileNav({ open, onClose }: MobileNavProps) {
             </Dialog.Close>
           </div>
           <nav className="mnav-nav" aria-label="تنقل الجوال">
-            {NAV_GROUPS.map((group) => (
+            {visibleGroups.map((group) => (
               <div key={group.label}>
                 <div className="mnav-group-label">{group.label}</div>
                 {group.items.map((item) => (

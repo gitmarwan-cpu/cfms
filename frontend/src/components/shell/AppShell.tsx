@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { DirectionProvider } from '@radix-ui/react-direction';
 import { cn } from '../../utils/cn';
 import Sidebar from './Sidebar';
@@ -29,6 +29,7 @@ const writeCollapsed = (value: boolean): void => {
  *  drawer and the Ctrl/Cmd+K command menu. RTL declared at the Radix
  *  DirectionProvider level so every primitive positions correctly. */
 export default function AppShell() {
+  const location = useLocation();
   const [collapsed, setCollapsed] = useState<boolean>(readCollapsed);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
@@ -44,6 +45,7 @@ export default function AppShell() {
   const closeMobile = useCallback(() => setMobileOpen(false), []);
   const openCommand = useCallback(() => setCommandOpen(true), []);
   const setCommand = useCallback((open: boolean) => setCommandOpen(open), []);
+  const isPlatformRoute = location.pathname === '/admin/platform' || location.pathname.startsWith('/admin/platform/');
 
   return (
     <DirectionProvider dir="rtl">
@@ -51,7 +53,7 @@ export default function AppShell() {
       <div className={cn('app-shell', collapsed && 'app-shell--collapsed')}>
         <Sidebar collapsed={collapsed} onToggleCollapse={toggleCollapse} />
         <div className="app-shell__body">
-          <Header onMenuClick={openMobile} onOpenCommand={openCommand} />
+          <Header onMenuClick={openMobile} onOpenCommand={openCommand} showOrganizationSwitcher={!isPlatformRoute} />
           <main id="main-content" className="app-shell__main">
             <Outlet />
           </main>

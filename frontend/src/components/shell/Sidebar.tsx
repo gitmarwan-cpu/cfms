@@ -1,7 +1,8 @@
 ﻿import { NavLink } from 'react-router-dom';
 import { PanelRightClose, PanelRightOpen } from 'lucide-react';
-import { NAV_GROUPS } from './navConfig';
+import { getVisibleNavGroups } from './navConfig';
 import { cn } from '../../utils/cn';
+import { useAuth } from '../../context/AuthContext';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -10,6 +11,9 @@ interface SidebarProps {
 
 /** Desktop sidebar: grouped navigation, active state, collapsible rail. */
 export default function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
+  const { user } = useAuth();
+  const visibleGroups = getVisibleNavGroups(user);
+
   return (
     <aside className={cn('sidebar', collapsed && 'sidebar--collapsed')} aria-label="التنقل الرئيسي">
       <div className="sidebar__brand">
@@ -17,7 +21,7 @@ export default function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
         <span className="sidebar__brand-name">نظام الشكاوى</span>
       </div>
       <nav className="sidebar__nav" aria-label="أقسام لوحة الإدارة">
-        {NAV_GROUPS.map((group, groupIndex) => (
+        {visibleGroups.map((group, groupIndex) => (
           <div className="sidebar__group" key={group.label}>
             <div className="sidebar__group-label" id={`sidebar-group-${groupIndex}`}>
               {group.label}

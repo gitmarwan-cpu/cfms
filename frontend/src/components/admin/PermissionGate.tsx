@@ -23,3 +23,21 @@ export function AdminRoleGate({ children, title = 'الوصول إلى سجل ا
   if (!user?.roleCodes.includes('admin')) return <ForbiddenState title={title} />;
   return <>{children}</>;
 }
+
+interface PlatformPermissionGateProps {
+  permission?: string;
+  anyPermission?: string[];
+  children: ReactNode;
+  title?: string;
+}
+
+/** UX guard for platform scope; backend platform authorization remains authoritative. */
+export function PlatformPermissionGate({ permission, anyPermission = [], children, title }: PlatformPermissionGateProps) {
+  const { user, hasPlatformPermission } = useAuth();
+  const isAuthorized = permission
+    ? hasPlatformPermission(permission)
+    : anyPermission.some((permissionCode) => hasPlatformPermission(permissionCode));
+
+  if (!user || !isAuthorized) return <ForbiddenState title={title} />;
+  return <>{children}</>;
+}

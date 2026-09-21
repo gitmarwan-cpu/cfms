@@ -18,7 +18,22 @@ import ReferenceDataPage from './pages/admin/ReferenceDataPage';
 import SlaPage from './pages/admin/SlaPage';
 import AuditLogPage from './pages/admin/AuditLogPage';
 import NotificationsPage from './pages/admin/NotificationsPage';
-import PermissionGate, { AdminRoleGate } from './components/admin/PermissionGate';
+import PlatformUsersPage from './pages/admin/PlatformUsersPage';
+import PlatformUserDetailPage from './pages/admin/PlatformUserDetailPage';
+import PlatformTenantsPage from './pages/admin/PlatformTenantsPage';
+import PlatformTenantDetailPage from './pages/admin/PlatformTenantDetailPage';
+import TenantProvisioningPage from './pages/admin/TenantProvisioningPage';
+import PlatformMembershipsRolesPage from './pages/admin/PlatformMembershipsRolesPage';
+import PermissionGate, { AdminRoleGate, PlatformPermissionGate } from './components/admin/PermissionGate';
+
+function PlatformPlaceholder({ title }: { title: string }) {
+  return (
+    <section className="admin-state">
+      <h1>{title}</h1>
+      <p>هذه مساحة إدارة المنصة. سيتم تفعيل الوظيفة في مرحلة لاحقة.</p>
+    </section>
+  );
+}
 
 function AppHeader() {
   const { organization, orgSlug } = useOrganization() || {};
@@ -126,6 +141,77 @@ export default function App() {
           <Route path="reference-data" element={<PermissionGate permission="reference_data.view"><ReferenceDataPage /></PermissionGate>} />
           <Route path="sla" element={<PermissionGate permission="organization.view"><SlaPage /></PermissionGate>} />
           <Route path="audit" element={<AdminRoleGate><AuditLogPage /></AdminRoleGate>} />
+          <Route
+            path="platform"
+            element={
+              <PlatformPermissionGate
+                anyPermission={[
+                  'platform.users.manage',
+                  'platform.tenant.create',
+                  'platform.tenant.lifecycle',
+                  'platform.memberships.manage',
+                ]}
+              >
+                <PlatformPlaceholder title="إدارة المنصة" />
+              </PlatformPermissionGate>
+            }
+          />
+          <Route
+            path="platform/users"
+            element={
+              <PlatformPermissionGate permission="platform.users.manage">
+                <PlatformUsersPage />
+              </PlatformPermissionGate>
+            }
+          />
+          <Route
+            path="platform/users/:userId"
+            element={
+              <PlatformPermissionGate permission="platform.users.manage">
+                <PlatformUserDetailPage />
+              </PlatformPermissionGate>
+            }
+          />
+          <Route
+            path="platform/tenants/new"
+            element={
+              <PlatformPermissionGate permission="platform.tenant.create">
+                <TenantProvisioningPage />
+              </PlatformPermissionGate>
+            }
+          />
+          <Route
+            path="platform/tenants"
+            element={
+              <PlatformPermissionGate permission="platform.tenant.lifecycle">
+                <PlatformTenantsPage />
+              </PlatformPermissionGate>
+            }
+          />
+          <Route
+            path="platform/tenants/:organizationId"
+            element={
+              <PlatformPermissionGate permission="platform.tenant.lifecycle">
+                <PlatformTenantDetailPage />
+              </PlatformPermissionGate>
+            }
+          />
+          <Route
+            path="platform/tenants/lifecycle"
+            element={
+              <PlatformPermissionGate permission="platform.tenant.lifecycle">
+                <PlatformPlaceholder title="دورة حياة المستأجرين" />
+              </PlatformPermissionGate>
+            }
+          />
+          <Route
+            path="platform/memberships-roles"
+            element={
+              <PlatformPermissionGate permission="platform.memberships.manage">
+                <PlatformMembershipsRolesPage />
+              </PlatformPermissionGate>
+            }
+          />
         </Route>
       </Route>
       <Route

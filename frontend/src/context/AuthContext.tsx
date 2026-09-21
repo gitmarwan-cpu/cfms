@@ -17,6 +17,7 @@ interface AuthContextValue {
   login: (token: string, user: AuthUser) => void;
   logout: () => void;
   hasPermission: (permissionCode: string, organizationId?: number, orgUnitId?: number | null) => boolean;
+  hasPlatformPermission: (permissionCode: string) => boolean;
   /**
    * Re-fetches /auth/me and re-resolves the active organization through the
    * existing precedence (stored selection → default → first membership).
@@ -153,6 +154,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
   };
 
+  const hasPlatformPermission = (permissionCode: string): boolean => {
+    if (!user?.platformPermissions) return false;
+    return user.platformPermissions.includes(permissionCode);
+  };
+
   const currentOrganization = organizations.find((org) => org.id === currentOrganizationId) ?? null;
 
   return (
@@ -170,6 +176,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         logout,
         hasPermission,
+        hasPlatformPermission,
         refreshMe,
       }}
     >

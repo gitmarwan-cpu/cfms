@@ -14,7 +14,7 @@ const reportRoutes = require('./reportRoutes');
 const slaRoutes = require('./slaRoutes');
 const platformTenantRoutes = require('./platformTenantRoutes');
 const platformUserRoutes = require('./platformUserRoutes');
-const prisma = require('../prisma/client');
+import prisma from '../prisma/client';
 export {};
 
 const router = express.Router();

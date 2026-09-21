@@ -178,9 +178,9 @@
   white-space: nowrap;
   transition: background-color 120ms ease, color 120ms ease;
 }
-.sidebar__link:hover { background: var(--sh-primary-soft); color: var(--sh-primary-strong); }
+.sidebar__link:hover { background: var(--sh-hover-bg); color: var(--sh-hover-fg); }
 .sidebar__link--active,
-.sidebar__link--active:hover { background: var(--sh-primary); color: #fff; }
+.sidebar__link--active:hover { background: var(--sh-primary); color: var(--sh-on-primary); }
 .sidebar__link-icon { flex-shrink: 0; display: inline-flex; }
 .sidebar--collapsed .sidebar__link { justify-content: center; padding-inline: 0; }
 .sidebar__collapse-btn {
@@ -195,7 +195,7 @@
   color: var(--sh-muted);
   cursor: pointer;
 }
-.sidebar__collapse-btn:hover { color: var(--sh-primary-strong); background: var(--sh-primary-soft); }
+.sidebar__collapse-btn:hover { color: var(--sh-hover-fg); background: var(--sh-hover-bg); }
 .sidebar--collapsed .sidebar__collapse-btn { align-self: center; }
 
 /* ---------------- Body / Header ---------------- */
@@ -393,28 +393,168 @@
 }
 [cmdk-root] {
   background: var(--sh-surface);
+  color: var(--sh-text);
   border: 1px solid var(--sh-border);
   border-radius: 12px;
-  box-shadow: var(--sh-e2);
-  overflow: hidden;
+  box-shadow: var(--shadow-overlay, 0 16px 40px rgba(15, 40, 44, 0.22));
+  overflow: clip;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
   animation: sh-pop 140ms ease;
 }
-[cmdk-input] {
-  inline-size: 100%;
-  padding: 14px 16px;
-  border: none;
+.cmdk-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  padding-inline: var(--cmdk-pad-inline);
   border-block-end: 1px solid var(--sh-border);
+}
+.cmdk-search__icon {
+  position: absolute;
+  inset-inline-start: var(--cmdk-pad-inline);
+  display: inline-flex;
+  color: var(--sh-muted);
+  pointer-events: none;
+}
+.cmdk-search__input {
+  inline-size: 100%;
+  min-inline-size: 0;
+  padding-block: 14px;
+  padding-inline-start: calc(var(--cmdk-pad-inline) + 24px);
+  padding-inline-end: var(--space-2, 8px);
+  border: none;
+  border-block-end: none;
   font-family: inherit;
-  font-size: 14px;
+  font-size: var(--text-base, 14px);
+  text-align: start;
   outline: none;
   background: transparent;
-  color: inherit;
+  color: var(--sh-text);
+}
+.cmdk-search__input::placeholder {
+  color: var(--sh-muted);
+  opacity: 1;
+}
+.cmdk-esc {
+  flex: none;
+  padding: 3px 7px;
+  border: 1px solid var(--sh-border);
+  border-radius: 5px;
+  background: var(--sh-bg);
+  color: var(--sh-muted);
+  font-family: var(--font-mono, monospace);
+  font-size: 10.5px;
+  line-height: 1.4;
+  cursor: pointer;
+  white-space: nowrap;
+  letter-spacing: 0.03em;
+}
+.cmdk-esc:hover {
+  color: var(--sh-text);
+  border-color: var(--sh-primary);
 }
 [cmdk-list] { max-block-size: 320px; overflow-y: auto; padding: 6px; list-style: none; margin: 0; }
+[cmdk-list] {
+  overscroll-behavior: contain;
+  padding: var(--space-2, 8px);
+  padding-inline-end: calc(var(--cmdk-pad-inline) - 6px);
+  scrollbar-width: thin;
+  scrollbar-color: var(--sh-scroll-thumb) var(--sh-scroll-track);
+}
+[cmdk-list]::-webkit-scrollbar {
+  inline-size: 8px;
+}
+[cmdk-list]::-webkit-scrollbar-track {
+  background: var(--sh-scroll-track);
+}
+[cmdk-list]::-webkit-scrollbar-thumb {
+  background: var(--sh-scroll-thumb);
+  border-radius: var(--radius-full, 999px);
+}
+[cmdk-list]::-webkit-scrollbar-thumb:hover {
+  background: var(--sh-primary);
+}
 [cmdk-group-heading] { padding: 8px 10px 4px; font-size: 11px; font-weight: 600; color: var(--sh-muted); }
+[cmdk-group-heading] {
+  padding-block: var(--space-3, 12px) var(--space-1, 4px);
+  padding-inline: var(--cmdk-pad-inline);
+  font-size: var(--text-xs, 11px);
+  font-weight: var(--fw-semibold, 600);
+  letter-spacing: 0.04em;
+}
 [cmdk-item] { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; font-size: 13.5px; cursor: pointer; }
+[cmdk-item] {
+  gap: var(--space-3, 12px);
+  min-inline-size: 0;
+  padding: var(--space-3, 10px) var(--cmdk-pad-inline);
+  font-weight: var(--fw-medium, 500);
+  color: var(--sh-text);
+}
+[cmdk-item] svg {
+  flex: none;
+  color: var(--sh-muted);
+}
 [cmdk-item][data-selected='true'] { background: var(--sh-primary-soft); color: var(--sh-primary-strong); }
+[cmdk-item][data-selected='true'] {
+  background: var(--sh-selected-bg);
+  color: var(--sh-selected-fg);
+}
+[cmdk-item][data-selected='true'] svg {
+  color: currentColor;
+}
 [cmdk-empty] { padding: 20px; text-align: center; font-size: 13px; color: var(--sh-muted); }
+
+.cmdk-item__label {
+  flex: 1;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cmdk-item__badge {
+  flex: none;
+  margin-inline-start: auto;
+  padding: 1px 7px;
+  border: 1px solid var(--sh-border);
+  border-radius: var(--radius-full, 999px);
+  background: var(--sh-bg);
+  color: var(--sh-muted);
+  font-size: var(--text-xs, 11px);
+  font-weight: var(--fw-semibold, 600);
+  line-height: 1.5;
+  opacity: 0;
+  transition: opacity var(--duration-fast, 120ms) ease;
+}
+[cmdk-item][data-selected='true'] .cmdk-item__badge {
+  opacity: 1;
+}
+[cmdk-empty] {
+  padding: var(--space-6, 24px);
+  font-size: var(--text-sm, 13px);
+}
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 32px;
+  block-size: 32px;
+  margin-inline: 8px;
+  border: 1px solid var(--sh-border);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--sh-text);
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+.theme-toggle:hover {
+  background: var(--sh-hover-bg);
+  color: var(--sh-hover-fg);
+  border-color: var(--sh-primary);
+}
 
 /* ---------------- Focus visibility ---------------- */
 .sidebar__link:focus-visible,
@@ -422,6 +562,8 @@
 .header__menu-btn:focus-visible,
 .usermenu-trigger:focus-visible,
 .mnav-close:focus-visible,
+.theme-toggle:focus-visible,
+.cmdk-esc:focus-visible,
 .sidebar__collapse-btn:focus-visible {
   outline: 2px solid var(--sh-ring);
   outline-offset: 2px;

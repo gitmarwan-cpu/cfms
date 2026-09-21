@@ -28,6 +28,9 @@ const mapOrganization = (organization: any) => ({
   anonymousComplaintsPolicy: organization.anonymous_complaints_policy,
   notificationSettings: organization.notification_settings,
   isActive: organization.is_active,
+  lifecycleStatus: organization.lifecycle_status,
+  statusChangedAt: organization.status_changed_at,
+  statusReason: organization.status_reason,
   createdAt: organization.create_date,
   updatedAt: organization.write_date,
   createUid: organization.create_uid,
@@ -62,6 +65,9 @@ const ORGANIZATION_SELECT = {
   anonymous_complaints_policy: true,
   notification_settings: true,
   is_active: true,
+  lifecycle_status: true,
+  status_changed_at: true,
+  status_reason: true,
   create_date: true,
   write_date: true,
   create_uid: true,
@@ -82,7 +88,13 @@ export const resolvePublicTenant = async (req: any, res: any, next: (error?: unk
     if (!slug) throw new ApiError(400, 'معرّف المؤسسة (orgSlug) مطلوب في الرابط');
 
     const organization = await prisma.organizations.findFirst({
-      where: { slug, is_active: true },
+      where: {
+        slug,
+        is_active: true,
+        deleted_at: null,
+        parent_id: null,
+        lifecycle_status: 'active',
+      },
       select: ORGANIZATION_SELECT,
     });
     if (!organization) throw new ApiError(404, 'المؤسسة غير موجودة أو غير مفعّلة');
@@ -112,7 +124,17 @@ export const resolveAuthenticatedTenant = async (
       organizationId = toPositiveInteger(requestedOrgId);
       const membership = organizationId
         ? await prisma.user_organizations.findFirst({
-            where: { user_id: req.user.id, organization_id: organizationId, is_active: true },
+            where: {
+              user_id: req.user.id,
+              organization_id: organizationId,
+              is_active: true,
+              organizations: {
+                is_active: true,
+                deleted_at: null,
+                parent_id: null,
+                lifecycle_status: 'active',
+              },
+            },
             select: { organization_id: true },
           })
         : null;
@@ -126,7 +148,17 @@ export const resolveAuthenticatedTenant = async (
     if (!defaultOrganizationId) throw new ApiError(403, 'لا تنتمي إلى أي مؤسسة افتراضية على المنصة');
 
     const membership = await prisma.user_organizations.findFirst({
-      where: { user_id: req.user.id, organization_id: defaultOrganizationId, is_active: true },
+      where: {
+        user_id: req.user.id,
+        organization_id: defaultOrganizationId,
+        is_active: true,
+        organizations: {
+          is_active: true,
+          deleted_at: null,
+          parent_id: null,
+          lifecycle_status: 'active',
+        },
+      },
       select: { organization_id: true },
     });
     if (!membership) throw new ApiError(403, 'المؤسسة الافتراضية لم تعد فعّالة لهذا المستخدم');
@@ -137,4 +169,3 @@ export const resolveAuthenticatedTenant = async (
     next(error);
   }
 };
-

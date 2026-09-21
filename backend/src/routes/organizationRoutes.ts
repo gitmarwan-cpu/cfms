@@ -5,7 +5,6 @@ const { authenticate, authorizePermission } = require('../middlewares/auth');
 const { resolveAuthenticatedTenant } = require('../middlewares/tenant');
 const {
   updateOrganizationValidation,
-  createOrganizationValidation,
   createNodeValidation,
   updateNodeValidation,
   nodeIdParamValidation,
@@ -17,7 +16,6 @@ router.use(authenticate, resolveAuthenticatedTenant);
 
 router.get('/', authorizePermission('organization.view'), organizationController.getOwnSettings);
 router.put('/', authorizePermission('organization.manage'), validate(updateOrganizationValidation), organizationController.updateSettings);
-router.post('/', authorizePermission('organization.create'), validate(createOrganizationValidation), organizationController.createOrganization);
 
 router.get('/nodes', authorizePermission('org_structure.view'), organizationController.listNodes);
 router.post('/nodes', authorizePermission('org_structure.manage'), validate(createNodeValidation), organizationController.createNode);
@@ -26,4 +24,3 @@ router.patch('/nodes/:id/deactivate', authorizePermission('org_structure.manage'
 router.patch('/nodes/:id/activate', authorizePermission('org_structure.manage'), validate(nodeIdParamValidation), organizationController.activateNode);
 
 module.exports = router;
-

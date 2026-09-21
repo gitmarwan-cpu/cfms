@@ -411,6 +411,10 @@ model organizations {
   anonymous_complaints_policy         enum_organizations_anonymous_complaints_policy @default(allowed)
   notification_settings               Json                                           @default("{}")
   is_active                           Boolean                                        @default(true)
+  lifecycle_status                    enum_organizations_lifecycle_status           @default(active)
+  status_changed_at                   DateTime                                       @default(now()) @db.Timestamptz(6)
+  status_changed_by_user_id           Int?
+  status_reason                       String?                                        @db.VarChar(255)
   create_date                         DateTime                                       @db.Timestamptz(6)
   write_date                          DateTime                                       @db.Timestamptz(6)
   create_uid                          Int?
@@ -423,6 +427,7 @@ model organizations {
   org_unit_type                       org_unit_types?                                @relation("OrganizationHierarchyNodeType", fields: [org_unit_type_id], references: [id], onDelete: Restrict)
   create_user                         users?                                         @relation("organizations_create_uidTousers", fields: [create_uid], references: [id], onDelete: SetNull)
   write_user                          users?                                         @relation("organizations_write_uidTousers", fields: [write_uid], references: [id], onDelete: SetNull)
+  status_changed_by                   users?                                         @relation("OrganizationStatusChangedBy", fields: [status_changed_by_user_id], references: [id], onDelete: SetNull)
   complainants                        complainants[]
   complaints                          complaints[]
   complaints_assigned_to_organization complaints[]                                   @relation("ComplaintsAssignedToOrganization")
@@ -450,6 +455,7 @@ model organizations {
   @@index([org_unit_type_id], map: "organizations_org_unit_type_id")
   @@index([root_organization_id, parent_id], map: "organizations_root_organization_id_parent_id")
   @@index([root_organization_id, is_active, deleted_at], map: "organizations_root_organization_id_is_active_deleted_at")
+  @@index([lifecycle_status, deleted_at], map: "organizations_lifecycle_status_deleted_at")
 }
 
 model permissions {
@@ -536,6 +542,7 @@ model roles {
   description      String?
   is_system        Boolean            @default(false)
   is_active        Boolean            @default(true)
+  scope            enum_role_scope     @default(tenant)
   create_date      DateTime           @db.Timestamptz(6)
   write_date       DateTime           @db.Timestamptz(6)
   create_uid       Int?
@@ -546,6 +553,7 @@ model roles {
   role_permissions role_permissions[]
   organizations    organizations?     @relation(fields: [organization_id], references: [id], onDelete: Cascade)
   user_roles       user_roles[]
+  user_platform_roles user_platform_roles[]
 
   @@index([organization_id], map: "roles_organization_id")
 }
@@ -591,6 +599,24 @@ model user_roles {
   @@index([user_id], map: "user_roles_user_id")
 }
 
+model user_platform_roles {
+  id          Int      @id @default(autoincrement())
+  user_id     Int
+  role_id     Int
+  create_date DateTime @db.Timestamptz(6)
+  write_date  DateTime @db.Timestamptz(6)
+  create_uid  Int?
+  write_uid   Int?
+  create_user users?   @relation("user_platform_roles_create_uidTousers", fields: [create_uid], references: [id], onDelete: SetNull)
+  write_user  users?   @relation("user_platform_roles_write_uidTousers", fields: [write_uid], references: [id], onDelete: SetNull)
+  roles       roles    @relation(fields: [role_id], references: [id], onDelete: Cascade)
+  users       users    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, role_id], map: "user_platform_roles_unique")
+  @@index([user_id], map: "user_platform_roles_user_id")
+  @@index([role_id], map: "user_platform_roles_role_id")
+}
+
 model users {
   id                                               Int                           @id @default(autoincrement())
   full_name                                        String                        @db.VarChar(150)
@@ -623,6 +649,7 @@ model users {
   org_unit_types_written                           org_unit_types[]              @relation("org_unit_types_write_uidTousers")
   organizations_created                            organizations[]               @relation("organizations_create_uidTousers")
   organizations_written                            organizations[]               @relation("organizations_write_uidTousers")
+  organizations_status_changed                     organizations[]               @relation("OrganizationStatusChangedBy")
   permissions_created                              permissions[]                 @relation("permissions_create_uidTousers")
   permissions_written                              permissions[]                 @relation("permissions_write_uidTousers")
   reference_list_items_created                     reference_list_items[]        @relation("reference_list_items_create_uidTousers")
@@ -637,6 +664,8 @@ model users {
   user_organizations_written                       user_organizations[]          @relation("user_organizations_write_uidTousers")
   user_roles_created                               user_roles[]                  @relation("user_roles_create_uidTousers")
   user_roles_written                               user_roles[]                  @relation("user_roles_write_uidTousers")
+  user_platform_roles_created                      user_platform_roles[]         @relation("user_platform_roles_create_uidTousers")
+  user_platform_roles_written                      user_platform_roles[]         @relation("user_platform_roles_write_uidTousers")
   workflow_definitions_created                     workflow_definitions[]        @relation("workflow_definitions_create_uidTousers")
   workflow_definitions_written                     workflow_definitions[]        @relation("workflow_definitions_write_uidTousers")
   workflow_states_created                          workflow_states[]             @relation("workflow_states_create_uidTousers")
@@ -647,6 +676,7 @@ model users {
   complaints_complaints_assigned_to_user_idTousers complaints[]                  @relation("complaints_assigned_to_user_idTousers")
   user_organizations                               user_organizations[]
   user_roles                                       user_roles[]
+  user_platform_roles                              user_platform_roles[]
   audit_logs                                       audit_logs[]
   notifications                                    notifications[]
   complaint_escalation_events                      complaint_escalation_events[]
@@ -772,4 +802,17 @@ enum enum_organizations_anonymous_complaints_policy {
   allowed
   not_allowed
   optional
+}
+
+enum enum_organizations_lifecycle_status {
+  provisioning
+  active
+  suspended
+  deactivated
+  archived
+}
+
+enum enum_role_scope {
+  tenant
+  platform
 }

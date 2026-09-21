@@ -284,7 +284,7 @@ export const deactivateUser = async (
 
   // Last-admin protection: check if this user is the only active admin in the org
   const adminRole = await prisma.roles.findFirst({
-    where: { code: 'admin', OR: [{ organization_id: null }, { organization_id: organizationId }] },
+    where: { code: 'admin', scope: 'tenant', OR: [{ organization_id: null }, { organization_id: organizationId }] },
     select: { id: true },
   });
   const isTargetAdmin = adminRole

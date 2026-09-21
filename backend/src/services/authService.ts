@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import { Prisma } from '@prisma/client';
 import prisma from '../prisma/client';
 import ApiError from '../utils/ApiError';
-import { getEffectiveRoleCodes } from './rbacService';
+import { getEffectivePlatformPermissions, getEffectivePlatformRoleCodes, getEffectiveRoleCodes } from './rbacService';
 import { recordAuditEvent } from './auditService';
 import { validatePasswordPolicy } from '../validations/passwordPolicy';
 
@@ -111,9 +111,21 @@ export const login = async (email: string, password: string) => {
   if (!isMatch) throw new ApiError(401, 'البريد الإلكتروني أو كلمة المرور غير صحيحة');
 
   const token = await generateToken(user);
-  const roleCodes = await getEffectiveRoleCodes(user.id);
+  const [roleCodes, platformRoleCodes, platformPermissions] = await Promise.all([
+    getEffectiveRoleCodes(user.id),
+    getEffectivePlatformRoleCodes(user.id),
+    getEffectivePlatformPermissions(user.id),
+  ]);
   await recordSuccessfulLoginEvent({ id: user.id, default_organization_id: user.default_organization_id });
-  return { token, user: { ...mapUser(user), roleCodes } };
+  return {
+    token,
+    user: {
+      ...mapUser(user),
+      roleCodes,
+      platformRoleCodes,
+      platformPermissions: platformPermissions.map(({ code }) => code),
+    },
+  };
 };
 
 export const register = async (organizationId: string | number, payload: RegisterPayload): Promise<UserResponse> => {
@@ -136,6 +148,7 @@ export const register = async (organizationId: string | number, payload: Registe
         where: {
           code: payload.roleCode || 'staff',
           is_active: true,
+          scope: 'tenant',
           OR: [{ organization_id: null }, { organization_id: parsedOrganizationId }],
         },
         select: { id: true },
@@ -206,7 +219,16 @@ export interface MembershipOrganization {
  */
 export const getMyOrganizations = async (userId: number): Promise<MembershipOrganization[]> => {
   const memberships = await prisma.user_organizations.findMany({
-    where: { user_id: userId, is_active: true },
+    where: {
+      user_id: userId,
+      is_active: true,
+      organizations: {
+        is_active: true,
+        deleted_at: null,
+        parent_id: null,
+        lifecycle_status: 'active',
+      },
+    },
     select: {
       is_primary: true,
       organizations: { select: { id: true, legal_name: true, short_name: true, slug: true } },

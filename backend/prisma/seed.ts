@@ -126,7 +126,6 @@ const RELATIONSHIP_ITEMS = [
 
 const PERMISSIONS = [
   ['organization.view', 'organization', 'عرض إعدادات المؤسسة'], ['organization.manage', 'organization', 'تعديل إعدادات المؤسسة'],
-  ['organization.create', 'organization', 'إنشاء مؤسسات جديدة (Root Organizational Unit) ضمن المنصة'],
   ['reference_data.view', 'reference_data', 'عرض القوائم المرجعية'], ['reference_data.manage', 'reference_data', 'إدارة القوائم المرجعية'],
   ['org_structure.view', 'org_structure', 'عرض الهيكل التنظيمي'], ['org_structure.manage', 'org_structure', 'إدارة الهيكل التنظيمي'],
   ['users.view', 'users', 'عرض المستخدمين'], ['users.manage', 'users', 'إدارة المستخدمين'],
@@ -136,6 +135,12 @@ const PERMISSIONS = [
   ['complaints.transfer', 'complaints', 'تحويل الشكوى بين الأقسام/الفروع'], ['complaints.close', 'complaints', 'إغلاق الشكوى'],
   ['complaints.escalate', 'complaints', 'تصعيد الشكوى'],
   ['audit.view', 'audit', 'عرض سجل التدقيق'],
+] as const;
+const PLATFORM_PERMISSIONS = [
+  ['platform.tenant.create', 'إنشاء المستأجرين وإعدادهم'],
+  ['platform.tenant.lifecycle', 'إدارة دورة حياة المستأجرين'],
+  ['platform.users.manage', 'إدارة مستخدمي المنصة'],
+  ['platform.memberships.manage', 'إدارة عضويات المستأجرين'],
 ] as const;
 const STAFF_DEFAULT_CODES = ['organization.view', 'reference_data.view', 'org_structure.view', 'complaints.view_own'];
 
@@ -258,8 +263,9 @@ const seedComplainantRelationship = async (db: Db): Promise<void> => {
 
 const ensureSystemRoles = async (db: Db): Promise<void> => {
   const roles = [
-    { code: 'admin', name_ar: 'مدير النظام', name_en: 'Administrator', description: 'صلاحيات كاملة على المؤسسة والنظام' },
-    { code: 'staff', name_ar: 'موظف', name_en: 'Staff', description: 'صلاحيات أساسية لموظفي المعالجة' },
+    { code: 'admin', name_ar: 'مدير النظام', name_en: 'Administrator', description: 'صلاحيات كاملة على المؤسسة والنظام', scope: 'tenant' as const },
+    { code: 'staff', name_ar: 'موظف', name_en: 'Staff', description: 'صلاحيات أساسية لموظفي المعالجة', scope: 'tenant' as const },
+    { code: 'platform_admin', name_ar: 'مدير المنصة', name_en: 'Platform Admin', description: 'إدارة المنصة ودورة حياة المستأجرين فقط', scope: 'platform' as const },
   ] as const;
   for (const role of roles) {
     const existing = await db.roles.findFirst({ where: { code: role.code, organization_id: null } });
@@ -273,6 +279,7 @@ const ensureSystemRoles = async (db: Db): Promise<void> => {
         organization_id: existing.organization_id,
         is_system: existing.is_system,
         is_active: existing.is_active,
+        scope: existing.scope,
       }, `system role ${role.code}`);
     } else {
       await db.roles.create({ data: { ...expected, create_date: now, write_date: now } });
@@ -280,13 +287,16 @@ const ensureSystemRoles = async (db: Db): Promise<void> => {
   }
 };
 
-const verifySystemRoles = async (db: Db): Promise<{ adminId: number; staffId: number }> => {
-  const roles = await Promise.all(['admin', 'staff'].map((code) => db.roles.findFirst({ where: { code, organization_id: null } })));
+const verifySystemRoles = async (db: Db): Promise<{ adminId: number; staffId: number; platformAdminId: number }> => {
+  const roles = await Promise.all(['admin', 'staff', 'platform_admin'].map((code) => db.roles.findFirst({ where: { code, organization_id: null } })));
   const adminRole = roles[0];
   const staffRole = roles[1];
-  if (!adminRole || !staffRole) return fail('Required global admin/staff roles are missing; run the authoritative RBAC migration first');
-  for (const role of [adminRole, staffRole]) assertSame({ is_system: true, is_active: true }, { is_system: role.is_system, is_active: role.is_active }, `system role ${role.code}`);
-  return { adminId: adminRole.id, staffId: staffRole.id };
+  const platformAdminRole = roles[2];
+  if (!adminRole || !staffRole || !platformAdminRole) return fail('Required system roles are missing; run the authoritative RBAC migration first');
+  assertSame({ is_system: true, is_active: true, scope: 'tenant' }, { is_system: adminRole.is_system, is_active: adminRole.is_active, scope: adminRole.scope }, 'system role admin');
+  assertSame({ is_system: true, is_active: true, scope: 'tenant' }, { is_system: staffRole.is_system, is_active: staffRole.is_active, scope: staffRole.scope }, 'system role staff');
+  assertSame({ is_system: true, is_active: true, scope: 'platform' }, { is_system: platformAdminRole.is_system, is_active: platformAdminRole.is_active, scope: platformAdminRole.scope }, 'system role platform_admin');
+  return { adminId: adminRole.id, staffId: staffRole.id, platformAdminId: platformAdminRole.id };
 };
 
 const seedPermissions = async (db: Db, roleIds: { adminId: number; staffId: number }): Promise<void> => {
@@ -301,7 +311,7 @@ const seedPermissions = async (db: Db, roleIds: { adminId: number; staffId: numb
       permissionIds.set(code, created.id);
     }
   }
-  const allPermissionIds = await db.permissions.findMany({ select: { id: true } });
+  const allPermissionIds = [...permissionIds.values()].map((id) => ({ id }));
   for (const { id: permissionId } of allPermissionIds) {
     const existing = await db.role_permissions.findFirst({ where: { role_id: roleIds.adminId, permission_id: permissionId } });
     if (!existing) await db.role_permissions.create({ data: { role_id: roleIds.adminId, permission_id: permissionId, created_at: now } });
@@ -314,7 +324,19 @@ const seedPermissions = async (db: Db, roleIds: { adminId: number; staffId: numb
   }
 };
 
-const seedBootstrapOrganization = async (db: Db, adminRoleId: number): Promise<void> => {
+const seedPlatformPermissions = async (db: Db, platformAdminRoleId: number): Promise<void> => {
+  for (const [code, description_ar] of PLATFORM_PERMISSIONS) {
+    const existing = await db.permissions.findUnique({ where: { code } });
+    const permission = existing || await db.permissions.create({
+      data: { code, module: 'platform', description_ar, create_date: now, write_date: now },
+    });
+    if (existing) assertSame({ module: 'platform', description_ar }, { module: existing.module, description_ar: existing.description_ar }, `permission ${code}`);
+    const assignment = await db.role_permissions.findFirst({ where: { role_id: platformAdminRoleId, permission_id: permission.id } });
+    if (!assignment) await db.role_permissions.create({ data: { role_id: platformAdminRoleId, permission_id: permission.id, created_at: now } });
+  }
+};
+
+const seedBootstrapOrganization = async (db: Db, adminRoleId: number, platformAdminRoleId: number): Promise<void> => {
   const anyOrganization = await db.organizations.findFirst({ select: { id: true } });
   if (anyOrganization) return;
   const email = process.env.BOOTSTRAP_ADMIN_EMAIL?.trim();
@@ -333,6 +355,7 @@ const seedBootstrapOrganization = async (db: Db, adminRoleId: number): Promise<v
   const user = await db.users.create({ data: { full_name: 'مدير المنصة', email, password_hash: passwordHash, is_active: true, default_organization_id: organization.id, create_date: now, write_date: now } });
   await db.user_organizations.create({ data: { user_id: user.id, organization_id: organization.id, is_primary: true, is_active: true, create_date: now, write_date: now } });
   await db.user_roles.create({ data: { user_id: user.id, role_id: adminRoleId, organization_id: organization.id, create_date: now, write_date: now } });
+  await db.user_platform_roles.create({ data: { user_id: user.id, role_id: platformAdminRoleId, create_date: now, write_date: now } });
 };
 
 const seedOrgUnitTypes = async (db: Db): Promise<void> => {
@@ -375,7 +398,8 @@ const runSeed = async (db: Db): Promise<void> => {
   await ensureSystemRoles(db);
   const roles = await verifySystemRoles(db);
   await seedPermissions(db, roles);
-  await seedBootstrapOrganization(db, roles.adminId);
+  await seedPlatformPermissions(db, roles.platformAdminId);
+  await seedBootstrapOrganization(db, roles.adminId, roles.platformAdminId);
   await seedOrgUnitTypes(db);
   await seedWorkflow(db);
 };

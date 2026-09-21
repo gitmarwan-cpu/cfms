@@ -1,6 +1,11 @@
 import prisma from '../prisma/client';
 import ApiError from '../utils/ApiError';
-import { getEffectivePermissions, getEffectiveRoleCodes } from '../services/rbacService';
+import {
+  getEffectivePermissions,
+  getEffectivePlatformPermissions,
+  getEffectivePlatformRoleCodes,
+  getEffectiveRoleCodes,
+} from '../services/rbacService';
 
 const INVALID_SESSION_MESSAGE = 'الجلسة غير صالحة أو منتهية، الرجاء تسجيل الدخول مجدداً';
 
@@ -75,12 +80,20 @@ export const authenticate = async (req: any, res: any, next: (error?: unknown) =
       throw new ApiError(401, 'المستخدم غير موجود أو غير مفعّل');
     }
 
-    const [roleCodes, permissions] = await Promise.all([
+    const [roleCodes, permissions, platformRoleCodes, platformPermissions] = await Promise.all([
       getEffectiveRoleCodes(user.id),
       getEffectivePermissions(user.id),
+      getEffectivePlatformRoleCodes(user.id),
+      getEffectivePlatformPermissions(user.id),
     ]);
 
-    req.user = { ...mapUser(user), roleCodes, permissions };
+    req.user = {
+      ...mapUser(user),
+      roleCodes,
+      permissions,
+      platformRoleCodes,
+      platformPermissions: platformPermissions.map(({ code }) => code),
+    };
     next();
   } catch (error: any) {
     if (error?.name === 'JsonWebTokenError' || error?.name === 'TokenExpiredError') {
@@ -127,3 +140,41 @@ export const authorizePermission = (
   next();
 };
 
+/**
+ * Authorizes only platform-scoped permissions. This intentionally does not
+ * consult tenant membership, tenant roles, or tenant permissions.
+ */
+const hasPlatformPermission = (req: any, permissionCodes: string[]): boolean =>
+  permissionCodes.some((permissionCode) => req.user?.platformPermissions?.includes(permissionCode));
+
+export const authorizePlatformPermission = (permissionCode: string) => (
+  req: any,
+  res: any,
+  next: (error?: unknown) => void
+): void => {
+  if (!req.user) {
+    next(new ApiError(401, 'مطلوب تسجيل الدخول للوصول لهذا المورد'));
+    return;
+  }
+  if (!hasPlatformPermission(req, [permissionCode])) {
+    next(new ApiError(403, 'لا تملك صلاحية إدارة المنصة'));
+    return;
+  }
+  next();
+};
+
+export const authorizeAnyPlatformPermission = (...permissionCodes: string[]) => (
+  req: any,
+  res: any,
+  next: (error?: unknown) => void
+): void => {
+  if (!req.user) {
+    next(new ApiError(401, 'مطلوب تسجيل الدخول للوصول لهذا المورد'));
+    return;
+  }
+  if (!hasPlatformPermission(req, permissionCodes)) {
+    next(new ApiError(403, 'لا تملك صلاحية إدارة المنصة'));
+    return;
+  }
+  next();
+};

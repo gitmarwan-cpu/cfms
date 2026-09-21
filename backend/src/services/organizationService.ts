@@ -32,7 +32,6 @@ export interface OrganizationUpdatePayload {
   accentColor?: string;
   anonymousComplaintsPolicy?: enum_organizations_anonymous_complaints_policy;
   notificationSettings?: Prisma.InputJsonValue;
-  isActive?: boolean;
   slug?: string;
 }
 
@@ -214,7 +213,13 @@ const mapOrganization = (
 
 export const getBySlug = async (slug: string): Promise<OrganizationResponse> => {
   const organization = await prisma.organizations.findFirst({
-    where: { slug, is_active: true },
+    where: {
+      slug,
+      is_active: true,
+      deleted_at: null,
+      parent_id: null,
+      lifecycle_status: 'active',
+    },
     select: ORGANIZATION_WITH_GOVERNORATE_SELECT,
   });
 
@@ -294,7 +299,6 @@ export const updateOrganization = async (
     accentColor: 'accent_color',
     anonymousComplaintsPolicy: 'anonymous_complaints_policy',
     notificationSettings: 'notification_settings',
-    isActive: 'is_active',
   } as const;
 
   const idFields = ['country_id', 'governorate_id', 'district_id'];
@@ -556,14 +560,14 @@ const isDescendantNode = async (possibleAncestorId: number, targetNodeId: number
   return false;
 };
 
-const parseNullableLocationId = (value: number | string | null | undefined, label: string): number | null => {
+export const parseNullableLocationId = (value: number | string | null | undefined, label: string): number | null => {
   if (value === undefined || value === null || value === '') return null;
   const parsed = Number(value);
   if (!Number.isSafeInteger(parsed) || parsed <= 0) throw new ApiError(422, `${label} المحددة غير صالحة`);
   return parsed;
 };
 
-const validateLocationCombination = async (
+export const validateLocationCombination = async (
   countryId: number | null,
   governorateId: number | null,
   districtId: number | null
@@ -609,151 +613,16 @@ export interface CreateOrganizationPayload {
   website?: string | null;
 }
 
-const ORGANIZATION_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-
 /**
- * Creates a new Organization/Tenant together with its implicit Root
- * Organizational Unit in a single atomic transaction.
- *
- * Unified hierarchy architecture: the `organizations` row itself IS the Root
- * Unit (parent_id = NULL, org_unit_type_id = NULL, root_organization_id =
- * NULL). Exactly one Root Unit per organization is therefore guaranteed by
- * construction — the Root cannot be contradictory with the organization
- * identity because it is the same row.
- *
- * The transaction also seeds the default unit types (mirroring
- * prisma/seed.ts), and grants the creating administrator an active membership
- * plus the system admin role within the new tenant so it is immediately
- * manageable.
+ * Legacy guard: tenant creation is owned exclusively by the platform
+ * provisioning workflow. Keeping this exported as an explicit rejection makes
+ * accidental reintroduction of the old controller/service path fail closed.
  */
 export const createOrganization = async (
-  payload: CreateOrganizationPayload,
-  authUserId?: number | null
-): Promise<OrganizationResponse> => {
-  const legalName = payload.legalName?.trim() ?? '';
-  if (legalName.length < 2 || legalName.length > 200) {
-    throw new ApiError(422, 'اسم المؤسسة مطلوب (2-200 حرف)');
-  }
-
-  const slug = payload.slug?.trim().toLowerCase() ?? '';
-  if (!ORGANIZATION_SLUG_PATTERN.test(slug) || slug.length < 3 || slug.length > 80) {
-    throw new ApiError(422, 'معرّف المؤسسة (slug) غير صالح: أحرف لاتينية صغيرة وأرقام وشرطات فقط (3-80)');
-  }
-
-  const existingRoot = await prisma.organizations.findFirst({
-    where: { slug, parent_id: null },
-    select: { id: true },
-  });
-  if (existingRoot) {
-    throw new ApiError(409, 'معرّف المؤسسة (slug) مستخدم مسبقاً');
-  }
-
-  const countryId = parseNullableLocationId(payload.countryId, 'الدولة');
-  const governorateId = parseNullableLocationId(payload.governorateId, 'المحافظة');
-  const districtId = parseNullableLocationId(payload.districtId, 'المديرية');
-  await validateLocationCombination(countryId, governorateId, districtId);
-
-  const created = await prisma.$transaction(async (tx) => {
-    const now = new Date();
-
-    // The organization record is simultaneously the tenant identity and its
-    // Root Organizational Unit (parent_id and root_organization_id stay NULL).
-    const organization = await tx.organizations.create({
-      data: {
-        legal_name: legalName,
-        short_name: payload.shortName?.trim() || null,
-        description: payload.description?.trim() || null,
-        slug,
-        country: 'Yemen',
-        country_id: countryId,
-        governorate_id: governorateId,
-        district_id: districtId,
-        email: payload.email?.trim() || null,
-        website: payload.website?.trim() || null,
-        default_language: 'ar',
-        timezone: 'Asia/Aden',
-        date_format: 'DD/MM/YYYY',
-        anonymous_complaints_policy: 'allowed',
-        notification_settings: {},
-        is_active: true,
-        create_date: now,
-        write_date: now,
-        create_uid: authUserId || null,
-        write_uid: authUserId || null,
-      },
-      select: ORGANIZATION_SELECT,
-    });
-
-    // Default unit types for the new tenant (same reference data as seed.ts),
-    // so the hierarchy is ready for Branch/Sector and Department nodes.
-    const branchType = await tx.org_unit_types.create({
-      data: {
-        organization_id: organization.id,
-        code: 'branch_sector',
-        name_ar: 'فرع / قطاع',
-        name_en: 'Branch / Sector',
-        hierarchy_level: 1,
-        allowed_parent_type_id: null,
-        is_active: true,
-        create_date: now,
-        write_date: now,
-      },
-    });
-    await tx.org_unit_types.create({
-      data: {
-        organization_id: organization.id,
-        code: 'department',
-        name_ar: 'قسم',
-        name_en: 'Department',
-        hierarchy_level: 2,
-        allowed_parent_type_id: branchType.id,
-        is_active: true,
-        create_date: now,
-        write_date: now,
-      },
-    });
-
-    if (authUserId) {
-      await tx.user_organizations.create({
-        data: {
-          user_id: authUserId,
-          organization_id: organization.id,
-          is_primary: false,
-          is_active: true,
-          create_date: now,
-          write_date: now,
-        },
-      });
-      const adminRole = await tx.roles.findFirst({
-        where: { code: 'admin', organization_id: null, is_active: true },
-        select: { id: true },
-      });
-      if (adminRole) {
-        await tx.user_roles.create({
-          data: {
-            user_id: authUserId,
-            role_id: adminRole.id,
-            organization_id: organization.id,
-            create_date: now,
-            write_date: now,
-          },
-        });
-      }
-    }
-
-    await recordAuditEvent(tx, {
-      organizationId: organization.id,
-      actorUserId: authUserId ?? null,
-      action: 'organization.created',
-      entityType: 'organization',
-      entityId: organization.id,
-      metadata: { slug },
-    });
-
-    return organization;
-  });
-
-  return mapOrganization(created);
+  _payload: CreateOrganizationPayload,
+  _authUserId?: number | null
+): Promise<never> => {
+  throw new ApiError(403, 'إنشاء المؤسسات متاح فقط من خلال إدارة المنصة');
 };
 
 export const listOrganizationNodes = async (

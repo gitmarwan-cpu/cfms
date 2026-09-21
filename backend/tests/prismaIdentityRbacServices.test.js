@@ -15,6 +15,9 @@ describe('Prisma identity and RBAC services', () => {
   let permission;
   let adminRole;
   let customRole;
+  let platformRole;
+  let platformPermission;
+  let platformCodePermission;
 
   beforeAll(async () => {
     await prepareTestDatabase();
@@ -84,6 +87,24 @@ describe('Prisma identity and RBAC services', () => {
         write_date: now,
       },
     });
+    platformPermission = await prisma.permissions.create({
+      data: {
+        code: 'platform.identity.test',
+        module: 'platform',
+        description_ar: 'Platform identity test permission',
+        create_date: now,
+        write_date: now,
+      },
+    });
+    platformCodePermission = await prisma.permissions.create({
+      data: {
+        code: 'platform.identity.mismatched_module',
+        module: 'identity',
+        description_ar: 'Platform-prefixed identity test permission',
+        create_date: now,
+        write_date: now,
+      },
+    });
     adminRole = await prisma.roles.create({
       data: {
         code: 'admin',
@@ -105,6 +126,21 @@ describe('Prisma identity and RBAC services', () => {
         create_date: now,
         write_date: now,
       },
+    });
+    platformRole = await prisma.roles.create({
+      data: {
+        code: 'platform_identity_test',
+        name_ar: 'Platform Identity Test',
+        is_system: true,
+        is_active: true,
+        scope: 'platform',
+        organization_id: null,
+        create_date: now,
+        write_date: now,
+      },
+    });
+    await prisma.role_permissions.create({
+      data: { role_id: platformRole.id, permission_id: platformPermission.id, created_at: now },
     });
     await prisma.role_permissions.create({
       data: { role_id: customRole.id, permission_id: permission.id, created_at: now },
@@ -178,5 +214,22 @@ describe('Prisma identity and RBAC services', () => {
     });
     expect(assigned).toMatchObject({ userId: staff.id, organizationId: organization.id, roleId: adminRole.id });
     await userRoleService.revokeRole(organization.id, assigned.id);
+  });
+
+  it('prevents tenant roles and tenant role assignment APIs from crossing into platform RBAC', async () => {
+    await expect(roleService.createRole(organization.id, {
+      code: 'invalid_platform_grant',
+      nameAr: 'Invalid Platform Grant',
+      permissionIds: [platformPermission.id, platformCodePermission.id],
+    })).rejects.toMatchObject({ statusCode: 403 });
+
+    await expect(userRoleService.assignRole(organization.id, {
+      userId: staff.id,
+      roleId: platformRole.id,
+    })).rejects.toMatchObject({ statusCode: 404 });
+
+    await expect(rbacService.getEffectivePermissions(staff.id)).resolves.not.toEqual(
+      expect.arrayContaining([{ code: platformPermission.code, organizationId: organization.id, orgUnitId: null }])
+    );
   });
 });

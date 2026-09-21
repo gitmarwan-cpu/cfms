@@ -22,6 +22,7 @@ const TEST_TABLES = [
   'permissions',
   'role_permissions',
   'user_roles',
+  'user_platform_roles',
   'user_organizations',
   'workflow_definitions',
   'workflow_states',

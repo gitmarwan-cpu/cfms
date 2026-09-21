@@ -161,11 +161,13 @@ beforeAll(async () => {
   const staffRole = await prisma.roles.create({
     data: { code: 'staff', name_ar: 'موظف', is_system: true, organization_id: null, create_date: timestamp(), write_date: timestamp() },
   });
+  const platformAdminRole = await prisma.roles.create({
+    data: { code: 'platform_admin', name_ar: 'مدير المنصة', name_en: 'Platform Admin', is_system: true, scope: 'platform', organization_id: null, create_date: timestamp(), write_date: timestamp() },
+  });
 
   const permissionCodes = [
     'organization.view',
     'organization.manage',
-    'organization.create',
     'reference_data.view',
     'reference_data.manage',
     'org_structure.view',
@@ -203,7 +205,25 @@ beforeAll(async () => {
     },
   });
 
-  global.__rbacRoles = { adminRole, staffRole };
+  const platformPermissionCodes = [
+    'platform.tenant.create',
+    'platform.tenant.lifecycle',
+    'platform.users.manage',
+    'platform.memberships.manage',
+  ];
+  const platformPermissions = await prisma.permissions.createManyAndReturn({
+    data: platformPermissionCodes.map((code) => ({
+      code,
+      module: 'platform',
+      create_date: timestamp(),
+      write_date: timestamp(),
+    })),
+  });
+  await prisma.role_permissions.createMany({
+    data: platformPermissions.map((permission) => ({ role_id: platformAdminRole.id, permission_id: permission.id, created_at: timestamp() })),
+  });
+
+  global.__rbacRoles = { adminRole, staffRole, platformAdminRole };
 
   global.__defaultOrg = await prisma.organizations.create({
     data: {

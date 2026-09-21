@@ -19,6 +19,35 @@ describe('Organization (Tenant) creation lifecycle and Root Unit integrity', () 
 
   beforeAll(async () => {
     const hostOrg = await createOrganization({ legalName: 'مؤسسة مضيفة لدورة الإنشاء', slug: `lifecycle-host-${unique()}` });
+    createdOrgId = hostOrg.id;
+    rootUnitId = hostOrg.id;
+    const branchType = await prisma.org_unit_types.create({
+      data: {
+        organization_id: hostOrg.id,
+        code: 'branch_sector',
+        name_ar: 'فرع / قطاع',
+        name_en: 'Branch / Sector',
+        hierarchy_level: 1,
+        is_active: true,
+        create_date: new Date(),
+        write_date: new Date(),
+      },
+    });
+    const departmentType = await prisma.org_unit_types.create({
+      data: {
+        organization_id: hostOrg.id,
+        code: 'department',
+        name_ar: 'قسم',
+        name_en: 'Department',
+        hierarchy_level: 2,
+        allowed_parent_type_id: branchType.id,
+        is_active: true,
+        create_date: new Date(),
+        write_date: new Date(),
+      },
+    });
+    branchTypeId = branchType.id;
+    departmentTypeId = departmentType.id;
     const { user: admin } = await createUserWithRole(
       { fullName: 'مدير المنصة', email: `lifecycle-admin-${unique()}@cfms.local`, roleCode: 'admin', organizationId: hostOrg.id },
       'Password123'
@@ -49,84 +78,20 @@ describe('Organization (Tenant) creation lifecycle and Root Unit integrity', () 
     expect(res.status).toBe(401);
   });
 
-  it('يرفض إنشاء مؤسسة لمستخدم بدون صلاحية organization.create (403)', async () => {
+  it('لا يملك مدير المستأجر مسار إنشاء مستأجر جديد (404)', async () => {
+    const res = await request(app)
+      .post('/api/organization')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send(createOrgPayload());
+    expect(res.status).toBe(404);
+  });
+
+  it('لا يملك المستخدم العادي مسار إنشاء مستأجر جديد (404)', async () => {
     const res = await request(app)
       .post('/api/organization')
       .set('Authorization', `Bearer ${staffToken}`)
       .send(createOrgPayload());
-    expect(res.status).toBe(403);
-  });
-
-  it('يرفض slug غير صالح (422)', async () => {
-    const res = await request(app)
-      .post('/api/organization')
-      .set('Authorization', `Bearer ${adminToken}`)
-      .send(createOrgPayload({ slug: 'Invalid Slug!' }));
-    expect(res.status).toBe(422);
-  });
-
-  it('ينشئ المؤسسة مع وحدتها الجذرية تلقائياً في معاملة واحدة (201)', async () => {
-    const payload = createOrgPayload();
-    const res = await request(app)
-      .post('/api/organization')
-      .set('Authorization', `Bearer ${adminToken}`)
-      .send(payload);
-
-    expect(res.status).toBe(201);
-    expect(res.body.data.slug).toBe(payload.slug);
-    createdOrgId = res.body.data.id;
-
-    const created = await prisma.organizations.findUnique({ where: { id: createdOrgId } });
-    expect(created).not.toBeNull();
-    // Root Unit rules: exactly one root row, no parent, root-level type
-    expect(created.parent_id).toBeNull();
-    expect(created.root_organization_id).toBeNull();
-    expect(created.org_unit_type_id).toBeNull();
-    expect(created.is_active).toBe(true);
-    rootUnitId = created.id;
-
-    const rootCount = await prisma.organizations.count({ where: { slug: payload.slug, parent_id: null } });
-    expect(rootCount).toBe(1);
-
-    // Default unit types seeded for the new tenant (ready for hierarchy management)
-    const types = await prisma.org_unit_types.findMany({ where: { organization_id: createdOrgId } });
-    expect(types.map((t) => t.code).sort()).toEqual(['branch_sector', 'department']);
-    branchTypeId = types.find((t) => t.code === 'branch_sector').id;
-    departmentTypeId = types.find((t) => t.code === 'department').id;
-
-    // Creator received membership + admin role in the new tenant
-    const membership = await prisma.user_organizations.findFirst({
-      where: { user_id: adminUserId, organization_id: createdOrgId, is_active: true },
-    });
-    expect(membership).not.toBeNull();
-    const adminRoleAssignment = await prisma.user_roles.findFirst({
-      where: { user_id: adminUserId, organization_id: createdOrgId },
-    });
-    expect(adminRoleAssignment).not.toBeNull();
-
-    // Exactly one hierarchy node (the Root Unit) visible from the new tenant context
-    const nodesRes = await request(app)
-      .get('/api/organization/nodes')
-      .set('Authorization', `Bearer ${adminToken}`)
-      .set('x-organization-id', String(createdOrgId));
-    expect(nodesRes.status).toBe(200);
-    expect(nodesRes.body.data).toHaveLength(1);
-    expect(nodesRes.body.data[0].id).toBe(rootUnitId);
-    expect(nodesRes.body.data[0].parentId).toBeNull();
-
-    const audit = await prisma.audit_logs.findFirst({
-      where: { organization_id: createdOrgId, action: 'organization.created', entity_id: createdOrgId },
-    });
-    expect(audit).not.toBeNull();
-  });
-
-  it('يرفض slug مكرراً (409)', async () => {
-    const existing = await prisma.organizations.findUnique({ where: { id: createdOrgId }, select: { slug: true } });
-    const res = await request(app)
-      .post('/api/organization')
-      .set('Authorization', `Bearer ${adminToken}`)
-      .send(createOrgPayload({ slug: existing.slug }));
-    expect(res.status).toBe(409);
+    expect(res.status).toBe(404);
   });
 
   it('لا يمكن إنشاء وحدة جذرية ثانية: العقدة الجديدة تلحق بالمؤسسة الجذرية', async () => {

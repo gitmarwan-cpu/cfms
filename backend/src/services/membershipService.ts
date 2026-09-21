@@ -86,7 +86,7 @@ type DbClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
  */
 export const countActiveAdmins = async (tx: DbClient, organizationId: number): Promise<number> => {
   const adminRoleHolders = await tx.user_roles.findMany({
-    where: { organization_id: organizationId, roles: { code: 'admin' } },
+    where: { organization_id: organizationId, roles: { code: 'admin', scope: 'tenant' } },
     select: { user_id: true },
   });
   const adminUserIds = Array.from(new Set(adminRoleHolders.map((holder) => holder.user_id)));
@@ -336,7 +336,7 @@ export const removeMembership = async (
     // user record + this active membership) can reduce the organization's
     // active-admin count — removing an inactive admin's membership cannot.
     const holdsAdminRole = await tx.user_roles.findFirst({
-      where: { user_id: targetUserId, organization_id: parsedOrganizationId, roles: { code: 'admin' } },
+      where: { user_id: targetUserId, organization_id: parsedOrganizationId, roles: { code: 'admin', scope: 'tenant' } },
       select: { id: true },
     });
     if (holdsAdminRole) {

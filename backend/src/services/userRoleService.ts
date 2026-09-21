@@ -30,7 +30,7 @@ const USER_ROLE_SELECT = {
   write_date: true,
   create_uid: true,
   write_uid: true,
-  roles: { select: { id: true, code: true, name_ar: true, name_en: true } },
+  roles: { select: { id: true, code: true, name_ar: true, name_en: true, scope: true } },
   organization_node: { select: { id: true, legal_name: true, short_name: true, code: true } },
 } as const;
 
@@ -90,8 +90,12 @@ export const assignRole = async (
     ? await Promise.all([
         prisma.users.findUnique({ where: { id: parsedUserId }, select: { id: true } }),
         prisma.roles.findFirst({
-          where: { id: parsedRoleId, OR: [{ organization_id: null }, { organization_id: parsedOrganizationId as number }] },
-          select: { id: true, code: true, is_active: true },
+          where: {
+            id: parsedRoleId,
+            scope: 'tenant',
+            OR: [{ organization_id: null }, { organization_id: parsedOrganizationId as number }],
+          },
+          select: { id: true, code: true, is_active: true, scope: true },
         }),
       ])
     : [null, null];
@@ -160,6 +164,106 @@ export const assignRole = async (
     return createdRow;
   });
   return mapUserRole(created);
+};
+
+export const changeRole = async (
+  organizationId: OrganizationId,
+  userId: UserId,
+  userRoleId: UserRoleId,
+  payload: { roleId: RoleId; organizationNodeId?: string | number | null },
+  authUserId?: number | null
+) => {
+  const parsedOrganizationId = toSafeInteger(organizationId);
+  const parsedUserId = toSafeInteger(userId);
+  const parsedUserRoleId = toSafeInteger(userRoleId);
+  const parsedRoleId = toSafeInteger(payload.roleId);
+  const parsedOrganizationNodeId = optionalId(payload.organizationNodeId);
+  if (!parsedOrganizationId || !parsedUserId || !parsedUserRoleId || !parsedRoleId) {
+    throw new ApiError(400, 'معرّف المستخدم أو الدور غير صالح');
+  }
+  if (payload.organizationNodeId !== undefined && payload.organizationNodeId !== null
+    && payload.organizationNodeId !== '' && parsedOrganizationNodeId === null) {
+    throw new ApiError(400, 'معرّف العقدة التنظيمية غير صالح');
+  }
+
+  const changed = await prisma.$transaction(async (tx) => {
+    const assignment = await tx.user_roles.findFirst({
+      where: { id: parsedUserRoleId, user_id: parsedUserId, organization_id: parsedOrganizationId },
+      select: { id: true, user_id: true, role_id: true, organization_node_id: true, roles: { select: { code: true } } },
+    });
+    if (!assignment) throw new ApiError(404, 'تعيين الدور غير موجود ضمن المؤسسة');
+
+    const role = await tx.roles.findFirst({
+      where: {
+        id: parsedRoleId,
+        is_active: true,
+        scope: 'tenant',
+        OR: [{ organization_id: null }, { organization_id: parsedOrganizationId }],
+      },
+      select: { id: true, code: true, scope: true },
+    });
+    if (!role) throw new ApiError(404, 'الدور غير موجود أو غير مفعّل ضمن المؤسسة');
+
+    const membership = await tx.user_organizations.findFirst({
+      where: { user_id: parsedUserId, organization_id: parsedOrganizationId, is_active: true },
+      select: { id: true },
+    });
+    if (!membership) throw new ApiError(400, 'لا يمكن إسناد دور لمستخدم غير عضو نشط في هذه المؤسسة');
+
+    if (parsedOrganizationNodeId !== null) {
+      const node = await tx.organizations.findFirst({
+        where: {
+          id: parsedOrganizationNodeId,
+          is_active: true,
+          deleted_at: null,
+          OR: [{ id: parsedOrganizationId }, { root_organization_id: parsedOrganizationId }],
+        },
+        select: { id: true },
+      });
+      if (!node) throw new ApiError(404, 'الوحدة التنظيمية غير موجودة أو غير مفعّلة ضمن المؤسسة');
+    }
+
+    if (assignment.role_id === role.id && assignment.organization_node_id === parsedOrganizationNodeId) {
+      throw new ApiError(409, 'هذا التعيين موجود بالفعل');
+    }
+
+    if (assignment.roles.code === 'admin' && role.code !== 'admin') {
+      const activeAdminCount = await countActiveAdmins(tx, parsedOrganizationId);
+      if (activeAdminCount <= 1) throw new ApiError(400, 'لا يمكن تغيير دور آخر مدير نشط في هذه المؤسسة');
+    }
+
+    const now = new Date();
+    const updated = await tx.user_roles.update({
+      where: { id: assignment.id },
+      data: {
+        role_id: role.id,
+        organization_node_id: parsedOrganizationNodeId,
+        write_date: now,
+        write_uid: authUserId ?? null,
+      },
+      select: USER_ROLE_SELECT,
+    });
+
+    await recordAuditEvent(tx, {
+      organizationId: parsedOrganizationId,
+      actorUserId: authUserId ?? null,
+      action: 'user_role.changed',
+      entityType: 'user_role',
+      entityId: updated.id,
+      metadata: {
+        userId: parsedUserId,
+        previousRoleId: assignment.role_id,
+        previousRoleCode: assignment.roles.code,
+        roleId: role.id,
+        roleCode: role.code,
+        organizationNodeId: parsedOrganizationNodeId,
+      },
+    });
+
+    return updated;
+  });
+
+  return mapUserRole(changed);
 };
 
 export const revokeRole = async (

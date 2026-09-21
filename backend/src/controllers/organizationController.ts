@@ -6,14 +6,6 @@ export {};
 const getOwnSettings = catchAsync(async (req: AppRequest, res: AppResponse) => res.status(200).json({ success: true, data: await organizationService.getOwnOrganization(req.organizationId) }));
 const updateSettings = catchAsync(async (req: AppRequest, res: AppResponse) => res.status(200).json({ success: true, message: 'تم تحديث إعدادات المؤسسة', data: await organizationService.updateOrganization(req.organizationId, req.body, req.user?.id) }));
 
-const createOrganization = catchAsync(async (req: AppRequest, res: AppResponse) =>
-  res.status(201).json({
-    success: true,
-    message: 'تم إنشاء المؤسسة بنجاح',
-    data: await organizationService.createOrganization(req.body, req.user?.id),
-  })
-);
-
 const listNodes = catchAsync(async (req: AppRequest, res: AppResponse) =>
   res.status(200).json({ success: true, data: await organizationService.listOrganizationNodes(req.organizationId) })
 );
@@ -50,5 +42,4 @@ const activateNode = catchAsync(async (req: AppRequest, res: AppResponse) =>
   })
 );
 
-module.exports = { getOwnSettings, updateSettings, createOrganization, listNodes, createNode, updateNode, deactivateNode, activateNode };
-
+module.exports = { getOwnSettings, updateSettings, listNodes, createNode, updateNode, deactivateNode, activateNode };

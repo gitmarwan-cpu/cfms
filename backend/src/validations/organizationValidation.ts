@@ -19,7 +19,6 @@ const updateOrganizationValidation = [
   body('accentColor').optional().matches(HEX_COLOR).withMessage('صيغة اللون غير صالحة'),
   body('anonymousComplaintsPolicy').optional().isIn(['allowed', 'not_allowed', 'optional']),
   body('notificationSettings').optional().isObject(),
-  body('isActive').optional().isBoolean().toBoolean(),
 ];
 
 const createOrganizationValidation = [
@@ -86,4 +85,3 @@ module.exports = {
   updateNodeValidation,
   nodeIdParamValidation,
 };
-

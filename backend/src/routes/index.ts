@@ -12,6 +12,8 @@ const auditRoutes = require('./auditRoutes');
 const notificationRoutes = require('./notificationRoutes');
 const reportRoutes = require('./reportRoutes');
 const slaRoutes = require('./slaRoutes');
+const platformTenantRoutes = require('./platformTenantRoutes');
+const platformUserRoutes = require('./platformUserRoutes');
 const prisma = require('../prisma/client');
 export {};
 
@@ -38,5 +40,7 @@ router.use('/audit-logs', auditRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/reports', reportRoutes);
 router.use('/sla-rules', slaRoutes);
+router.use('/platform', platformTenantRoutes);
+router.use('/platform', platformUserRoutes);
 
 module.exports = router;

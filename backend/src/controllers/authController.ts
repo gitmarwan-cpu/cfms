@@ -21,7 +21,17 @@ const me = catchAsync(async (req: AppRequest, res: AppResponse) => {
   const userData = typeof (req.user as any).toJSON === 'function' ? (req.user as any).toJSON() : req.user;
   const { passwordHash, password_hash, ...userSafe } = userData;
   const organizations = await authService.getMyOrganizations(req.user!.id);
-  res.status(200).json({ success: true, data: { ...userSafe, roleCodes: req.user!.roleCodes, permissions: req.user!.permissions, organizations } });
+  res.status(200).json({
+    success: true,
+    data: {
+      ...userSafe,
+      roleCodes: req.user!.roleCodes,
+      permissions: req.user!.permissions,
+      platformRoleCodes: req.user!.platformRoleCodes,
+      platformPermissions: req.user!.platformPermissions,
+      organizations,
+    },
+  });
 });
 
 /**

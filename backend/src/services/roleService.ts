@@ -57,6 +57,7 @@ export interface RoleResponse {
   description: string | null;
   isSystem: boolean;
   isActive: boolean;
+  scope: 'tenant' | 'platform';
   createDate: Date;
   writeDate: Date;
   createUid: number | null;
@@ -75,6 +76,7 @@ const ROLE_SELECT = {
   description: true,
   is_system: true,
   is_active: true,
+  scope: true,
   create_date: true,
   write_date: true,
   create_uid: true,
@@ -130,6 +132,7 @@ const mapRole = (role: any): RoleResponse => ({
   description: role.description,
   isSystem: role.is_system,
   isActive: role.is_active,
+  scope: role.scope,
   createDate: role.create_date,
   writeDate: role.write_date,
   createUid: role.create_uid,
@@ -142,6 +145,7 @@ const mapRole = (role: any): RoleResponse => ({
 });
 
 const visibleRoleWhere = (organizationId: number) => ({
+  scope: 'tenant' as const,
   OR: [{ organization_id: null }, { organization_id: organizationId }],
 });
 
@@ -162,6 +166,15 @@ const replaceRolePermissions = async (
 ): Promise<void> => {
   await client.role_permissions.deleteMany({ where: { role_id: roleId } });
   if (permissionIds.length === 0) return;
+  const platformPermissionCount = await client.permissions.count({
+    where: {
+      id: { in: permissionIds },
+      OR: [{ module: 'platform' }, { code: { startsWith: 'platform.' } }],
+    },
+  });
+  if (platformPermissionCount > 0) {
+    throw new ApiError(403, 'لا يمكن منح صلاحيات المنصة لدور مستأجر');
+  }
   await client.role_permissions.createMany({
     data: permissionIds.map((permission_id) => ({ role_id: roleId, permission_id, created_at: new Date() })),
     skipDuplicates: true,
@@ -250,7 +263,7 @@ export const updateRole = async (
   const role = parsedId
     ? await prisma.roles.findUnique({ where: { id: parsedId }, select: ROLE_SELECT })
     : null;
-  if (!role || (role.organization_id !== null && role.organization_id !== parsedOrganizationId)) {
+  if (!role || role.scope !== 'tenant' || (role.organization_id !== null && role.organization_id !== parsedOrganizationId)) {
     throw new ApiError(404, 'الدور غير موجود');
   }
   if (role.is_system) throw new ApiError(403, 'لا يمكن تعديل الأدوار النظامية (admin/staff)');
@@ -289,7 +302,7 @@ export const deleteRole = async (
   const parsedOrganizationId = toSafeInteger(organizationId);
   const parsedId = toSafeInteger(id);
   const role = parsedId ? await prisma.roles.findUnique({ where: { id: parsedId }, select: ROLE_SELECT }) : null;
-  if (!role || (role.organization_id !== null && role.organization_id !== parsedOrganizationId)) {
+  if (!role || role.scope !== 'tenant' || (role.organization_id !== null && role.organization_id !== parsedOrganizationId)) {
     throw new ApiError(404, 'الدور غير موجود');
   }
   if (role.is_system) throw new ApiError(403, 'لا يمكن حذف الأدوار النظامية (admin/staff)');
@@ -314,6 +327,14 @@ export const deleteRole = async (
 };
 
 export const listPermissions = async (): Promise<PermissionResponse[]> => {
-  const permissions = await prisma.permissions.findMany({ orderBy: [{ module: 'asc' }, { code: 'asc' }] });
+  const permissions = await prisma.permissions.findMany({
+    where: {
+      AND: [
+        { module: { not: 'platform' } },
+        { code: { not: { startsWith: 'platform.' } } },
+      ],
+    },
+    orderBy: [{ module: 'asc' }, { code: 'asc' }],
+  });
   return permissions.map(mapPermission);
 };

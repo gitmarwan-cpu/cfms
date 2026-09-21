@@ -5,6 +5,8 @@ export interface AppUser {
   isActive?: boolean;
   defaultOrganizationId?: number | null;
   roleCodes?: string[];
+  platformRoleCodes?: string[];
+  platformPermissions?: string[];
   permissions?: Array<{
     code: string;
     organizationId: number;

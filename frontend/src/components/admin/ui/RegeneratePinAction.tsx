@@ -34,7 +34,7 @@ export function RegeneratePinAction({ complaintId, onSuccess }: RegeneratePinAct
       <button 
         type="button" 
         onClick={() => setOpen(true)}
-        className="btn btn-secondary btn-sm flex items-center justify-center"
+        className="ds-btn ds-btn--outline ds-btn--icon-sm"
         title="إعادة توليد وإرسال رمز المتابعة"
         aria-label="إعادة توليد الرمز"
       >

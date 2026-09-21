@@ -27,23 +27,12 @@ export default function ThemeToggle() {
   return (
     <button
       type="button"
+      className="theme-toggle"
       onClick={() => setIsDark((prev) => !prev)}
-      aria-label="تبديل المظهر"
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: '32px',
-        height: '32px',
-        borderRadius: '50%',
-        border: '1px solid var(--color-border)',
-        background: 'transparent',
-        color: 'var(--color-text)',
-        cursor: 'pointer',
-        marginInline: '8px'
-      }}
+      aria-label={isDark ? 'التبديل إلى الوضع الفاتح' : 'التبديل إلى الوضع الداكن'}
+      title={isDark ? 'الوضع الداكن نشط — اضغط للوضع الفاتح' : 'الوضع الفاتح نشط — اضغط للوضع الداكن'}
     >
-      {isDark ? <Sun size={18} /> : <Moon size={18} />}
+      {isDark ? <Sun size={18} aria-hidden="true" /> : <Moon size={18} aria-hidden="true" />}
     </button>
   );
 }

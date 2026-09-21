@@ -1,6 +1,7 @@
 ﻿import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Command } from 'cmdk';
+import { Search } from 'lucide-react';
 import { getVisibleNavGroups } from './navConfig';
 import { useAuth } from '../../context/AuthContext';
 
@@ -35,7 +36,25 @@ export default function CommandMenu({ open, onOpenChange }: CommandMenuProps) {
       label="قائمة الأوامر"
       loop
     >
-      <Command.Input placeholder="انتقل إلى صفحة…" />
+      {/* Search row: icon + input + ESC — positioned above [cmdk-list] so the
+          scrollbar never reaches it, matching the shell.css layout contract. */}
+      <div className="cmdk-search">
+        <span className="cmdk-search__icon" aria-hidden="true">
+          <Search size={16} />
+        </span>
+        <Command.Input
+          className="cmdk-search__input"
+          placeholder="انتقل إلى صفحة…"
+        />
+        <button
+          type="button"
+          className="cmdk-esc"
+          aria-label="إغلاق قائمة الأوامر"
+          onClick={() => onOpenChange(false)}
+        >
+          ESC
+        </button>
+      </div>
       <Command.List>
         <Command.Empty>لا توجد نتائج</Command.Empty>
         {visibleGroups.map((group) => (
@@ -52,7 +71,8 @@ export default function CommandMenu({ open, onOpenChange }: CommandMenuProps) {
                 <span className="sidebar__link-icon" aria-hidden="true">
                   <item.icon size={16} />
                 </span>
-                {item.label}
+                <span className="cmdk-item__label">{item.label}</span>
+                <span className="cmdk-item__badge" aria-hidden="true">↵</span>
               </Command.Item>
             ))}
           </Command.Group>

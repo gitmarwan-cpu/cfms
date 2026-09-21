@@ -29,10 +29,11 @@ export default function UserMenu() {
           sideOffset={8}
           collisionPadding={12}
           avoidCollisions
+          style={{ zIndex: 'var(--z-dropdown, 60)' }}
         >
           <div className="usermenu-meta">
             <div className="usermenu-meta-name">{user.fullName}</div>
-            <div className="usermenu-meta-email" dir="ltr">{user.email}</div>
+            <div className="usermenu-meta-email" dir="ltr" title={user.email}>{user.email}</div>
           </div>
           <DropdownMenu.Separator className="usermenu-sep" />
           <DropdownMenu.Item className="usermenu-item" onSelect={() => logout()}>

@@ -1033,13 +1033,14 @@ a.dash-row:hover, a.dash-row:focus-visible { background: var(--color-bg-subtle, 
 .ptn-search__input {
   width: 100%;
   font-family: inherit;
-  font-size: var(--text-sm, 13px);
+  font-size: 14px;
   color: var(--color-text, #1c2b2c);
   background: var(--color-surface, #ffffff);
   border: 1px solid var(--color-border, #d8e3e3);
   border-radius: var(--radius-sm, 6px);
   padding: 7px 36px 7px 10px;
   padding-inline-start: 34px;
+  padding-inline-end: 32px;
   outline: none;
   transition: border-color 120ms ease, box-shadow 120ms ease;
   box-sizing: border-box;
@@ -1048,6 +1049,16 @@ a.dash-row:hover, a.dash-row:focus-visible { background: var(--color-bg-subtle, 
 .ptn-search__input:focus {
   border-color: var(--color-primary, #0e5f66);
   box-shadow: 0 0 0 3px rgba(14, 95, 102, 0.15);
+}
+
+/* Suppress the native browser cancel button; the component provides its own
+   .ptn-search__clear button so a second control must not appear. */
+.ptn-search__input::-webkit-search-decoration,
+.ptn-search__input::-webkit-search-cancel-button,
+.ptn-search__input::-webkit-search-results-button,
+.ptn-search__input::-webkit-search-results-decoration {
+  -webkit-appearance: none;
+  display: none;
 }
 
 .ptn-search__input::placeholder {
@@ -1203,6 +1214,40 @@ a.dash-row:hover, a.dash-row:focus-visible { background: var(--color-bg-subtle, 
 }
 .cl-alert { margin-bottom: 20px; }
 .cl-scroll { overflow-x: auto; }
+.cl-card,
+.cl-table-card {
+  max-width: none;
+}
+.cl-filter-search {
+  flex: 2 1 380px;
+  min-inline-size: 240px;
+}
+.cl-filter-field {
+  flex: 1 1 160px;
+  min-inline-size: 140px;
+  max-inline-size: 240px;
+}
+.cl-table {
+  inline-size: 100%;
+  min-inline-size: 880px;
+}
+.cl-table th,
+.cl-table td {
+  vertical-align: middle;
+}
+.cl-table__center {
+  text-align: center;
+}
+.cl-table__nowrap {
+  white-space: nowrap;
+}
+.cl-cell-clip {
+  display: block;
+  max-inline-size: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .cl-empty { padding: 30px; text-align: center; color: var(--color-text-muted, #6b7280); }
 .cl-sens-badge { margin-inline-start: 8px; display: inline-flex; align-items: center; gap: 4px; }
 .cl-sens-badge svg { flex-shrink: 0; }

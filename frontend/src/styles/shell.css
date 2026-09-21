@@ -5,22 +5,67 @@
    RTL-first: logical properties only.
    ============================================================ */
 
+/* Shell surfaces are ALIASES of the design-system tokens in tokens.css, not a
+   second palette. That is what makes the whole chrome theme-aware: when
+   `:root.dark` re-points the --color-* scale, the sidebar, header, popovers and
+   command palette follow automatically instead of staying light. Only values
+   that have no token of their own (fill-text, hover/selected washes, ring,
+   scrollbar) are declared here, and those get dark overrides further down. */
+/* Shell surface tokens are declared on :root so they are available to
+   portal-rendered elements (cmdk dialog, dropdown menus) that Radix appends
+   directly to <body>, outside of .app-shell. Without :root scope, the
+   elements cannot inherit --sh-* and fall back to the light defaults even
+   in Dark Mode, making the palette appear white/transparent. */
+:root {
+  --sh-bg: var(--color-bg, #f5f7f7);
+  --sh-surface: var(--color-surface, #ffffff);
+  --sh-text: var(--color-text, #1d2b2d);
+  --sh-muted: var(--color-text-muted, #5d7072);
+  --sh-border: var(--color-border, #e2e8e8);
+  --sh-primary: var(--color-primary, #0e5f66);
+  --sh-primary-strong: var(--color-primary-dark, #0a464b);
+  --sh-primary-soft: var(--color-primary-light, #e7f0f0);
+  --sh-danger: var(--color-danger, #b3372e);
+  --sh-ring: color-mix(in srgb, var(--color-primary, #0e5f66) 35%, transparent);
+  --sh-e1: var(--shadow-card, 0 1px 2px rgba(16, 34, 36, 0.06));
+  --sh-e2: var(--shadow-dropdown, 0 4px 16px rgba(16, 34, 36, 0.12));
+  --sh-on-primary: #ffffff;
+  --sh-hover-bg: var(--color-primary-light, #e7f0f0);
+  --sh-hover-fg: var(--color-primary-dark, #0a464b);
+  --sh-selected-bg: var(--color-primary-light, #e4f1f1);
+  --sh-selected-fg: var(--color-primary-dark, #0a464b);
+  --sh-scroll-thumb: var(--color-border-strong, #b9cbca);
+  --sh-scroll-track: transparent;
+  /* Palette horizontal rhythm — used by [cmdk-root] children that render via
+     Radix Portal outside .app-shell, so must be on :root not .app-shell. */
+  --cmdk-pad-inline: 14px;
+}
+
+/* Dark overrides for :root-level --sh-* tokens. These mirror the values
+   that were previously only in :root.dark .app-shell, extended to :root.dark
+   so portal elements also pick up the correct dark palette. */
+:root.dark {
+  --sh-on-primary: #04201d;
+  --sh-hover-bg: var(--color-bg-subtle, #192724);
+  --sh-hover-fg: var(--color-ink, #e8f5ef);
+  --sh-selected-bg: color-mix(
+    in srgb,
+    var(--color-primary, #158b96) 26%,
+    var(--color-surface, #1a2925)
+  );
+  --sh-selected-fg: var(--color-ink, #e8f5ef);
+  --sh-ring: color-mix(in srgb, var(--color-primary, #158b96) 55%, transparent);
+  --sh-scroll-thumb: color-mix(
+    in srgb,
+    var(--color-primary, #158b96) 45%,
+    transparent
+  );
+}
+
 .app-shell {
   --sh-sidebar-w: 264px;
   --sh-sidebar-w-collapsed: 68px;
   --sh-header-h: 56px;
-  --sh-bg: #f5f7f7;
-  --sh-surface: #ffffff;
-  --sh-text: #1d2b2d;
-  --sh-muted: #5d7072;
-  --sh-border: #e2e8e8;
-  --sh-primary: #0e5f66;
-  --sh-primary-strong: #0a464b;
-  --sh-primary-soft: #e7f0f0;
-  --sh-danger: #b3372e;
-  --sh-ring: rgba(14, 95, 102, 0.35);
-  --sh-e1: 0 1px 2px rgba(16, 34, 36, 0.06);
-  --sh-e2: 0 4px 16px rgba(16, 34, 36, 0.12);
 
   display: flex;
   min-height: 100vh;
@@ -60,8 +105,25 @@
   overflow-y: auto;
   z-index: 30;
   transition: inline-size 180ms ease;
+  scrollbar-width: thin;
+  scrollbar-color: var(--sh-scroll-thumb) var(--sh-scroll-track);
 }
-.sidebar--collapsed { inline-size: var(--sh-sidebar-w-collapsed); }
+.sidebar::-webkit-scrollbar {
+  inline-size: 8px;
+}
+.sidebar::-webkit-scrollbar-track {
+  background: var(--sh-scroll-track);
+}
+.sidebar::-webkit-scrollbar-thumb {
+  background: var(--sh-scroll-thumb);
+  border-radius: var(--radius-full, 999px);
+}
+.sidebar::-webkit-scrollbar-thumb:hover {
+  background: var(--sh-primary);
+}
+.sidebar--collapsed {
+  inline-size: var(--sh-sidebar-w-collapsed);
+}
 
 .sidebar__brand {
   display: flex;
@@ -81,7 +143,7 @@
   flex-shrink: 0;
   border-radius: 8px;
   background: var(--sh-primary);
-  color: #fff;
+  color: var(--sh-on-primary);
   font-weight: 700;
   font-family: 'JetBrains Mono', monospace;
   font-size: 15px;
@@ -209,8 +271,8 @@
   inline-size: 30px;
   block-size: 30px;
   border-radius: 50%;
-  background: var(--sh-primary-soft);
-  color: var(--sh-primary-strong);
+  background: var(--sh-selected-bg);
+  color: var(--sh-selected-fg);
   font-size: 12px;
   font-weight: 700;
   flex-shrink: 0;
@@ -224,13 +286,34 @@
   border-radius: 10px;
   box-shadow: var(--sh-e2);
   padding: 6px;
-  z-index: 60;
+  /* z-index sits on the content element; Radix also reads it for its wrapper,
+     ensuring the popper renders above the sticky header (z-index:20) and page
+     cards. --z-dropdown (60) is safely below cmdk-overlay (80). */
+  z-index: var(--z-dropdown, 60);
   animation: sh-pop 140ms ease;
 }
-.usermenu-meta { padding: 8px 10px; }
-.usermenu-meta-name { font-size: 13px; font-weight: 700; }
-.usermenu-meta-email { font-size: 12px; color: var(--sh-muted); }
-.usermenu-sep { block-size: 1px; background: var(--sh-border); margin: 4px 0; }
+.usermenu-meta {
+  padding: 8px 10px;
+}
+.usermenu-meta-name {
+  font-size: 13px;
+  font-weight: 700;
+}
+.usermenu-meta-email {
+  font-size: 12px;
+  color: var(--sh-muted);
+  /* Truncate long emails; the dir="ltr" attribute preserves correct display.
+     Full email is accessible via the parent aria-label on the trigger. */
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.usermenu-sep {
+  block-size: 1px;
+  background: var(--sh-border);
+  margin: 4px 0;
+}
 .usermenu-item {
   display: flex;
   align-items: center;
@@ -242,7 +325,9 @@
   cursor: pointer;
   outline: none;
 }
-.usermenu-item[data-highlighted] { background: #fbeeec; }
+.usermenu-item[data-highlighted] {
+  background: var(--color-danger-bg, #fbeeec);
+}
 
 /* ---------------- Mobile nav drawer ---------------- */
 .mnav-overlay { position: fixed; inset: 0; background: rgba(16, 34, 36, 0.45); z-index: 70; animation: sh-fade 140ms ease; }
@@ -283,10 +368,21 @@
   font-size: 14px;
   font-weight: 500;
 }
-.mnav-link--active { background: var(--sh-primary); color: #fff; }
+.mnav-link--active {
+  background: var(--sh-primary);
+  color: var(--sh-on-primary);
+}
 
 /* ---------------- Command menu (cmdk) ---------------- */
-[cmdk-overlay] { position: fixed; inset: 0; background: rgba(16, 34, 36, 0.45); z-index: 80; animation: sh-fade 140ms ease; }
+[cmdk-overlay] {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 20, 22, 0.6);
+  z-index: 80;
+  animation: sh-fade 140ms ease;
+  /* Prevent pointer events from reaching the page while palette is open. */
+  pointer-events: all;
+}
 [cmdk-dialog] {
   position: fixed;
   inset-block-start: 16vh;

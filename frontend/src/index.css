@@ -827,7 +827,7 @@ input[type='radio'] {
 }
 
 .admin-header {
-  background: #fff;
+  background: var(--color-surface);
   padding: 12px 24px;
   border-bottom: 1px solid var(--color-border);
   display: flex;
@@ -879,12 +879,12 @@ textarea:focus-visible {
 .admin-forbidden h2 { margin:0 0 8px; color:var(--color-primary-dark); font-family:var(--font-display); }
 .admin-forbidden p { margin:0 auto 20px; color:var(--color-text-muted); line-height:1.7; }
 .admin-state--error { color:var(--color-danger); border-color:var(--color-danger); }
-.admin-skeleton { display:grid; gap:12px; padding:20px; background:#fff; border-radius:var(--radius-md); }
+.admin-skeleton { display:grid; gap:12px; padding:20px; background:var(--color-surface); border-radius:var(--radius-md); }
 .admin-skeleton span { height:42px; border-radius:8px; background:linear-gradient(90deg,#edf3f3,#f9fbfb,#edf3f3); background-size:200% 100%; animation:admin-shimmer 1.3s infinite; }
 @keyframes admin-shimmer { to { background-position:-200% 0; } }
 .admin-status-pill { border-radius:999px; background:#edf1f1; color:var(--color-text-muted); padding:4px 9px; font-size:.78rem; white-space:nowrap; }.admin-status-pill.is-success{background:var(--color-success-bg);color:var(--color-success)}
 .admin-text-button { border:0; background:transparent; color:var(--color-primary); font:inherit; cursor:pointer; padding:7px; }.admin-text-button.danger,.admin-btn-danger{color:#fff;background:var(--color-danger);}
-.admin-dialog-backdrop { position:fixed; inset:0; z-index:100; display:grid; place-items:center; background:rgba(15,35,36,.5); padding:16px; }.admin-dialog { width:min(760px,100%); max-height:calc(100vh - 32px); overflow:auto; background:#fff; border-radius:var(--radius-md); box-shadow:0 20px 55px rgba(0,0,0,.25); }.admin-dialog>header { display:flex; justify-content:space-between; align-items:center; padding:18px 20px; border-bottom:1px solid var(--color-border); }.admin-dialog h2{font-size:1.15rem;margin:0}.admin-icon-button{border:0;background:transparent;font:inherit;font-size:1.8rem;cursor:pointer}.admin-dialog__form{padding:20px}.admin-dialog__form footer,.admin-confirm footer,.admin-form-footer{display:flex;justify-content:flex-start;gap:10px;margin-top:22px;flex-wrap:wrap}.admin-confirm{padding:20px}.admin-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.admin-field--full{grid-column:1/-1}.admin-check{display:flex;align-items:flex-start;gap:8px;font-size:.9rem;cursor:pointer}.admin-check small{display:block;color:var(--color-text-muted);margin-top:3px}.admin-check-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.admin-dialog fieldset{border:1px solid var(--color-border);border-radius:var(--radius-sm);padding:12px}.admin-dialog legend{font-size:.9rem;padding-inline:4px}.admin-settings-form{max-width:none;padding:24px}.admin-success{padding:12px 14px;border-radius:var(--radius-sm);background:var(--color-success-bg);color:var(--color-success);margin-bottom:16px}.admin-filter-bar{max-width:none;padding:16px 20px;margin-bottom:16px}.admin-filter-bar .field{max-width:320px}.admin-tree{max-width:none;padding:8px}.admin-tree-row{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:14px;border-bottom:1px solid var(--color-border)}.admin-tree-row small,.admin-notification-row small{display:block;color:var(--color-text-muted);margin-top:4px}.admin-notification-list{max-width:none}.admin-notification-row{width:100%;text-align:start;display:flex;justify-content:space-between;gap:16px;padding:16px 20px;border:0;border-bottom:1px solid var(--color-border);background:#fff;font:inherit;cursor:pointer}.admin-notification-row.is-unread{background:var(--color-primary-light)}.admin-notification-row time{font-size:.78rem;color:var(--color-text-muted);white-space:nowrap}.admin-header__context{font-size:.8rem;color:var(--color-text-muted);margin-inline-end:12px}
+.admin-dialog-backdrop { position:fixed; inset:0; z-index:100; display:grid; place-items:center; background:rgba(15,35,36,.5); padding:16px; }.admin-dialog { width:min(760px,100%); max-height:calc(100vh - 32px); overflow:auto; background:var(--color-surface); border-radius:var(--radius-md); box-shadow:0 20px 55px rgba(0,0,0,.25); }.admin-dialog>header { display:flex; justify-content:space-between; align-items:center; padding:18px 20px; border-bottom:1px solid var(--color-border); }.admin-dialog h2{font-size:1.15rem;margin:0}.admin-icon-button{border:0;background:transparent;font:inherit;font-size:1.8rem;cursor:pointer}.admin-dialog__form{padding:20px}.admin-dialog__form footer,.admin-confirm footer,.admin-form-footer{display:flex;justify-content:flex-start;gap:10px;margin-top:22px;flex-wrap:wrap}.admin-confirm{padding:20px}.admin-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.admin-field--full{grid-column:1/-1}.admin-check{display:flex;align-items:flex-start;gap:8px;font-size:.9rem;cursor:pointer}.admin-check small{display:block;color:var(--color-text-muted);margin-top:3px}.admin-check-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.admin-dialog fieldset{border:1px solid var(--color-border);border-radius:var(--radius-sm);padding:12px}.admin-dialog legend{font-size:.9rem;padding-inline:4px}.admin-settings-form{max-width:none;padding:24px}.admin-success{padding:12px 14px;border-radius:var(--radius-sm);background:var(--color-success-bg);color:var(--color-success);margin-bottom:16px}.admin-filter-bar{max-width:none;padding:16px 20px;margin-bottom:16px}.admin-filter-bar .field{max-width:320px}.admin-tree{max-width:none;padding:8px}.admin-tree-row{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:14px;border-bottom:1px solid var(--color-border)}.admin-tree-row small,.admin-notification-row small{display:block;color:var(--color-text-muted);margin-top:4px}.admin-notification-list{max-width:none}.admin-notification-row{width:100%;text-align:start;display:flex;justify-content:space-between;gap:16px;padding:16px 20px;border:0;border-bottom:1px solid var(--color-border);background:var(--color-surface);font:inherit;cursor:pointer}.admin-notification-row.is-unread{background:var(--color-primary-light)}.admin-notification-row time{font-size:.78rem;color:var(--color-text-muted);white-space:nowrap}.admin-header__context{font-size:.8rem;color:var(--color-text-muted);margin-inline-end:12px}
 
 /* ── Admin Page Elements ── */
 
@@ -985,8 +985,12 @@ textarea:focus-visible {
 
 .admin-pagination__btn {
   padding: 6px 12px;
-  background: #fff;
+  background: var(--color-surface);
+  color: var(--color-text);
   border: 1px solid var(--color-border);
+  font-family: inherit;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
 }
 
 .admin-pagination__btn:disabled {
@@ -1038,7 +1042,7 @@ textarea:focus-visible {
 
 .admin-detail-description {
   padding: 16px;
-  background: #f9fafb;
+  background: var(--color-bg-subtle);
   border-radius: 8px;
   line-height: 1.6;
   font-size: 14px;
@@ -1071,7 +1075,7 @@ textarea:focus-visible {
   justify-content: space-between;
   gap: 8px;
   padding: 10px 12px;
-  background: #f9fafb;
+  background: var(--color-bg-subtle);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   font-size: 14px;
@@ -1179,7 +1183,7 @@ textarea:focus-visible {
   top: calc(100% + 8px);
   inset-inline-end: 0;
   width: min(340px, calc(100vw - 32px));
-  background: white;
+  background: var(--color-surface);
   box-shadow: 0 10px 24px rgba(15, 40, 44, 0.18);
   border-radius: 10px;
   border: 1px solid var(--color-border);
@@ -1193,7 +1197,7 @@ textarea:focus-visible {
 .notification-dropdown__header {
   padding: 12px 16px;
   border-bottom: 1px solid var(--color-border);
-  background: #f9fafb;
+  background: var(--color-bg);
   border-radius: 9px 9px 0 0;
 }
 
@@ -1228,11 +1232,11 @@ textarea:focus-visible {
 }
 
 .notification-item:hover {
-  background: #f3f4f6;
+  background: var(--color-bg-subtle, #f3f4f6);
 }
 
 .notification-item--unread {
-  background: #f0f9ff;
+  background: var(--color-info-bg, #f0f9ff);
 }
 
 .notification-item__title {

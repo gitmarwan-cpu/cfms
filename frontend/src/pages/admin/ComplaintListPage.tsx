@@ -10,7 +10,7 @@ import {
 } from '../../api/adminApi';
 import type { ApiClientError } from '../../api/axiosClient';
 import { formatDate, formatDateTime } from '../../utils/dateTime';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Eye } from 'lucide-react';
 import SearchInput from '../../components/patterns/SearchInput';
 import Pagination from '../../components/patterns/Pagination';
 import { RegeneratePinAction } from '../../components/admin/ui/RegeneratePinAction';
@@ -112,9 +112,9 @@ export default function ComplaintListPage() {
 
       {/* Filters */}
       <div className="card cl-card">
-        <div className="card__body cl-filter-row flex flex-wrap gap-4 items-end">
+        <div className="card__body cl-filter-row">
           <SearchInput
-            className="flex-1 min-w-[240px]"
+            className="cl-filter-search"
             label="البحث"
             placeholder="ابحث برقم المرجع، رمز المتابعة، أو الاسم..."
             value={searchQuery}
@@ -151,19 +151,19 @@ export default function ComplaintListPage() {
       {error && <div className="alert alert-danger cl-alert">{error}</div>}
 
       {/* Table */}
-      <div className="card">
+      <div className="card cl-table-card">
         <div className="cl-scroll">
-          <table className="admin-table w-full table-auto">
+          <table className="admin-table cl-table">
             <thead>
               <tr>
-                <th className="w-[15%] min-w-[140px] whitespace-nowrap">الرقم المرجعي</th>
-                <th className="w-[12%] min-w-[110px] whitespace-nowrap">رمز المتابعة</th>
-                <th className="w-[23%] min-w-[160px]">مقدم الطلب</th>
-                <th className="w-[10%] min-w-[80px] whitespace-nowrap">النوع</th>
-                <th className="w-[15%] min-w-[140px]">التصنيف</th>
-                <th className="w-[10%] min-w-[100px] whitespace-nowrap">الحالة</th>
-                <th className="w-[10%] min-w-[100px] whitespace-nowrap">تاريخ الإنشاء</th>
-                <th className="w-[5%] min-w-[80px] whitespace-nowrap">الإجراءات</th>
+                <th>الرقم المرجعي</th>
+                <th className="cl-table__center">رمز المتابعة</th>
+                <th>مقدم الطلب</th>
+                <th>النوع</th>
+                <th>التصنيف</th>
+                <th>الحالة</th>
+                <th>تاريخ الإنشاء</th>
+                <th>الإجراءات</th>
               </tr>
             </thead>
             <tbody>
@@ -189,7 +189,7 @@ export default function ComplaintListPage() {
                       key={item.id}
                       className={item.isSensitive ? 'admin-table__row--sensitive' : ''}
                     >
-                      <td className="whitespace-nowrap">
+                      <td className="cl-table__nowrap">
                         <Link
                           to={`/admin/complaints/${item.id}`}
                           className="admin-table__link"
@@ -197,34 +197,54 @@ export default function ComplaintListPage() {
                           {item.referenceCode}
                         </Link>
                         {item.isSensitive && (
-                          <span className="admin-badge admin-badge--danger cl-sens-badge ms-2">
+                          <span className="admin-badge admin-badge--danger cl-sens-badge">
                             <AlertTriangle size={12} aria-hidden="true" /> حساس
                           </span>
                         )}
                       </td>
-                      <td className="text-center whitespace-nowrap">
-                        <div className="flex justify-center">
-                          <RegeneratePinAction complaintId={item.id} onSuccess={loadComplaints} />
-                        </div>
+                      <td className="cl-table__center cl-table__nowrap">
+                        <RegeneratePinAction
+                          complaintId={item.id}
+                          onSuccess={loadComplaints}
+                        />
                       </td>
-                      <td className="truncate max-w-[200px]">
-                        {item.isAnonymous || !item.consentGiven
-                          ? <span className="admin-muted italic">سري</span>
-                          : <span className="font-medium">{item.complainant?.fullName || '-'}</span>}
+                      <td>
+                        {item.isAnonymous || !item.consentGiven ? (
+                          <span className="admin-muted cl-cell-clip">سري</span>
+                        ) : (
+                          <span className="cl-cell-clip">
+                            {item.complainant?.fullName || "-"}
+                          </span>
+                        )}
                       </td>
-                      <td className="whitespace-nowrap">{item.type === 'complaint' ? 'شكوى' : 'مقترح'}</td>
-                      <td className="truncate max-w-[180px]">{item.categoryItem?.labelAr || '-'}</td>
-                      <td className="whitespace-nowrap">
+                      <td className="cl-table__nowrap">
+                        {item.type === "complaint" ? "شكوى" : "مقترح"}
+                      </td>
+                      <td>
+                        <span className="cl-cell-clip">
+                          {item.categoryItem?.labelAr || "-"}
+                        </span>
+                      </td>
+                      <td className="cl-table__nowrap">
                         <span
                           className={"admin-status-badge cd-status cs-" + item.status}
                         >
                           {STATUS_LABELS[item.status] || item.status}
                         </span>
                       </td>
-                      <td className="whitespace-nowrap text-sm" title={formatDateTime(item.createdAt)}>{formatDate(item.createdAt)}</td>
-                      <td className="whitespace-nowrap text-left">
-                        <Link to={`/admin/complaints/${item.id}`} className="btn btn-secondary btn-sm">
-                          عرض
+                      <td
+                        className="cl-table__nowrap"
+                        title={formatDateTime(item.createdAt)}
+                      >
+                        {formatDate(item.createdAt)}
+                      </td>
+                      <td className="cl-table__nowrap">
+                        <Link
+                          to={`/admin/complaints/${item.id}`}
+                          className="ds-btn ds-btn--outline ds-btn--sm"
+                        >
+                          <Eye size={15} aria-hidden="true" />
+                          <span>التفاصيل</span>
                         </Link>
                       </td>
                     </tr>
@@ -237,7 +257,7 @@ export default function ComplaintListPage() {
 
         {/* Pagination */}
         {pagination && pagination.totalPages > 1 && (
-          <div className="admin-pagination flex justify-center py-4">
+          <div className="admin-pagination">
             <Pagination
               page={page}
               totalPages={pagination.totalPages}

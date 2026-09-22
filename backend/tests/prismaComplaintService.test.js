@@ -412,4 +412,57 @@ describe('Prisma complaint service', () => {
     await expect(complaintService.trackComplaint(organization.id, 'CFMS-2099-000000', created.trackingPin))
       .rejects.toMatchObject({ statusCode: 404 });
   });
+
+  it('regenerates a tenant-scoped PIN, stores only its hash, and records an audit event', async () => {
+    const actor = await makeUser('pin-regenerator');
+    const otherOrganization = await makeOrganization('pin-regenerator-other');
+    await prisma.organizations.update({
+      where: { id: organization.id },
+      data: { notification_settings: { whatsapp: { enabled: true, provider: 'custom', sendPin: true } } },
+    });
+
+    const created = await complaintService.createComplaint(
+      organization.id,
+      makePayload(locations, { isAnonymous: false, fullName: 'PIN User', phone: '777555444' })
+    );
+    const foreign = await complaintService.createComplaint(
+      otherOrganization.id,
+      makePayload(locations, { isAnonymous: false, fullName: 'Foreign PIN User', phone: '777555445' })
+    );
+    const before = await prisma.complaints.findUnique({
+      where: { id: created.complaint.id },
+      select: { tracking_pin_hash: true },
+    });
+
+    const result = await complaintService.regenerateTrackingPin(organization.id, created.complaint.id, actor.id);
+    const updated = await prisma.complaints.findUnique({
+      where: { id: created.complaint.id },
+      select: { tracking_pin_hash: true, write_uid: true },
+    });
+
+    expect(result).toEqual({ channel: 'custom' });
+    expect(result).not.toHaveProperty('trackingPin');
+    expect(updated.tracking_pin_hash).not.toBe(before.tracking_pin_hash);
+    expect(updated.tracking_pin_hash).toMatch(/^\$2[aby]\$10\$/);
+    expect(updated.write_uid).toBe(actor.id);
+    expect(JSON.stringify(updated)).not.toContain(created.trackingPin);
+
+    const audits = await prisma.audit_logs.findMany({
+      where: {
+        organization_id: organization.id,
+        entity_id: created.complaint.id,
+        action: 'complaint.tracking_pin_regenerated',
+      },
+    });
+    expect(audits).toEqual([
+      expect.objectContaining({
+        actor_user_id: actor.id,
+        metadata: { trackingPinReplaced: true },
+      }),
+    ]);
+    expect(JSON.stringify(audits)).not.toContain(created.trackingPin);
+
+    await expect(complaintService.regenerateTrackingPin(organization.id, foreign.complaint.id, actor.id))
+      .rejects.toMatchObject({ statusCode: 404 });
+  });
 });

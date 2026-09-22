@@ -479,7 +479,13 @@ export const createComplaint = async (
     const trackingPin = generatePin();
     const trackingPinHash = await hashPin(trackingPin);
     const now = new Date();
-    const isSensitive = !!payload.isSensitive || !!(categoryItem.meta && categoryItem.meta.forcesSensitive);
+    const categoryMeta = categoryItem.meta;
+    const categoryForcesSensitive =
+      categoryMeta !== null &&
+      typeof categoryMeta === 'object' &&
+      !Array.isArray(categoryMeta) &&
+      Boolean(categoryMeta.forcesSensitive);
+    const isSensitive = !!payload.isSensitive || categoryForcesSensitive;
     const slaFields = await resolveComplaintSlaFields(tx, parsedOrganizationId, {
       type: payload.type,
       categoryItemId: categoryItem.id,
@@ -914,6 +920,67 @@ export const assignComplaint = async (
     const referenceItems = await loadComplainantReferenceItems([result], tx);
     return mapComplaint(result, referenceItems);
   });
+};
+
+export const regenerateTrackingPin = async (
+  organizationId: IdInput,
+  id: IdInput,
+  regeneratedByUserId: IdInput
+) => {
+  const parsedOrganizationId = requireOrganizationId(organizationId);
+  const parsedId = requireComplaintId(id);
+  const parsedRegeneratedByUserId = toPositiveInteger(regeneratedByUserId);
+
+  const regenerated = await prisma.$transaction(async (tx) => {
+    const complaint = await tx.complaints.findFirst({
+      where: { id: parsedId, organization_id: parsedOrganizationId },
+      select: {
+        id: true,
+        reference_code: true,
+        complainants: { select: { phone: true } },
+      },
+    });
+    if (!complaint) throw new ApiError(404, NOT_FOUND_ERROR);
+    if (!complaint.complainants?.phone) {
+      throw new ApiError(400, 'لا توجد وسيلة اتصال متاحة لإرسال رمز المتابعة.');
+    }
+
+    const trackingPin = generatePin();
+    const trackingPinHash = await hashPin(trackingPin);
+    const updated = await tx.complaints.updateMany({
+      where: { id: complaint.id, organization_id: parsedOrganizationId },
+      data: {
+        tracking_pin_hash: trackingPinHash,
+        write_date: new Date(),
+        write_uid: parsedRegeneratedByUserId,
+      },
+    });
+    if (updated.count !== 1) throw new ApiError(409, 'تغيرت الشكوى قبل إتمام إعادة توليد رمز المتابعة');
+
+    await recordAuditEvent(tx, {
+      organizationId: parsedOrganizationId,
+      actorUserId: parsedRegeneratedByUserId,
+      action: 'complaint.tracking_pin_regenerated',
+      entityType: 'complaint',
+      entityId: complaint.id,
+      metadata: { trackingPinReplaced: true },
+    });
+
+    return {
+      organizationId: parsedOrganizationId,
+      phone: complaint.complainants.phone,
+      referenceCode: complaint.reference_code,
+      trackingPin,
+    };
+  });
+
+  const channel = await sendTrackingPinUpdate(
+    regenerated.organizationId,
+    regenerated.phone,
+    regenerated.referenceCode,
+    regenerated.trackingPin
+  );
+  return { channel };
 };
 
 const SIMPLIFIED_STATUS_MAP: Record<string, string> = {

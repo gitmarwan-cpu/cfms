@@ -328,4 +328,38 @@ describe('Complaint assignment API', () => {
 
     expect(response.status).toBe(403);
   });
+
+  it('يرفض إعادة توليد رمز المتابعة لمستخدم لا يملك صلاحية complaints.assign', async () => {
+    const response = await request(app)
+      .post(`/api/complaints/${complaintId}/regenerate-pin`)
+      .set('Authorization', `Bearer ${unauthorizedToken}`);
+
+    expect(response.status).toBe(403);
+  });
+
+  it('يعيد توليد رمز المتابعة للمستخدم المخول ويحافظ على عقد القناة', async () => {
+    await prisma.organizations.update({
+      where: { id: organization.id },
+      data: { notification_settings: { whatsapp: { enabled: true, provider: 'custom', sendPin: true } } },
+    });
+    const complaintResponse = await request(app)
+      .post(`/api/public/${organization.slug}/complaints`)
+      .field('type', 'complaint')
+      .field('isAnonymous', 'false')
+      .field('fullName', 'مستخدم إعادة التوليد')
+      .field('phone', '777123999')
+      .field('governorateId', String(organization.governorate_id))
+      .field('districtId', String((await prisma.districts.findFirst({ where: { governorate_id: organization.governorate_id } })).id))
+      .field('category', 'service_quality')
+      .field('description', 'شكوى لاختبار إعادة توليد رمز المتابعة عبر المسار الإداري')
+      .field('consentGiven', 'true');
+
+    const response = await request(app)
+      .post(`/api/complaints/${complaintResponse.body.data.id}/regenerate-pin`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.data).toEqual({ channel: 'custom' });
+    expect(response.body.message).toContain('custom');
+  });
 });

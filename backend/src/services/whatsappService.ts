@@ -78,7 +78,7 @@ export const sendTrackingPinUpdate = async (
   phone: string,
   referenceCode: string,
   trackingPin: string
-): Promise<void> => {
+): Promise<WhatsAppConfig['provider']> => {
   if (!phone) throw new ApiError(400, 'لا توجد وسيلة اتصال متاحة لإرسال رمز المتابعة.');
   
   const org = await prisma.organizations.findUnique({
@@ -97,6 +97,7 @@ export const sendTrackingPinUpdate = async (
 
   try {
     console.log(`[WhatsApp:Update] Queued PIN update for ${phone}: ${referenceCode}`);
+    return whatsappConfig.provider;
   } catch (error) {
     console.error(`[WhatsApp] Failed to send PIN update to ${phone}:`, error);
     throw new ApiError(500, 'فشل إرسال الرمز عبر مزود الخدمة.');

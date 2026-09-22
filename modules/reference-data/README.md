@@ -18,6 +18,7 @@
 
 ## قبل إضافة قائمة جديدة
 
-اقرأ قسم "⚠️ فخ حقيقي وقعنا فيه مرتين" في
+اقرأ قسم "⚠️ ملاحظة تاريخية: seeders Sequelize القديمة" في
 [`../../docs/REFERENCE_DATA.md`](../../docs/REFERENCE_DATA.md) — خطأ تكرار
-حقيقي وقع مرتين بسبب عدم فهم سلوك `sequelize-cli` مع الـ seeders.
+تاريخي مرتبط بسلوك `sequelize-cli` مع الـ seeders. مسار seed التشغيلي الحالي
+هو `prisma db seed`.

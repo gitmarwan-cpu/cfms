@@ -31,17 +31,14 @@
 cd backend
 cp .env.example .env      # عدّل بيانات الاتصال بقاعدة البيانات و JWT_SECRET
 npm install
-npm run migrate            # تنفيذ كل الـ migrations
-npm run seed                # بيانات أولية: دول، محافظات/مديريات يمنية، قوائم مرجعية،
-                             # مؤسسة افتراضية + أول Super Admin (Bootstrap - راجع
-                             # BOOTSTRAP_ADMIN_EMAIL/BOOTSTRAP_ADMIN_PASSWORD في .env)
+npm run migrate            # تطبيق Prisma migrations (forward-only)
+npm run seed               # تشغيل Prisma seed (راجع متطلبات قاعدة seed الآمنة أدناه)
 npm run dev                  # يعمل على المنفذ 4000
 ```
 
-> ⚠️ لا يوجد مستخدم افتراضي ثابت في الكود — أول Super Admin يُنشَأ مرة واحدة فقط
-> عبر seeder التنصيب (`seed-bootstrap-default-organization`)، بالبريد/كلمة المرور
-> المحدَّدين في متغيرات البيئة (أو قيم افتراضية للتطوير المحلي فقط، **يجب تغييرها
-> فوراً في أي بيئة حقيقية**).
+> ⚠️ `npm run seed` يشغّل Prisma seed ويتطلب متغيرات قاعدة seed المسموح بها، ولا
+> يستخدم `DATABASE_URL` أو قاعدة `cfms_db` مباشرة. عند تفعيل bootstrap، يُنشأ أول
+> Super Admin باستخدام `BOOTSTRAP_ADMIN_EMAIL` و`BOOTSTRAP_ADMIN_PASSWORD`.
 
 ### تشغيل الاختبارات
 

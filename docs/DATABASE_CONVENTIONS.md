@@ -6,20 +6,37 @@ The application and Jest tests use PostgreSQL. Jest must receive `CFMS_TEST_DATA
 
 ## Migrations
 
-- تسمية: `YYYYMMDDHHmmss-verb-noun.js`.
-- `underscored: true` في كل النماذج — أعمدة DB بصيغة `snake_case`، حقول
-  Sequelize بصيغة `camelCase`.
-- أي عمود جديد إلزامي على جدول قد يحتوي بيانات فعلياً: `allowNull: true`
-  أولاً، Backfill، ثم `changeColumn` إلى `allowNull: false`.
-- الـ Backfill الذي يحتاج بيانات مرجعية (مثال: دور معيّن) يجب أن **يُنشئها
-  بنفسه داخل نفس الـ migration** (idempotent عبر `ON CONFLICT DO NOTHING`)،
-  وليس الاعتماد على أن seeder آخر سيُشغَّل قبله.
+- الهجرات التشغيلية الحالية موجودة في `backend/prisma/migrations` وتُطبَّق
+  عبر `prisma migrate deploy`.
+- هجرات Prisma forward-only؛ لا يوجد أمر عام مكافئ لـ
+  `sequelize-cli db:migrate:undo:all`. تُعالَج التصحيحات بهجرة Prisma جديدة
+  ومراجَعة.
+- قبل تطبيق الهجرات على قاعدة موجودة، تحقّق من حالة `_prisma_migrations`
+  وخطة baseline المعتمدة.
 
-## Seeders — القاعدة الأهم في هذا المشروع
+## Prisma seed
+
+يُشغَّل الـ seed الرسمي عبر `prisma db seed`، وهو الأمر المستخدم من
+`npm run seed`. يفرض `backend/prisma/seed.ts` متطلبات قاعدة seed الآمنة ولا
+يقبل `cfms_db`.
+
+## Historical Sequelize migrations/seeders
+
+الملفات تحت `backend/src/migrations` و`backend/src/seeders` محفوظة كسجل
+تاريخي فقط في هذه المرحلة. لا تستخدمها لتشغيل الهجرات أو seed في التشغيل
+الحالي. القاعدة التاريخية التالية تخص هذه الملفات فقط:
+
+### Historical Sequelize migration rules
+
+كانت الهجرات التاريخية تستخدم تسمية `YYYYMMDDHHmmss-verb-noun.js`، وكانت
+الأعمدة تُدار بصيغة `snake_case` عبر إعداد `underscored: true`. عند إضافة عمود
+إلزامي إلى جدول يحتوي بيانات، كان يُضاف nullable أولاً، ثم يُجرى backfill، ثم
+يُحوَّل إلى `allowNull: false`. وكان backfill الذي يحتاج بيانات مرجعية ينشئها
+داخل الهجرة نفسها وبشكل idempotent، بدلاً من الاعتماد على seeder منفصل.
 
 **`sequelize-cli` لا يتتبّع الـ seeders المُنفَّذة افتراضياً.** `db:seed:all`
-يُعيد تشغيل كل ملف من الصفر في كل استدعاء. **كل seeder جديد بلا استثناء يجب
-أن يبدأ بحارس idempotency صريح**:
+كان يعيد تشغيل كل ملف من الصفر في كل استدعاء. كل seeder تاريخي جديد كان
+يتطلب حارس idempotency صريحاً:
 
 ```js
 const [[{ count }]] = await queryInterface.sequelize.query(

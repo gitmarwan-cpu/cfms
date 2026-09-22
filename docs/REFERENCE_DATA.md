@@ -32,7 +32,10 @@
 | `priority` | لا | تحمل `meta.color` |
 | `complainant_relationship` | لا | 8 قيم Bootstrap، على `Complainant` |
 
-## ⚠️ فخ حقيقي وقعنا فيه مرتين: seeders الجديدة
+## ⚠️ ملاحظة تاريخية: seeders Sequelize القديمة
+
+الـ bootstrap التشغيلي الحالي يستخدم `prisma db seed`. الملاحظة التالية
+تخص ملفات Sequelize التاريخية فقط، ولا تمثل مسار seed الرسمي الحالي.
 
 `sequelize-cli` **لا يتتبّع الـ seeders المُنفَّذة افتراضياً** — `db:seed:all`
 يُعيد تشغيل كل ملف في كل مرة. لذلك:

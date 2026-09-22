@@ -45,17 +45,22 @@ contract.
 
 Prisma introspection warns that these expression indexes are not fully supported by Prisma schema syntax. They must be preserved with raw SQL in any future Prisma Migrate baseline or follow-up migration. Do not replace them with normal Prisma `@@unique` definitions unless the tenant semantics are proven equivalent, because PostgreSQL unique constraints treat `NULL` differently.
 
-## `_prisma_migrations` Mismatch
+## `_prisma_migrations` Status
 
-The live database contains one Prisma migration history row:
+A read-only verification of the current `cfms_db` found 14 migration records,
+matching the 14 migration directories in `backend/prisma/migrations`, including
+`20260920100000_platform_admin_foundation`. All records have a non-null
+`finished_at` and a null `rolled_back_at`, and `npx prisma migrate status`
+reports `Database schema is up to date`.
 
-- `20260716002023_init`
+The history contains six older non-empty migrations with
+`applied_steps_count = 0`. Their final schema objects were verified where
+relevant, but this metadata remains a history-quality concern for a later
+review; it is not a pending migration according to Prisma status.
 
-The repository keeps `20260716002023_init` immutable in concept and keeps the nullable `complainants.relationship_item_id` change in the separate, ordered migration `20260812000000_add_complainant_relationship_item_id`. Both migrations apply cleanly to the approved disposable database `cfms_seed_validation`. The live `cfms_db` history still requires an explicit reconciliation decision because its recorded baseline checksum differs from the current repository file and it has no row for the follow-up migration.
-
-The repository now contains the matching `backend/prisma/migrations/20260716002023_init` directory. The migration file was audited but was not applied to `cfms_db` during this migration work. The live history and repository still require an explicit, separately approved baseline/reconciliation decision before any Prisma migration command is run against the existing database.
-
-Do not run `prisma migrate dev`, `prisma migrate deploy`, `prisma migrate reset`, or `prisma db push` against this database until a deliberate baseline strategy is chosen. A future baseline should account for:
+The current operational migration command is `prisma migrate deploy`. Do not
+run `prisma migrate dev`, `prisma migrate reset`, or `prisma db push` against
+the shared database. Future migration work should still account for:
 
 - the existing Sequelize-created schema,
 - the stale PascalCase Prisma artifacts,
@@ -65,7 +70,7 @@ Do not run `prisma migrate dev`, `prisma migrate deploy`, `prisma migrate reset`
 
 ## Required Precautions Before Prisma Migrate
 
-Before introducing Prisma Migrate:
+Before introducing additional Prisma migrations:
 
 1. Take a verified PostgreSQL backup.
 2. Decide whether the existing `_prisma_migrations` row will be retained, reconciled, or handled in a controlled cleanup migration.

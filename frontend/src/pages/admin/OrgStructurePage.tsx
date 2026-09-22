@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { X } from "lucide-react";
 import {
   activateOrganizationNode,
   deactivateOrganizationNode,
@@ -7,50 +7,58 @@ import {
   fetchOrgUnitTypes,
   type OrganizationNodeDto,
   type OrgUnitType,
-} from '../../api/adminApi';
-import type { ApiClientError } from '../../api/axiosClient';
-import { ConfirmDialog, DataState } from '../../components/admin/AdminUi';
-import { PageHeader } from '../../components/patterns/PageHeader';
-import OrganizationDetails from '../../components/admin/organization/OrganizationDetails';
-import OrganizationNodeForm from '../../components/admin/organization/OrganizationNodeForm';
-import OrganizationTree from '../../components/admin/organization/OrganizationTree';
-import { useAuth } from '../../context/AuthContext';
-import { fromOrganizationNodeDto, type OrganizationNode } from '../../types/organization';
-import { buildOrgTree, filterOrgTree } from '../../utils/organizationTree';
+} from "../../api/adminApi";
+import type { ApiClientError } from "../../api/axiosClient";
+import { ConfirmDialog, DataState } from "../../components/admin/AdminUi";
+import { PageHeader } from "../../components/patterns/PageHeader";
+import OrganizationDetails from "../../components/admin/organization/OrganizationDetails";
+import OrganizationNodeForm from "../../components/admin/organization/OrganizationNodeForm";
+import OrganizationTree from "../../components/admin/organization/OrganizationTree";
+import { useAuth } from "../../context/AuthContext";
+import {
+  fromOrganizationNodeDto,
+  type OrganizationNode,
+} from "../../types/organization";
+import { buildOrgTree, filterOrgTree } from "../../utils/organizationTree";
 
 export default function OrgStructurePage() {
   const { user, hasPermission, currentOrganizationId } = useAuth();
   const orgId = currentOrganizationId ?? user?.defaultOrganizationId ?? null;
 
-  const canView = orgId !== null && hasPermission('org_structure.view', orgId);
-  const canManage = orgId !== null && hasPermission('org_structure.manage', orgId);
+  const canView = orgId !== null && hasPermission("org_structure.view", orgId);
+  const canManage =
+    orgId !== null && hasPermission("org_structure.manage", orgId);
 
   // ── Raw state ──────────────────────────────────────────────────────────────
   const [nodes, setNodes] = useState<OrganizationNodeDto[]>([]);
   const [types, setTypes] = useState<OrgUnitType[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [search, setSearch] = useState('');
-  const [notice, setNotice] = useState('');
+  const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+  const [notice, setNotice] = useState("");
 
   // ── Selection & Form state ──────────────────────────────────────────────────
   const [selectedNodeId, setSelectedNodeId] = useState<number | null>(null);
   const [formOpen, setFormOpen] = useState(false);
-  const [editingNode, setEditingNode] = useState<OrganizationNodeDto | null>(null);
+  const [editingNode, setEditingNode] = useState<OrganizationNodeDto | null>(
+    null,
+  );
   const [defaultParentId, setDefaultParentId] = useState<number | null>(null);
 
   // ── Deactivate confirmation ─────────────────────────────────────────────────
-  const [deactivatingNode, setDeactivatingNode] = useState<OrganizationNodeDto | null>(null);
+  const [deactivatingNode, setDeactivatingNode] =
+    useState<OrganizationNodeDto | null>(null);
   const [deactivatingBusy, setDeactivatingBusy] = useState(false);
 
   // ── Activate (reactivation) confirmation ────────────────────────────────────
-  const [activatingNode, setActivatingNode] = useState<OrganizationNodeDto | null>(null);
+  const [activatingNode, setActivatingNode] =
+    useState<OrganizationNodeDto | null>(null);
   const [activatingBusy, setActivatingBusy] = useState(false);
 
   // ── Load data from backend (/organization/nodes and /org-structure/unit-types) ──
   const loadData = useCallback(() => {
     setLoading(true);
-    setError('');
+    setError("");
     Promise.all([fetchOrganizationNodes(), fetchOrgUnitTypes()])
       .then(([n, t]) => {
         setNodes(n);
@@ -61,7 +69,7 @@ export default function OrgStructurePage() {
         }
       })
       .catch((err: ApiClientError) => {
-        setError(err.message || 'تعذر تحميل بيانات الهيكل التنظيمي.');
+        setError(err.message || "تعذر تحميل بيانات الهيكل التنظيمي.");
       })
       .finally(() => setLoading(false));
   }, [selectedNodeId]);
@@ -121,7 +129,9 @@ export default function OrgStructurePage() {
       setDeactivatingNode(null);
       loadData();
     } catch (err) {
-      setError((err as ApiClientError).message || 'تعذر تعطيل الوحدة التنظيمية.');
+      setError(
+        (err as ApiClientError).message || "تعذر تعطيل الوحدة التنظيمية.",
+      );
       setDeactivatingNode(null);
     } finally {
       setDeactivatingBusy(false);
@@ -142,7 +152,9 @@ export default function OrgStructurePage() {
       setActivatingNode(null);
       loadData();
     } catch (err) {
-      setError((err as ApiClientError).message || 'تعذر تفعيل الوحدة التنظيمية.');
+      setError(
+        (err as ApiClientError).message || "تعذر تفعيل الوحدة التنظيمية.",
+      );
       setActivatingNode(null);
     } finally {
       setActivatingBusy(false);
@@ -162,10 +174,16 @@ export default function OrgStructurePage() {
   if (!canView) {
     return (
       <div>
-        <PageHeader title="الهيكل التنظيمي" description="الوحدات التنظيمية وعلاقاتها الهرمية ضمن المؤسسة." />
+        <PageHeader
+          title="الهيكل التنظيمي"
+          description="الوحدات التنظيمية وعلاقاتها الهرمية ضمن المؤسسة."
+        />
         <div className="card">
           <div className="card__body">
-            <p>ليس لديك صلاحية «org_structure.view» لعرض الهيكل التنظيمي لهذه المؤسسة.</p>
+            <p>
+              ليس لديك صلاحية «org_structure.view» لعرض الهيكل التنظيمي لهذه
+              المؤسسة.
+            </p>
           </div>
         </div>
       </div>
@@ -180,7 +198,11 @@ export default function OrgStructurePage() {
         description="الوحدات التنظيمية وعلاقاتها الهرمية ضمن المؤسسة (المصدر: جدول المؤسسات organizations)."
         actions={
           canManage && (
-            <button className="btn btn-primary" onClick={handleAddRootNode} type="button">
+            <button
+              className="btn btn-primary"
+              onClick={handleAddRootNode}
+              type="button"
+            >
               + إضافة وحدة جذرية
             </button>
           )
@@ -188,13 +210,17 @@ export default function OrgStructurePage() {
       />
 
       {notice && (
-        <div className="admin-success" role="status" style={{ marginBottom: '16px' }}>
+        <div
+          className="admin-success"
+          role="status"
+          style={{ marginBottom: "16px" }}
+        >
           {notice}
           <button
             type="button"
             className="admin-text-button"
-            style={{ marginInlineStart: '12px', fontSize: '12px' }}
-            onClick={() => setNotice('')}
+            style={{ marginInlineStart: "12px", fontSize: "12px" }}
+            onClick={() => setNotice("")}
             aria-label="إغلاق الإشعار"
           >
             <X size={14} aria-hidden="true" />
@@ -203,8 +229,11 @@ export default function OrgStructurePage() {
       )}
 
       {/* Filter / Search Bar */}
-      <div className="card admin-filter-bar" style={{ marginBottom: '16px' }}>
-        <label className="field" style={{ flex: 1, minWidth: '240px', maxWidth: '480px' }}>
+      <div className="card admin-filter-bar" style={{ marginBottom: "16px" }}>
+        <label
+          className="field"
+          style={{ flex: 1, minWidth: "240px", maxWidth: "480px" }}
+        >
           <input
             type="search"
             value={search}
@@ -253,9 +282,20 @@ export default function OrgStructurePage() {
           ) : (
             <div className="org-structure-detail-col org-structure-detail-col--empty">
               <div className="card">
-                <div className="card__body" style={{ textAlign: 'center', padding: '40px 24px', color: 'var(--color-text-muted)' }}>
-                  <div style={{ fontSize: '32px', marginBottom: '12px' }}>▦</div>
-                  <p style={{ margin: 0 }}>اختر وحدة تنظيمية من الشجرة الهرمية لعرض التفاصيل الكاملة.</p>
+                <div
+                  className="card__body"
+                  style={{
+                    textAlign: "center",
+                    padding: "40px 24px",
+                    color: "var(--color-text-muted)",
+                  }}
+                >
+                  <div style={{ fontSize: "32px", marginBottom: "12px" }}>
+                    ▦
+                  </div>
+                  <p style={{ margin: 0 }}>
+                    اختر وحدة تنظيمية من الشجرة الهرمية لعرض التفاصيل الكاملة.
+                  </p>
                 </div>
               </div>
             </div>

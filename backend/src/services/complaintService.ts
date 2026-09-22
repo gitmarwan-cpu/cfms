@@ -6,16 +6,9 @@ import { recordAuditEvent } from './auditService';
 import { createNotification } from './notificationService';
 import { resolveComplaintSlaFields, slaStatusForStatusChange } from './slaService';
 import { sendComplaintReceipt, sendTrackingPinUpdate } from './whatsappService';
-
-const generateReferenceCode = require('../utils/generateReferenceCode') as () => string;
-const { generatePin, hashPin, verifyPin } = require('../utils/pin') as {
-  generatePin: () => string;
-  hashPin: (pin: string) => Promise<string>;
-  verifyPin: (pin: string, hash: string) => Promise<boolean>;
-};
-const referenceDataService = require('./referenceDataService') as {
-  resolveActiveItem: (key: string, code: string, organizationId: number) => Promise<any>;
-};
+import generateReferenceCode from '../utils/generateReferenceCode';
+import { generatePin, hashPin, verifyPin } from '../utils/pin';
+import { resolveActiveItem } from './referenceDataService';
 
 type DatabaseClient = typeof prisma | Prisma.TransactionClient;
 type IdInput = string | number | null | undefined;
@@ -403,15 +396,15 @@ const mapComplaint = (complaint: ComplaintRecord, referenceItems: Map<number, Re
 
 const resolveComplaintItems = async (payload: ComplaintPayload, organizationId: number) => {
   const [genderItem, ageGroupItem, relationshipItem, categoryItem, channelItem, priorityItem] = await Promise.all([
-    payload.gender ? referenceDataService.resolveActiveItem('gender', payload.gender, organizationId) : null,
-    payload.ageGroup ? referenceDataService.resolveActiveItem('age_group', payload.ageGroup, organizationId) : null,
+    payload.gender ? resolveActiveItem('gender', payload.gender, organizationId) : null,
+    payload.ageGroup ? resolveActiveItem('age_group', payload.ageGroup, organizationId) : null,
     payload.relationship
-      ? referenceDataService.resolveActiveItem('complainant_relationship', payload.relationship, organizationId)
+      ? resolveActiveItem('complainant_relationship', payload.relationship, organizationId)
       : null,
-    referenceDataService.resolveActiveItem('complaint_category', payload.category, organizationId),
-    referenceDataService.resolveActiveItem('channel', payload.channel || 'website', organizationId),
+    resolveActiveItem('complaint_category', payload.category, organizationId),
+    resolveActiveItem('channel', payload.channel || 'website', organizationId),
     payload.priority
-      ? referenceDataService.resolveActiveItem('priority', payload.priority, organizationId)
+      ? resolveActiveItem('priority', payload.priority, organizationId)
       : prisma.reference_list_items.findFirst({
           where: {
             is_active: true,
@@ -632,7 +625,7 @@ export const listComplaints = async (organizationId: IdInput, filters: Complaint
     where.district_id = districtId;
   }
   if (filters.category) {
-    const categoryItem = await referenceDataService.resolveActiveItem(
+    const categoryItem = await resolveActiveItem(
       'complaint_category',
       filters.category,
       parsedOrganizationId

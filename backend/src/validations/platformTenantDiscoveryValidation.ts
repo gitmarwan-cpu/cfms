@@ -1,6 +1,4 @@
 const { param, query } = require('express-validator');
-export {};
-
 const lifecycleStatuses = ['provisioning', 'active', 'suspended', 'deactivated', 'archived'];
 
 const organizationIdValidation = [
@@ -22,4 +20,4 @@ const platformTenantDiscoveryValidation = {
   detail: organizationIdValidation,
 };
 
-module.exports = { platformTenantDiscoveryValidation };
+export { platformTenantDiscoveryValidation };

@@ -15,4 +15,3 @@ const validate = (validations: any[]) => async (req: AppRequest, res: AppRespons
 };
 
 export default validate;
-module.exports = validate;

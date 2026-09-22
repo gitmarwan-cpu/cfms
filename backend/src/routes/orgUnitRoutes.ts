@@ -1,10 +1,9 @@
-const express = require('express');
-const orgUnitController = require('../controllers/orgUnitController');
-const validate = require('../middlewares/validate');
-const { authenticate, authorizePermission } = require('../middlewares/auth');
-const { resolveAuthenticatedTenant } = require('../middlewares/tenant');
-const { typeIdParamValidation, createTypeValidation, updateTypeValidation } = require('../validations/orgUnitValidation');
-export {};
+import express from 'express';
+import * as orgUnitController from '../controllers/orgUnitController';
+import validate from '../middlewares/validate';
+import { authenticate, authorizePermission } from '../middlewares/auth';
+import { resolveAuthenticatedTenant } from '../middlewares/tenant';
+import { typeIdParamValidation, createTypeValidation, updateTypeValidation } from '../validations/orgUnitValidation';
 
 const router = express.Router();
 router.use(authenticate, resolveAuthenticatedTenant);
@@ -12,4 +11,4 @@ router.get('/unit-types', authorizePermission('org_structure.view'), orgUnitCont
 router.post('/unit-types', authorizePermission('org_structure.manage'), validate(createTypeValidation), orgUnitController.createType);
 router.put('/unit-types/:typeId', authorizePermission('org_structure.manage'), validate([...typeIdParamValidation, ...updateTypeValidation]), orgUnitController.updateType);
 
-module.exports = router;
+export default router;

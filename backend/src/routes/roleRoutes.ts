@@ -1,10 +1,9 @@
-const express = require('express');
-const roleController = require('../controllers/roleController');
-const validate = require('../middlewares/validate');
-const { authenticate, authorizePermission } = require('../middlewares/auth');
-const { resolveAuthenticatedTenant } = require('../middlewares/tenant');
-const { roleIdParamValidation, createRoleValidation, updateRoleValidation } = require('../validations/roleValidation');
-export {};
+import express from 'express';
+import * as roleController from '../controllers/roleController';
+import validate from '../middlewares/validate';
+import { authenticate, authorizePermission } from '../middlewares/auth';
+import { resolveAuthenticatedTenant } from '../middlewares/tenant';
+import { roleIdParamValidation, createRoleValidation, updateRoleValidation } from '../validations/roleValidation';
 
 const router = express.Router();
 router.use(authenticate, resolveAuthenticatedTenant);
@@ -15,4 +14,4 @@ router.post('/', authorizePermission('roles.manage'), validate(createRoleValidat
 router.put('/:id', authorizePermission('roles.manage'), validate(updateRoleValidation), roleController.updateRole);
 router.delete('/:id', authorizePermission('roles.manage'), validate(roleIdParamValidation), roleController.deleteRole);
 
-module.exports = router;
+export default router;

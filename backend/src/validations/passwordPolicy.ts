@@ -1,5 +1,4 @@
 const { body } = require('express-validator');
-export {};
 
 /**
  * Shared password policy (Phase 3) — the single authoritative rule set for
@@ -40,7 +39,7 @@ export const validatePasswordPolicy = (password: string): PasswordPolicyResult =
  * express-validator chain enforcing the shared policy on a request body field.
  * Uses `.custom` so the exact shared messages reach the client unchanged.
  */
-const passwordPolicyBodyValidation = (field: string) =>
+export const passwordPolicyBodyValidation = (field: string) =>
   body(field)
     .isString()
     .withMessage('كلمة المرور مطلوبة')
@@ -49,5 +48,3 @@ const passwordPolicyBodyValidation = (field: string) =>
       if (!result.valid) throw new Error(result.message ?? 'كلمة المرور غير صالحة');
       return true;
     });
-
-module.exports = { validatePasswordPolicy, passwordPolicyBodyValidation };

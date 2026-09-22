@@ -1,9 +1,7 @@
 import type { AppRequest, AppResponse } from '../types/http';
 
-const catchAsync = require('../utils/catchAsync');
-const slaService = require('../services/slaService');
-export {};
-
+import catchAsync from '../utils/catchAsync';
+import * as slaService from '../services/slaService';
 const listSlaRules = catchAsync(async (req: AppRequest, res: AppResponse) => {
   res.status(200).json({ success: true, data: await slaService.listSlaRules(req.organizationId) });
 });
@@ -23,4 +21,4 @@ const evaluateSla = catchAsync(async (req: AppRequest, res: AppResponse) => {
   res.status(200).json({ success: true, message: 'تم تقييم مهلة المعالجة', data: result });
 });
 
-module.exports = { listSlaRules, createSlaRule, updateSlaRule, evaluateSla };
+export { listSlaRules, createSlaRule, updateSlaRule, evaluateSla };

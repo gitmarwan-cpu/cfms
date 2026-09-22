@@ -1,11 +1,11 @@
-const express = require('express');
-const platformTenantController = require('../controllers/platformTenantController');
-const validate = require('../middlewares/validate');
-const { authenticate, authorizePlatformPermission, authorizeAnyPlatformPermission } = require('../middlewares/auth');
-const { createTenantValidation } = require('../validations/tenantProvisioningValidation');
-const { platformTenantLifecycleValidation } = require('../validations/platformTenantLifecycleValidation');
-const { platformTenantDiscoveryValidation } = require('../validations/platformTenantDiscoveryValidation');
-export {};
+import express from 'express';
+import * as platformTenantController from '../controllers/platformTenantController';
+import validate from '../middlewares/validate';
+import { authenticate, authorizePlatformPermission, authorizeAnyPlatformPermission } from '../middlewares/auth';
+import { createTenantValidation } from '../validations/tenantProvisioningValidation';
+import { platformTenantLifecycleValidation } from '../validations/platformTenantLifecycleValidation';
+import { platformTenantDiscoveryValidation } from '../validations/platformTenantDiscoveryValidation';
+import type { LifecycleStatus } from '../services/tenantLifecycleService';
 
 const router = express.Router();
 
@@ -42,7 +42,7 @@ router.post(
   platformTenantController.createTenant
 );
 
-const lifecycleRoute = (nextStatus: string) => [
+const lifecycleRoute = (nextStatus: LifecycleStatus) => [
   authenticate,
   authorizePlatformPermission('platform.tenant.lifecycle'),
   validate(platformTenantLifecycleValidation),
@@ -54,4 +54,4 @@ router.patch('/tenants/:organizationId/reactivate', ...lifecycleRoute('active'))
 router.patch('/tenants/:organizationId/deactivate', ...lifecycleRoute('deactivated'));
 router.patch('/tenants/:organizationId/archive', ...lifecycleRoute('archived'));
 
-module.exports = router;
+export default router;

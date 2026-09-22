@@ -28,5 +28,3 @@ export const assertBelongsToTenant = <T extends { organizationId?: number | null
   }
   return record;
 };
-
-module.exports = { withTenantScope, assertBelongsToTenant };

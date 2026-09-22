@@ -1,10 +1,9 @@
-const express = require('express');
-const referenceDataController = require('../controllers/referenceDataController');
-const validate = require('../middlewares/validate');
-const { authenticate, authorizePermission } = require('../middlewares/auth');
-const { resolveAuthenticatedTenant } = require('../middlewares/tenant');
-const { listKeyParamValidation, itemIdParamValidation, createItemValidation, updateItemValidation } = require('../validations/referenceDataValidation');
-export {};
+import express from 'express';
+import * as referenceDataController from '../controllers/referenceDataController';
+import validate from '../middlewares/validate';
+import { authenticate, authorizePermission } from '../middlewares/auth';
+import { resolveAuthenticatedTenant } from '../middlewares/tenant';
+import { listKeyParamValidation, itemIdParamValidation, createItemValidation, updateItemValidation } from '../validations/referenceDataValidation';
 
 const router = express.Router();
 router.use(authenticate, resolveAuthenticatedTenant);
@@ -14,4 +13,4 @@ router.post('/:key/items', authorizePermission('reference_data.manage'), validat
 router.put('/:key/items/:itemId', authorizePermission('reference_data.manage'), validate(updateItemValidation), referenceDataController.updateItem);
 router.patch('/:key/items/:itemId/deactivate', authorizePermission('reference_data.manage'), validate(itemIdParamValidation), referenceDataController.deactivateItem);
 
-module.exports = router;
+export default router;

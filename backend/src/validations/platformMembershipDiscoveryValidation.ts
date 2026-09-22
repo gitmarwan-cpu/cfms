@@ -1,6 +1,4 @@
 const { param, query } = require('express-validator');
-export {};
-
 const tenantParamValidation = [
   param('organizationId').isInt({ min: 1 }).withMessage('معرّف المؤسسة غير صالح'),
 ];
@@ -12,4 +10,4 @@ const listMembershipsValidation = [
   query('search').optional().isString().isLength({ max: 150 }).withMessage('نص البحث طويل جداً'),
 ];
 
-module.exports = { tenantParamValidation, listMembershipsValidation };
+export { tenantParamValidation, listMembershipsValidation };

@@ -1,6 +1,4 @@
 const { param, body } = require('express-validator');
-export {};
-
 const typeIdParamValidation = [param('typeId').isInt({ min: 1 }).withMessage('معرّف نوع الوحدة غير صالح')];
 const createTypeValidation = [
   body('code').trim().matches(/^[a-z0-9_]+$/).withMessage('الرمز (code) يجب أن يحتوي أحرفاً إنجليزية صغيرة وأرقاماً وشرطة سفلية فقط'),
@@ -17,4 +15,4 @@ const updateTypeValidation = [
   body('isActive').optional().isBoolean().toBoolean(),
 ];
 
-module.exports = { typeIdParamValidation, createTypeValidation, updateTypeValidation };
+export { typeIdParamValidation, createTypeValidation, updateTypeValidation };

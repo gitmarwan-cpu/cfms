@@ -44,5 +44,3 @@ export const ensurePrismaDatabaseUrl = (): string | null => {
   if (databaseUrl) process.env.DATABASE_URL = databaseUrl;
   return databaseUrl;
 };
-
-module.exports = { buildPrismaDatabaseUrl, ensurePrismaDatabaseUrl };

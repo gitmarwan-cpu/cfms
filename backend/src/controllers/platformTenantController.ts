@@ -1,11 +1,10 @@
 import type { AppRequest, AppResponse } from '../types/http';
 
-const catchAsync = require('../utils/catchAsync');
-const tenantProvisioningService = require('../services/tenantProvisioningService');
-const { transitionTenantLifecycle } = require('../services/tenantLifecycleService');
-const platformTenantService = require('../services/platformTenantService');
-export {};
-
+import catchAsync from '../utils/catchAsync';
+import * as tenantProvisioningService from '../services/tenantProvisioningService';
+import { transitionTenantLifecycle } from '../services/tenantLifecycleService';
+import type { LifecycleStatus } from '../services/tenantLifecycleService';
+import * as platformTenantService from '../services/platformTenantService';
 const listTenants = catchAsync(async (req: AppRequest, res: AppResponse) => {
   const result = await platformTenantService.listTenants({
     page: req.query.page,
@@ -22,15 +21,15 @@ const getTenant = catchAsync(async (req: AppRequest, res: AppResponse) => {
 });
 
 const createTenant = catchAsync(async (req: AppRequest, res: AppResponse) => {
-  const data = await tenantProvisioningService.provisionTenant(req.body, req.user?.id);
+  const data = await tenantProvisioningService.provisionTenant(req.body, req.user!.id);
   res.status(201).json({ success: true, message: 'تم إنشاء المستأجر وتهيئته بنجاح', data });
 });
 
-const transitionTenant = (nextStatus: string) => catchAsync(async (req: AppRequest, res: AppResponse) => {
+const transitionTenant = (nextStatus: LifecycleStatus) => catchAsync(async (req: AppRequest, res: AppResponse) => {
   const lifecycle = await transitionTenantLifecycle(
     req.params.organizationId,
     nextStatus,
-    req.user?.id,
+    req.user!.id,
     req.body?.reason
   );
 
@@ -47,4 +46,4 @@ const transitionTenant = (nextStatus: string) => catchAsync(async (req: AppReque
   });
 });
 
-module.exports = { listTenants, getTenant, createTenant, transitionTenant };
+export { listTenants, getTenant, createTenant, transitionTenant };

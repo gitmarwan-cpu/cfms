@@ -1,7 +1,5 @@
 const { param, body } = require('express-validator');
-const { passwordPolicyBodyValidation } = require('./passwordPolicy');
-export {};
-
+import { passwordPolicyBodyValidation } from './passwordPolicy';
 /**
  * Validation chains for the Phase 3 membership + password endpoints.
  *
@@ -28,7 +26,7 @@ const resetPasswordValidation = [
   passwordPolicyBodyValidation('newPassword'),
 ];
 
-module.exports = {
+export {
   userIdParamValidation,
   membershipIdParamValidation,
   addMembershipValidation,

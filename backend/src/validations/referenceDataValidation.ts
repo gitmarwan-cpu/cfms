@@ -1,6 +1,4 @@
 const { param, body } = require('express-validator');
-export {};
-
 const listKeyParamValidation = [param('key').matches(/^[a-z0-9_]+$/).withMessage('مفتاح القائمة غير صالح')];
 const itemIdParamValidation = [...listKeyParamValidation, param('itemId').isInt({ min: 1 }).withMessage('معرّف العنصر غير صالح')];
 
@@ -23,4 +21,4 @@ const updateItemValidation = [
   body('isDefault').optional().isBoolean().toBoolean(),
 ];
 
-module.exports = { listKeyParamValidation, itemIdParamValidation, createItemValidation, updateItemValidation };
+export { listKeyParamValidation, itemIdParamValidation, createItemValidation, updateItemValidation };

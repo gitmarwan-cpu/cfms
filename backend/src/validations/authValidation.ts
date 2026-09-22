@@ -1,7 +1,5 @@
 const { body } = require('express-validator');
-const { passwordPolicyBodyValidation } = require('./passwordPolicy');
-export {};
-
+import { passwordPolicyBodyValidation } from './passwordPolicy';
 const loginValidation = [
   body('email').isEmail().withMessage('البريد الإلكتروني غير صالح'),
   body('password').notEmpty().withMessage('كلمة المرور مطلوبة'),
@@ -23,4 +21,4 @@ const changePasswordValidation = [
   passwordPolicyBodyValidation('newPassword'),
 ];
 
-module.exports = { loginValidation, registerValidation, changePasswordValidation };
+export { loginValidation, registerValidation, changePasswordValidation };

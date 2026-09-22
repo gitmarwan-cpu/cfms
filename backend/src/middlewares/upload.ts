@@ -3,7 +3,7 @@ const path = require('path');
 const crypto = require('crypto');
 const fs = require('fs');
 const fsPromises = fs.promises;
-const ApiError = require('../utils/ApiError') as typeof import('../utils/ApiError').default;
+import ApiError from '../utils/ApiError';
 
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
@@ -64,5 +64,3 @@ export const validateUploadedFileSignatures = async (req: any, res: any, next: (
 const upload = multer({ storage, fileFilter, limits: { fileSize: MAX_FILE_SIZE_BYTES, files: MAX_FILES } });
 
 export default upload;
-module.exports = upload;
-module.exports.validateUploadedFileSignatures = validateUploadedFileSignatures;

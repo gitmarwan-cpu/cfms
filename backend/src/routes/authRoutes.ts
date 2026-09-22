@@ -1,12 +1,10 @@
-const express = require('express');
-const authController = require('../controllers/authController');
-const validate = require('../middlewares/validate');
-const { authenticate, authorizePermission } = require('../middlewares/auth');
-const { resolveAuthenticatedTenant } = require('../middlewares/tenant');
-const { loginRateLimiter } = require('../middlewares/rateLimiter');
-const { loginValidation, registerValidation, changePasswordValidation } = require('../validations/authValidation');
-
-export {};
+import express from 'express';
+import * as authController from '../controllers/authController';
+import validate from '../middlewares/validate';
+import { authenticate, authorizePermission } from '../middlewares/auth';
+import { resolveAuthenticatedTenant } from '../middlewares/tenant';
+import { loginRateLimiter } from '../middlewares/rateLimiter';
+import { loginValidation, registerValidation, changePasswordValidation } from '../validations/authValidation';
 
 const router = express.Router();
 router.post('/login', loginRateLimiter, validate(loginValidation), authController.login);
@@ -16,4 +14,4 @@ router.post('/register', authenticate, resolveAuthenticatedTenant, authorizePerm
 router.post('/change-password', authenticate, validate(changePasswordValidation), authController.changePassword);
 router.get('/me', authenticate, authController.me);
 
-module.exports = router;
+export default router;

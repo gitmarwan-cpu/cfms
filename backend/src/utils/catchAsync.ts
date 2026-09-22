@@ -5,4 +5,3 @@ const catchAsync = (fn: AsyncHandler) => (req: any, res: any, next: (error?: unk
 };
 
 export default catchAsync;
-module.exports = catchAsync;

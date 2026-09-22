@@ -1,10 +1,8 @@
 import type { AppRequest, AppResponse } from '../types/http';
 
-const catchAsync = require('../utils/catchAsync');
-const complaintService = require('../services/complaintService');
-const slaService = require('../services/slaService');
-export {};
-
+import catchAsync from '../utils/catchAsync';
+import * as complaintService from '../services/complaintService';
+import * as slaService from '../services/slaService';
 const submitPublicComplaint = catchAsync(async (req: AppRequest, res: AppResponse) => {
   const { complaint, trackingPin } = await complaintService.createComplaint(req.organizationId, req.body, req.files);
   res.status(201).json({ success: true, message: 'تم استلام طلبك بنجاح. احتفظ بالرقم المرجعي ورمز المتابعة لمتابعة حالة طلبك.', data: { id: complaint.id, referenceCode: complaint.referenceCode, trackingPin } });
@@ -65,4 +63,4 @@ const regenerateTrackingPin = catchAsync(async (req: AppRequest, res: AppRespons
   res.status(200).json({ success: true, message: `تم إنشاء رمز متابعة جديد وإرساله عبر ${result.channel}`, data: result });
 });
 
-module.exports = { submitPublicComplaint, trackPublicComplaint, createStaffComplaint, listComplaints, getComplaint, listComplaintTransitions, updateComplaintStatus, assignComplaint, escalateComplaint, regenerateTrackingPin };
+export { submitPublicComplaint, trackPublicComplaint, createStaffComplaint, listComplaints, getComplaint, listComplaintTransitions, updateComplaintStatus, assignComplaint, escalateComplaint, regenerateTrackingPin };

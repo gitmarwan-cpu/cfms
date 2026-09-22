@@ -1,11 +1,11 @@
 import 'dotenv/config';
 
-const express = require('express');
-const cors = require('cors');
-const helmet = require('helmet');
-const morgan = require('morgan');
-const routes = require('./routes');
-const { errorHandler, notFoundHandler } = require('./middlewares/errorHandler');
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import morgan from 'morgan';
+import routes from './routes';
+import { errorHandler, notFoundHandler } from './middlewares/errorHandler';
 
 const app = express();
 app.use(helmet());

@@ -1,13 +1,12 @@
-const express = require('express');
-const auditController = require('../controllers/auditController');
-const validate = require('../middlewares/validate');
-const { authenticate, authorizePermission } = require('../middlewares/auth');
-const { resolveAuthenticatedTenant } = require('../middlewares/tenant');
-const { auditLogListValidation } = require('../validations/auditValidation');
-export {};
+import express from 'express';
+import * as auditController from '../controllers/auditController';
+import validate from '../middlewares/validate';
+import { authenticate, authorizePermission } from '../middlewares/auth';
+import { resolveAuthenticatedTenant } from '../middlewares/tenant';
+import { auditLogListValidation } from '../validations/auditValidation';
 
 const router = express.Router();
 router.use(authenticate, resolveAuthenticatedTenant, authorizePermission('audit.view'));
 router.get('/', validate(auditLogListValidation), auditController.list);
 
-module.exports = router;
+export default router;

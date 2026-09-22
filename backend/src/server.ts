@@ -1,6 +1,6 @@
-const app = require('./app');
+import app from './app';
 import prisma from './prisma/client';
-const { startSlaEvaluationWorker, stopSlaEvaluationWorker } = require('./workers/slaWorker');
+import { startSlaEvaluationWorker, stopSlaEvaluationWorker } from './workers/slaWorker';
 
 const PORT = process.env.PORT || 4000;
 

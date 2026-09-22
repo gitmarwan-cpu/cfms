@@ -1,6 +1,5 @@
 const { body, param, query } = require('express-validator');
-export {};
-const referenceDataService = require('../services/referenceDataService');
+import * as referenceDataService from '../services/referenceDataService';
 
 const TYPE_VALUES = ['complaint', 'proposal'];
 const STATUS_VALUES = ['new', 'in_review', 'resolved', 'closed', 'rejected'];
@@ -72,4 +71,4 @@ const trackComplaintValidation = [
   body('pin').trim().isLength({ min: 6, max: 6 }).withMessage('رمز المتابعة يجب أن يكون 6 أرقام').isNumeric().withMessage('رمز المتابعة يجب أن يكون أرقاماً فقط'),
 ];
 
-module.exports = { createComplaintValidation, listComplaintsValidation, complaintIdParamValidation, updateStatusValidation, assignmentValidation, escalateComplaintValidation, trackComplaintValidation };
+export { createComplaintValidation, listComplaintsValidation, complaintIdParamValidation, updateStatusValidation, assignmentValidation, escalateComplaintValidation, trackComplaintValidation };

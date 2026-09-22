@@ -1,11 +1,10 @@
 import type { AppRequest, AppResponse } from '../types/http';
 
-const catchAsync = require('../utils/catchAsync');
-const userAdminService = require('../services/userAdminService');
-export {};
-
+import catchAsync from '../utils/catchAsync';
+import * as userAdminService from '../services/userAdminService';
+import * as passwordService from '../services/passwordService';
 const listUsers = catchAsync(async (req: AppRequest, res: AppResponse) => {
-  const result = await userAdminService.listUsers(req.organizationId, {
+  const result = await userAdminService.listUsers(req.organizationId!, {
     page: req.query.page,
     limit: req.query.limit,
     search: req.query.search,
@@ -15,13 +14,13 @@ const listUsers = catchAsync(async (req: AppRequest, res: AppResponse) => {
 });
 
 const getUserById = catchAsync(async (req: AppRequest, res: AppResponse) => {
-  const user = await userAdminService.getUserById(req.organizationId, req.params.userId);
+  const user = await userAdminService.getUserById(req.organizationId!, req.params.userId);
   res.status(200).json({ success: true, data: user });
 });
 
 const updateUser = catchAsync(async (req: AppRequest, res: AppResponse) => {
   const user = await userAdminService.updateUser(
-    req.organizationId,
+    req.organizationId!,
     req.params.userId,
     {
       fullName: req.body.fullName,
@@ -35,7 +34,7 @@ const updateUser = catchAsync(async (req: AppRequest, res: AppResponse) => {
 
 const deactivateUser = catchAsync(async (req: AppRequest, res: AppResponse) => {
   const user = await userAdminService.deactivateUser(
-    req.organizationId,
+    req.organizationId!,
     req.params.userId,
     req.user?.id ?? null
   );
@@ -44,7 +43,7 @@ const deactivateUser = catchAsync(async (req: AppRequest, res: AppResponse) => {
 
 const activateUser = catchAsync(async (req: AppRequest, res: AppResponse) => {
   const user = await userAdminService.activateUser(
-    req.organizationId,
+    req.organizationId!,
     req.params.userId,
     req.user?.id ?? null
   );
@@ -52,7 +51,6 @@ const activateUser = catchAsync(async (req: AppRequest, res: AppResponse) => {
 });
 
 const resetPassword = catchAsync(async (req: AppRequest, res: AppResponse) => {
-  const passwordService = require('../services/passwordService');
   await passwordService.adminResetUserPassword(
     req.organizationId,
     req.user?.id ?? null,
@@ -62,4 +60,4 @@ const resetPassword = catchAsync(async (req: AppRequest, res: AppResponse) => {
   res.status(200).json({ success: true, message: 'تم إعادة تعيين كلمة المرور بنجاح' });
 });
 
-module.exports = { listUsers, getUserById, updateUser, deactivateUser, activateUser, resetPassword };
+export { listUsers, getUserById, updateUser, deactivateUser, activateUser, resetPassword };

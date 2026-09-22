@@ -1,6 +1,4 @@
 const { body, param } = require('express-validator');
-export {};
-
 const HEX_COLOR = /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/;
 
 const updateOrganizationValidation = [
@@ -78,7 +76,7 @@ const nodeIdParamValidation = [
   param('id').isInt({ min: 1 }).withMessage('معرف الوحدة غير صالح'),
 ];
 
-module.exports = {
+export {
   updateOrganizationValidation,
   createOrganizationValidation,
   createNodeValidation,

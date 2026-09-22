@@ -1,6 +1,4 @@
 const { param, body } = require('express-validator');
-export {};
-
 const roleIdParamValidation = [param('id').isInt({ min: 1 }).withMessage('معرّف الدور غير صالح')];
 const createRoleValidation = [
   body('code').trim().isLength({ min: 2, max: 60 }).withMessage('كود الدور مطلوب').matches(/^[a-z0-9_]+$/).withMessage('كود الدور يجب أن يحتوي أحرفاً إنجليزية صغيرة وأرقاماً و _ فقط'),
@@ -20,4 +18,4 @@ const updateRoleValidation = [
   body('permissionIds.*').optional().isInt({ min: 1 }),
 ];
 
-module.exports = { roleIdParamValidation, createRoleValidation, updateRoleValidation };
+export { roleIdParamValidation, createRoleValidation, updateRoleValidation };

@@ -1,8 +1,6 @@
 import type { AppRequest, AppResponse } from '../types/http';
-const catchAsync = require('../utils/catchAsync');
-const membershipService = require('../services/membershipService');
-export {};
-
+import catchAsync from '../utils/catchAsync';
+import * as membershipService from '../services/membershipService';
 /**
  * HTTP translation layer for membership lifecycle management (Phase 3).
  * All business rules live in services/membershipService.ts.
@@ -39,4 +37,4 @@ const setPrimaryMembership = catchAsync(async (req: AppRequest, res: AppResponse
   })
 );
 
-module.exports = { listMemberships, addMembership, removeMembership, setPrimaryMembership };
+export { listMemberships, addMembership, removeMembership, setPrimaryMembership };

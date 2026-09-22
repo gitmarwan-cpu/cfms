@@ -28,4 +28,3 @@ export const withTemplateOverrideScope = (organizationId: number, args: any = {}
 };
 
 export { assertBelongsToTenant };
-module.exports = { withTenantScope, withTemplateOverrideScope, assertBelongsToTenant };

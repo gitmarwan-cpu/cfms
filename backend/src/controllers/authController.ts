@@ -1,9 +1,8 @@
 import type { AppRequest, AppResponse } from '../types/http';
 
-const catchAsync = require('../utils/catchAsync');
-const authService = require('../services/authService');
-export {};
-
+import catchAsync from '../utils/catchAsync';
+import * as authService from '../services/authService';
+import * as passwordService from '../services/passwordService';
 const login = catchAsync(async (req: AppRequest, res: AppResponse) => {
   const { email, password } = req.body;
   const result = await authService.login(email, password);
@@ -11,9 +10,8 @@ const login = catchAsync(async (req: AppRequest, res: AppResponse) => {
 });
 
 const register = catchAsync(async (req: AppRequest, res: AppResponse) => {
-  const user = await authService.register(req.organizationId, req.body);
-  const userData = typeof user.toJSON === 'function' ? user.toJSON() : user;
-  const { passwordHash, password_hash, ...userSafe } = userData;
+  const user = await authService.register(req.organizationId!, req.body);
+  const userSafe = user;
   res.status(201).json({ success: true, message: 'تم إنشاء المستخدم بنجاح', data: userSafe });
 });
 
@@ -42,7 +40,6 @@ const me = catchAsync(async (req: AppRequest, res: AppResponse) => {
  * logged by this handler.
  */
 const changePassword = catchAsync(async (req: AppRequest, res: AppResponse) => {
-  const passwordService = require('../services/passwordService');
   await passwordService.changeOwnPassword(
     req.user?.id,
     req.body.currentPassword,
@@ -52,4 +49,4 @@ const changePassword = catchAsync(async (req: AppRequest, res: AppResponse) => {
   res.status(200).json({ success: true, message: 'تم تغيير كلمة المرور بنجاح' });
 });
 
-module.exports = { login, register, me, changePassword };
+export { login, register, me, changePassword };

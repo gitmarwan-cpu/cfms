@@ -9,5 +9,3 @@ export const generatePin = (): string => crypto.randomInt(100000, 999999).toStri
 export const hashPin = async (pin: string): Promise<string> => bcrypt.hash(pin, 10);
 
 export const verifyPin = async (pin: string, hash: string): Promise<boolean> => bcrypt.compare(pin, hash || '');
-
-module.exports = { generatePin, hashPin, verifyPin };

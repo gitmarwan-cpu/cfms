@@ -1,6 +1,6 @@
 import type { AppRequest, AppResponse } from '../types/http';
 
-const catchAsync = require('../utils/catchAsync');
+import catchAsync from '../utils/catchAsync';
 import { getComplaintSummary } from '../services/reportService';
 
 const complaintSummary = catchAsync(async (req: AppRequest, res: AppResponse) => {
@@ -11,4 +11,4 @@ const complaintSummary = catchAsync(async (req: AppRequest, res: AppResponse) =>
   res.status(200).json({ success: true, data: report });
 });
 
-module.exports = { complaintSummary };
+export { complaintSummary };

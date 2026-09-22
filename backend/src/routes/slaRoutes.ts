@@ -1,10 +1,9 @@
-const express = require('express');
-const slaController = require('../controllers/slaController');
-const validate = require('../middlewares/validate');
-const { authenticate, authorizePermission } = require('../middlewares/auth');
-const { resolveAuthenticatedTenant } = require('../middlewares/tenant');
-const { createSlaRuleValidation, updateSlaRuleValidation } = require('../validations/slaValidation');
-export {};
+import express from 'express';
+import * as slaController from '../controllers/slaController';
+import validate from '../middlewares/validate';
+import { authenticate, authorizePermission } from '../middlewares/auth';
+import { resolveAuthenticatedTenant } from '../middlewares/tenant';
+import { createSlaRuleValidation, updateSlaRuleValidation } from '../validations/slaValidation';
 
 const router = express.Router();
 router.use(authenticate, resolveAuthenticatedTenant);
@@ -13,4 +12,4 @@ router.post('/', authorizePermission('organization.manage'), validate(createSlaR
 router.post('/evaluate', authorizePermission('complaints.view_all'), slaController.evaluateSla);
 router.patch('/:id', authorizePermission('organization.manage'), validate(updateSlaRuleValidation), slaController.updateSlaRule);
 
-module.exports = router;
+export default router;

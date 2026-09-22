@@ -1,6 +1,4 @@
 const { body, param } = require('express-validator');
-export {};
-
 const TYPE_VALUES = ['complaint', 'proposal'];
 
 const slaRuleIdParamValidation = [param('id').isInt({ min: 1 }).withMessage('معرّف قاعدة مهلة المعالجة غير صالح')];
@@ -32,4 +30,4 @@ const updateSlaRuleValidation = [
   body('isActive').optional().isBoolean().toBoolean(),
 ];
 
-module.exports = { slaRuleIdParamValidation, createSlaRuleValidation, updateSlaRuleValidation };
+export { slaRuleIdParamValidation, createSlaRuleValidation, updateSlaRuleValidation };

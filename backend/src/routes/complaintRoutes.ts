@@ -1,12 +1,10 @@
-const express = require('express');
-const complaintController = require('../controllers/complaintController');
-const validate = require('../middlewares/validate');
-const upload = require('../middlewares/upload');
-const { validateUploadedFileSignatures } = require('../middlewares/upload');
-const { authenticate, authorizePermission } = require('../middlewares/auth');
-const { resolveAuthenticatedTenant } = require('../middlewares/tenant');
-const { createComplaintValidation, listComplaintsValidation, complaintIdParamValidation, updateStatusValidation, assignmentValidation, escalateComplaintValidation } = require('../validations/complaintValidation');
-export {};
+import express from 'express';
+import * as complaintController from '../controllers/complaintController';
+import validate from '../middlewares/validate';
+import upload, { validateUploadedFileSignatures } from '../middlewares/upload';
+import { authenticate, authorizePermission } from '../middlewares/auth';
+import { resolveAuthenticatedTenant } from '../middlewares/tenant';
+import { createComplaintValidation, listComplaintsValidation, complaintIdParamValidation, updateStatusValidation, assignmentValidation, escalateComplaintValidation } from '../validations/complaintValidation';
 
 const router = express.Router();
 router.use(authenticate, resolveAuthenticatedTenant);
@@ -19,4 +17,4 @@ router.patch('/:id/assignment', authorizePermission('complaints.assign'), valida
 router.post('/:id/escalate', authorizePermission('complaints.escalate'), validate(escalateComplaintValidation), complaintController.escalateComplaint);
 router.post('/:id/regenerate-pin', authorizePermission('complaints.assign'), validate(complaintIdParamValidation), complaintController.regenerateTrackingPin);
 
-module.exports = router;
+export default router;

@@ -1,7 +1,5 @@
 const { body } = require('express-validator');
-const { passwordPolicyBodyValidation } = require('./passwordPolicy');
-export {};
-
+import { passwordPolicyBodyValidation } from './passwordPolicy';
 const createTenantValidation = [
   body('legalName').trim().notEmpty().withMessage('اسم المؤسسة مطلوب').isLength({ min: 2, max: 200 }),
   body('slug')
@@ -23,4 +21,4 @@ const createTenantValidation = [
   passwordPolicyBodyValidation('initialAdmin.password'),
 ];
 
-module.exports = { createTenantValidation };
+export { createTenantValidation };

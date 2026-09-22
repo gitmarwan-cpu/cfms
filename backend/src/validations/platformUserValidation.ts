@@ -1,7 +1,5 @@
 const { body, param, query } = require('express-validator');
-const { passwordPolicyBodyValidation } = require('./passwordPolicy');
-export {};
-
+import { passwordPolicyBodyValidation } from './passwordPolicy';
 const platformUserIdParamValidation = [
   param('userId').isInt({ min: 1 }).withMessage('معرّف المستخدم غير صالح'),
 ];
@@ -41,7 +39,7 @@ const platformRoleChangeValidation = [
   param('userRoleId').isInt({ min: 1 }).withMessage('معرّف تعيين الدور غير صالح'),
 ];
 
-module.exports = {
+export {
   platformUserIdParamValidation,
   platformOrganizationUserParams,
   listPlatformUsersValidation,

@@ -27,5 +27,3 @@ export const errorHandler = (err: ApplicationError, req: AppRequest, res: AppRes
 export const notFoundHandler = (req: AppRequest, res: AppResponse, next: AppNext): void => {
   next(new ApiError(404, `المسار غير موجود: ${req.originalUrl}`));
 };
-
-module.exports = { errorHandler, notFoundHandler };

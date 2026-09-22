@@ -1,25 +1,25 @@
-const express = require('express');
-const authRoutes = require('./authRoutes');
-const locationRoutes = require('./locationRoutes');
-const complaintRoutes = require('./complaintRoutes');
-const referenceDataRoutes = require('./referenceDataRoutes');
-const organizationRoutes = require('./organizationRoutes');
-const orgUnitRoutes = require('./orgUnitRoutes');
-const roleRoutes = require('./roleRoutes');
-const userRoutes = require('./userRoutes');
-const publicRoutes = require('./publicRoutes');
-const auditRoutes = require('./auditRoutes');
-const notificationRoutes = require('./notificationRoutes');
-const reportRoutes = require('./reportRoutes');
-const slaRoutes = require('./slaRoutes');
-const platformTenantRoutes = require('./platformTenantRoutes');
-const platformUserRoutes = require('./platformUserRoutes');
+import express from 'express';
+import authRoutes from './authRoutes';
+import locationRoutes from './locationRoutes';
+import complaintRoutes from './complaintRoutes';
+import referenceDataRoutes from './referenceDataRoutes';
+import organizationRoutes from './organizationRoutes';
+import orgUnitRoutes from './orgUnitRoutes';
+import roleRoutes from './roleRoutes';
+import userRoutes from './userRoutes';
+import publicRoutes from './publicRoutes';
+import auditRoutes from './auditRoutes';
+import notificationRoutes from './notificationRoutes';
+import reportRoutes from './reportRoutes';
+import slaRoutes from './slaRoutes';
+import platformTenantRoutes from './platformTenantRoutes';
+import platformUserRoutes from './platformUserRoutes';
 import prisma from '../prisma/client';
-export {};
+import type { AppRequest, AppResponse } from '../types/http';
 
 const router = express.Router();
-router.get('/health', (req: any, res: any) => res.status(200).json({ success: true, message: 'CFMS API is running' }));
-router.get('/health/ready', async (req: any, res: any) => {
+router.get('/health', (_req: AppRequest, res: AppResponse) => res.status(200).json({ success: true, message: 'CFMS API is running' }));
+router.get('/health/ready', async (_req: AppRequest, res: AppResponse) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
     res.status(200).json({ success: true, status: 'ready' });
@@ -43,4 +43,4 @@ router.use('/sla-rules', slaRoutes);
 router.use('/platform', platformTenantRoutes);
 router.use('/platform', platformUserRoutes);
 
-module.exports = router;
+export default router;

@@ -24,4 +24,4 @@ const submitComplaintRateLimiter = rateLimit({
   message: { success: false, message: 'عدد كبير جداً من الطلبات، الرجاء المحاولة لاحقاً' },
 });
 
-module.exports = { loginRateLimiter, trackComplaintRateLimiter, submitComplaintRateLimiter };
+export { loginRateLimiter, trackComplaintRateLimiter, submitComplaintRateLimiter };

@@ -1,15 +1,14 @@
-const express = require('express');
-const organizationController = require('../controllers/organizationController');
-const validate = require('../middlewares/validate');
-const { authenticate, authorizePermission } = require('../middlewares/auth');
-const { resolveAuthenticatedTenant } = require('../middlewares/tenant');
-const {
+import express from 'express';
+import * as organizationController from '../controllers/organizationController';
+import validate from '../middlewares/validate';
+import { authenticate, authorizePermission } from '../middlewares/auth';
+import { resolveAuthenticatedTenant } from '../middlewares/tenant';
+import {
   updateOrganizationValidation,
   createNodeValidation,
   updateNodeValidation,
   nodeIdParamValidation,
-} = require('../validations/organizationValidation');
-export {};
+} from '../validations/organizationValidation';
 
 const router = express.Router();
 router.use(authenticate, resolveAuthenticatedTenant);
@@ -23,4 +22,4 @@ router.put('/nodes/:id', authorizePermission('org_structure.manage'), validate(u
 router.patch('/nodes/:id/deactivate', authorizePermission('org_structure.manage'), validate(nodeIdParamValidation), organizationController.deactivateNode);
 router.patch('/nodes/:id/activate', authorizePermission('org_structure.manage'), validate(nodeIdParamValidation), organizationController.activateNode);
 
-module.exports = router;
+export default router;

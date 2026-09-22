@@ -6,4 +6,3 @@ const generateReferenceCode = (): string => {
 };
 
 export default generateReferenceCode;
-module.exports = generateReferenceCode;

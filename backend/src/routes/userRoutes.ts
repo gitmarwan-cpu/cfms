@@ -1,14 +1,13 @@
-const express = require('express');
-const userRoleController = require('../controllers/userRoleController');
-const userAdminController = require('../controllers/userAdminController');
-const membershipController = require('../controllers/membershipController');
-const validate = require('../middlewares/validate');
-const { authenticate, authorizePermission } = require('../middlewares/auth');
-const { resolveAuthenticatedTenant } = require('../middlewares/tenant');
-const { userIdParamValidation, userRoleIdParamValidation, assignRoleValidation } = require('../validations/userRoleValidation');
-const { listUsersValidation, userAdminIdParamValidation, updateUserValidation } = require('../validations/userAdminValidation');
-const { membershipIdParamValidation, addMembershipValidation, resetPasswordValidation } = require('../validations/userMembershipValidation');
-export {};
+import express from 'express';
+import * as userRoleController from '../controllers/userRoleController';
+import * as userAdminController from '../controllers/userAdminController';
+import * as membershipController from '../controllers/membershipController';
+import validate from '../middlewares/validate';
+import { authenticate, authorizePermission } from '../middlewares/auth';
+import { resolveAuthenticatedTenant } from '../middlewares/tenant';
+import { userIdParamValidation, userRoleIdParamValidation, assignRoleValidation } from '../validations/userRoleValidation';
+import { listUsersValidation, userAdminIdParamValidation, updateUserValidation } from '../validations/userAdminValidation';
+import { membershipIdParamValidation, addMembershipValidation, resetPasswordValidation } from '../validations/userMembershipValidation';
 
 const router = express.Router();
 router.use(authenticate, resolveAuthenticatedTenant);
@@ -41,4 +40,4 @@ router.put('/:userId', authorizePermission('users.manage'), validate(updateUserV
 router.patch('/:userId/deactivate', authorizePermission('users.manage'), validate(userAdminIdParamValidation), userAdminController.deactivateUser);
 router.patch('/:userId/activate', authorizePermission('users.manage'), validate(userAdminIdParamValidation), userAdminController.activateUser);
 
-module.exports = router;
+export default router;

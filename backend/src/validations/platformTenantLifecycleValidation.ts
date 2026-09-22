@@ -1,6 +1,4 @@
 const { body, param } = require('express-validator');
-export {};
-
 const organizationIdParamValidation = [
   param('organizationId').isInt({ min: 1 }).withMessage('معرّف المؤسسة غير صالح'),
 ];
@@ -18,4 +16,4 @@ const platformTenantLifecycleValidation = [
   ...lifecycleReasonValidation,
 ];
 
-module.exports = { platformTenantLifecycleValidation };
+export { platformTenantLifecycleValidation };

@@ -1,9 +1,9 @@
-const express = require('express');
-const platformUserController = require('../controllers/platformUserController');
-const platformMembershipDiscoveryValidation = require('../validations/platformMembershipDiscoveryValidation');
-const validate = require('../middlewares/validate');
-const { authenticate, authorizePlatformPermission } = require('../middlewares/auth');
-const {
+import express from 'express';
+import * as platformUserController from '../controllers/platformUserController';
+import validate from '../middlewares/validate';
+import { authenticate, authorizePlatformPermission } from '../middlewares/auth';
+import { listMembershipsValidation, tenantParamValidation } from '../validations/platformMembershipDiscoveryValidation';
+import {
   platformUserIdParamValidation,
   platformOrganizationUserParams,
   listPlatformUsersValidation,
@@ -11,8 +11,7 @@ const {
   createPlatformUserValidation,
   platformRoleAssignmentValidation,
   platformRoleChangeValidation,
-} = require('../validations/platformUserValidation');
-export {};
+} from '../validations/platformUserValidation';
 
 const router = express.Router();
 const platformUsers = [authenticate, authorizePlatformPermission('platform.users.manage')];
@@ -33,19 +32,19 @@ router.patch('/users/:userId/activate', ...platformUsers, validate(platformUserI
 router.get(
   '/tenants/:organizationId/memberships',
   ...platformMemberships,
-  validate(platformMembershipDiscoveryValidation.listMembershipsValidation),
+  validate(listMembershipsValidation),
   platformUserController.listTenantMemberships
 );
 router.get(
   '/tenants/:organizationId/roles',
   ...platformMemberships,
-  validate(platformMembershipDiscoveryValidation.tenantParamValidation),
+  validate(tenantParamValidation),
   platformUserController.listTenantRoles
 );
 router.get(
   '/tenants/:organizationId/organization-nodes',
   ...platformMemberships,
-  validate(platformMembershipDiscoveryValidation.tenantParamValidation),
+  validate(tenantParamValidation),
   platformUserController.listTenantOrganizationNodes
 );
 
@@ -80,4 +79,4 @@ router.patch(
   platformUserController.changeRole
 );
 
-module.exports = router;
+export default router;

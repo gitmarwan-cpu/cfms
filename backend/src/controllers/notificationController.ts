@@ -1,5 +1,5 @@
 import type { AppRequest, AppResponse } from '../types/http';
-const catchAsync = require('../utils/catchAsync');
+import catchAsync from '../utils/catchAsync';
 import { listNotifications, markNotificationRead } from '../services/notificationService';
 
 const list = catchAsync(async (req: AppRequest, res: AppResponse) => {
@@ -12,4 +12,4 @@ const markRead = catchAsync(async (req: AppRequest, res: AppResponse) => {
   res.status(200).json({ success: true });
 });
 
-module.exports = { list, markRead };
+export { list, markRead };

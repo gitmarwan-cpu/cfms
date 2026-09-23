@@ -78,4 +78,50 @@ describe('Auth API', () => {
     expect(third.body.data.organizations).toHaveLength(1);
     expect(third.body.data.organizations[0].id).toBe(baseOrgId);
   });
+
+  it('permits login and JWT generation for users of a suspended tenant, but excludes suspended tenant from getMyOrganizations and blocks operational tenant API access', async () => {
+    const unique = `${Date.now()}_${Math.floor(Math.random() * 100000)}`;
+    const suspendedOrg = await createOrganization({
+      legalName: 'مؤسسة معلقة للاختبار',
+      slug: `suspended-auth-${unique}`,
+    });
+
+    const suspendedUser = await createUserWithRole(
+      {
+        fullName: 'مستخدم مؤسسة معلقة',
+        email: `suspended.user-${unique}@cfms.local`,
+        roleCode: 'admin',
+        organizationId: suspendedOrg.id,
+      },
+      'Password123'
+    );
+
+    await prisma.organizations.update({
+      where: { id: suspendedOrg.id },
+      data: { lifecycle_status: 'suspended', is_active: false },
+    });
+
+    const loginRes = await request(app)
+      .post('/api/auth/login')
+      .send({ email: suspendedUser.user.email, password: 'Password123' });
+
+    expect(loginRes.status).toBe(200);
+    expect(loginRes.body.data).toHaveProperty('token');
+    const token = loginRes.body.data.token;
+
+    const meRes = await request(app)
+      .get('/api/auth/me')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(meRes.status).toBe(200);
+    const orgIds = meRes.body.data.organizations.map((org) => org.id);
+    expect(orgIds).not.toContain(suspendedOrg.id);
+
+    const operationalRes = await request(app)
+      .get('/api/organization')
+      .set('Authorization', `Bearer ${token}`)
+      .set('x-organization-id', String(suspendedOrg.id));
+
+    expect(operationalRes.status).toBe(403);
+  });
 });

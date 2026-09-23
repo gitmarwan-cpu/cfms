@@ -21,4 +21,23 @@ const changePasswordValidation = [
   passwordPolicyBodyValidation('newPassword'),
 ];
 
-export { loginValidation, registerValidation, changePasswordValidation };
+const forgotPasswordValidation = [
+  body('email').isEmail().withMessage('البريد الإلكتروني غير صالح'),
+];
+
+const resetPasswordValidation = [
+  body('token')
+    .isString()
+    .withMessage('رمز إعادة التعيين مطلوب')
+    .matches(/^[A-Za-z0-9_-]{43}$/)
+    .withMessage('رمز إعادة التعيين غير صالح'),
+  passwordPolicyBodyValidation('newPassword'),
+];
+
+export {
+  loginValidation,
+  registerValidation,
+  changePasswordValidation,
+  forgotPasswordValidation,
+  resetPasswordValidation,
+};

@@ -3,6 +3,7 @@ import type { AppRequest, AppResponse } from '../types/http';
 import catchAsync from '../utils/catchAsync';
 import * as authService from '../services/authService';
 import * as passwordService from '../services/passwordService';
+import * as passwordRecoveryService from '../services/passwordRecoveryService';
 const login = catchAsync(async (req: AppRequest, res: AppResponse) => {
   const { email, password } = req.body;
   const result = await authService.login(email, password);
@@ -49,4 +50,17 @@ const changePassword = catchAsync(async (req: AppRequest, res: AppResponse) => {
   res.status(200).json({ success: true, message: 'تم تغيير كلمة المرور بنجاح' });
 });
 
-export { login, register, me, changePassword };
+const forgotPassword = catchAsync(async (req: AppRequest, res: AppResponse) => {
+  await passwordRecoveryService.issuePasswordResetToken(req.body.email);
+  res.status(200).json({
+    success: true,
+    message: 'إذا كان البريد الإلكتروني مرتبطاً بحساب، فسيتم إرسال تعليمات إعادة التعيين إليه',
+  });
+});
+
+const resetPassword = catchAsync(async (req: AppRequest, res: AppResponse) => {
+  await passwordRecoveryService.resetPasswordWithToken(req.body.token, req.body.newPassword);
+  res.status(200).json({ success: true, message: 'تم إعادة تعيين كلمة المرور بنجاح' });
+});
+
+export { login, register, me, changePassword, forgotPassword, resetPassword };

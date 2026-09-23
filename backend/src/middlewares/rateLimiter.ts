@@ -8,6 +8,22 @@ const loginRateLimiter = rateLimit({
   message: { success: false, message: 'محاولات تسجيل دخول كثيرة جداً، الرجاء المحاولة لاحقاً' },
 });
 
+const forgotPasswordRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'طلبات كثيرة جداً، الرجاء المحاولة لاحقاً' },
+});
+
+const passwordResetRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'محاولات كثيرة جداً، الرجاء المحاولة لاحقاً' },
+});
+
 const trackComplaintRateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 15,
@@ -24,4 +40,10 @@ const submitComplaintRateLimiter = rateLimit({
   message: { success: false, message: 'عدد كبير جداً من الطلبات، الرجاء المحاولة لاحقاً' },
 });
 
-export { loginRateLimiter, trackComplaintRateLimiter, submitComplaintRateLimiter };
+export {
+  loginRateLimiter,
+  forgotPasswordRateLimiter,
+  passwordResetRateLimiter,
+  trackComplaintRateLimiter,
+  submitComplaintRateLimiter,
+};

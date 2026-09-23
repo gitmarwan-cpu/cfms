@@ -23,6 +23,7 @@ const TEST_TABLES = [
   'role_permissions',
   'user_roles',
   'user_platform_roles',
+  'password_reset_tokens',
   'user_organizations',
   'workflow_definitions',
   'workflow_states',

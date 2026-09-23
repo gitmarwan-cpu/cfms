@@ -39,6 +39,16 @@ const platformRoleChangeValidation = [
   param('userRoleId').isInt({ min: 1 }).withMessage('معرّف تعيين الدور غير صالح'),
 ];
 
+const platformUserRoleAssignmentValidation = [
+  ...platformUserIdParamValidation,
+  body('roleId').isInt({ min: 1 }).withMessage('معرّف الدور مطلوب'),
+];
+
+const platformUserRoleRevocationValidation = [
+  ...platformUserIdParamValidation,
+  param('roleId').isInt({ min: 1 }).withMessage('معرّف الدور غير صالح'),
+];
+
 export {
   platformUserIdParamValidation,
   platformOrganizationUserParams,
@@ -47,4 +57,6 @@ export {
   createPlatformUserValidation,
   platformRoleAssignmentValidation,
   platformRoleChangeValidation,
+  platformUserRoleAssignmentValidation,
+  platformUserRoleRevocationValidation,
 };

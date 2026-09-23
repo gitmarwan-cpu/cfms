@@ -44,6 +44,25 @@ const MEMBERSHIP_USER_OPTION_FIELDS = {
   email: true,
 } as const;
 
+const PLATFORM_ROLE_ASSIGNMENT_SELECT = {
+  id: true,
+  user_id: true,
+  role_id: true,
+  create_date: true,
+  write_date: true,
+  roles: {
+    select: {
+      id: true,
+      code: true,
+      name_ar: true,
+      name_en: true,
+      scope: true,
+      organization_id: true,
+      is_active: true,
+    },
+  },
+} as const;
+
 const toPositiveInteger = (value: unknown): number | null => {
   if (typeof value === 'number') return Number.isSafeInteger(value) && value > 0 ? value : null;
   if (typeof value !== 'string' || !/^[1-9]\d*$/.test(value)) return null;
@@ -261,6 +280,134 @@ const assertUserId = (userId: unknown): number => {
   const parsedUserId = toPositiveInteger(userId);
   if (!parsedUserId) throw new ApiError(400, 'معرّف المستخدم غير صالح');
   return parsedUserId;
+};
+
+const mapPlatformRoleAssignment = (assignment: any) => ({
+  id: assignment.id,
+  userId: assignment.user_id,
+  roleId: assignment.role_id,
+  createDate: assignment.create_date,
+  writeDate: assignment.write_date,
+  role: {
+    id: assignment.roles.id,
+    code: assignment.roles.code,
+    nameAr: assignment.roles.name_ar,
+    nameEn: assignment.roles.name_en,
+    scope: assignment.roles.scope,
+    organizationId: assignment.roles.organization_id,
+    isActive: assignment.roles.is_active,
+  },
+});
+
+export const assignPlatformRole = async (
+  userId: unknown,
+  roleId: unknown,
+  actorUserId: number
+) => {
+  const parsedUserId = assertUserId(userId);
+  const parsedRoleId = assertUserId(roleId);
+  const parsedActorUserId = assertUserId(actorUserId);
+
+  try {
+    const assignment = await prisma.$transaction(async (tx) => {
+      const user = await tx.users.findUnique({
+        where: { id: parsedUserId },
+        select: { id: true, is_active: true },
+      });
+      if (!user) throw new ApiError(404, 'المستخدم غير موجود');
+      if (!user.is_active) throw new ApiError(400, 'لا يمكن إسناد دور لمستخدم غير مفعّل');
+
+      const role = await tx.roles.findFirst({
+        where: {
+          id: parsedRoleId,
+          is_active: true,
+          scope: 'platform',
+          organization_id: null,
+        },
+        select: { id: true, code: true },
+      });
+      if (!role) throw new ApiError(404, 'الدور غير موجود أو غير مفعّل ضمن المنصة');
+
+      const existing = await tx.user_platform_roles.findUnique({
+        where: { user_id_role_id: { user_id: parsedUserId, role_id: parsedRoleId } },
+        select: { id: true },
+      });
+      if (existing) throw new ApiError(409, 'هذا الدور مسند للمستخدم بالفعل');
+
+      const created = await tx.user_platform_roles.create({
+        data: {
+          user_id: parsedUserId,
+          role_id: parsedRoleId,
+          create_date: new Date(),
+          write_date: new Date(),
+          create_uid: parsedActorUserId,
+          write_uid: parsedActorUserId,
+        },
+        select: PLATFORM_ROLE_ASSIGNMENT_SELECT,
+      });
+
+      await recordAuditEvent(tx, {
+        organizationId: null,
+        actorUserId: parsedActorUserId,
+        action: 'platform_role.assigned',
+        entityType: 'user_platform_role',
+        entityId: created.id,
+        metadata: {
+          userId: parsedUserId,
+          roleId: parsedRoleId,
+          roleCode: role.code,
+        },
+      });
+
+      return created;
+    });
+
+    return mapPlatformRoleAssignment(assignment);
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      throw new ApiError(409, 'هذا الدور مسند للمستخدم بالفعل');
+    }
+    throw error;
+  }
+};
+
+export const revokePlatformRole = async (
+  userId: unknown,
+  roleId: unknown,
+  actorUserId: number
+): Promise<void> => {
+  const parsedUserId = assertUserId(userId);
+  const parsedRoleId = assertUserId(roleId);
+  const parsedActorUserId = assertUserId(actorUserId);
+
+  await prisma.$transaction(async (tx) => {
+    const assignment = await tx.user_platform_roles.findFirst({
+      where: {
+        user_id: parsedUserId,
+        role_id: parsedRoleId,
+        roles: { scope: 'platform', organization_id: null },
+      },
+      select: {
+        ...PLATFORM_ROLE_ASSIGNMENT_SELECT,
+      },
+    });
+    if (!assignment) throw new ApiError(404, 'تعيين دور المنصة غير موجود');
+
+    await tx.user_platform_roles.delete({ where: { id: assignment.id } });
+
+    await recordAuditEvent(tx, {
+      organizationId: null,
+      actorUserId: parsedActorUserId,
+      action: 'platform_role.revoked',
+      entityType: 'user_platform_role',
+      entityId: assignment.id,
+      metadata: {
+        userId: parsedUserId,
+        roleId: parsedRoleId,
+        roleCode: assignment.roles.code,
+      },
+    });
+  });
 };
 
 export const deactivateUser = async (userId: unknown, actorUserId: number) => {

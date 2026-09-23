@@ -375,6 +375,126 @@ describe('Phase 2C platform user and membership administration', () => {
     expect((await prisma.users.findUnique({ where: { id: lastAdmin.user.id }, select: { is_active: true } })).is_active).toBe(true);
   });
 
+  it('assigns and revokes platform roles without changing tenant access', async () => {
+    const target = await createUserWithRole({
+      fullName: 'Phase 2C Platform Role Target',
+      email: `phase2c-platform-role-target-${unique()}@cfms.local`,
+      roleCode: 'staff',
+      organizationId: managedTenant.id,
+    });
+    const targetToken = tokenFor(target.user.id);
+    const membershipCountBefore = await prisma.user_organizations.count({ where: { user_id: target.user.id } });
+    const tenantRoleCountBefore = await prisma.user_roles.count({ where: { user_id: target.user.id } });
+
+    const unauthorized = await request(app)
+      .post(`/api/platform/users/${target.user.id}/platform-roles`)
+      .set('Authorization', `Bearer ${tenantAdminToken}`)
+      .send({ roleId: global.__rbacRoles.platformAdminRole.id });
+    expect(unauthorized.status).toBe(403);
+
+    const assign = await request(app)
+      .post(`/api/platform/users/${target.user.id}/platform-roles`)
+      .set('Authorization', `Bearer ${platformToken}`)
+      .send({ roleId: global.__rbacRoles.platformAdminRole.id });
+    expect(assign.status).toBe(201);
+    expect(assign.body.data.role).toMatchObject({
+      code: 'platform_admin',
+      scope: 'platform',
+      organizationId: null,
+      isActive: true,
+    });
+
+    const assignment = await prisma.user_platform_roles.findUnique({
+      where: { user_id_role_id: { user_id: target.user.id, role_id: global.__rbacRoles.platformAdminRole.id } },
+      include: { roles: true },
+    });
+    expect(await prisma.user_platform_roles.count({ where: { user_id: target.user.id, role_id: global.__rbacRoles.platformAdminRole.id } })).toBe(1);
+    expect(assignment.roles).toMatchObject({ code: 'platform_admin', scope: 'platform', organization_id: null });
+    expect(await prisma.user_organizations.count({ where: { user_id: target.user.id } })).toBe(membershipCountBefore);
+    expect(await prisma.user_roles.count({ where: { user_id: target.user.id } })).toBe(tenantRoleCountBefore);
+
+    const effective = await request(app)
+      .get('/api/platform/users')
+      .set('Authorization', `Bearer ${targetToken}`);
+    expect(effective.status).toBe(200);
+
+    const duplicate = await request(app)
+      .post(`/api/platform/users/${target.user.id}/platform-roles`)
+      .set('Authorization', `Bearer ${platformToken}`)
+      .send({ roleId: global.__rbacRoles.platformAdminRole.id });
+    expect(duplicate.status).toBe(409);
+
+    const assignedAudit = await prisma.audit_logs.findFirst({
+      where: { actor_user_id: platformAdmin.id, action: 'platform_role.assigned', entity_id: assignment.id },
+    });
+    expect(assignedAudit).not.toBeNull();
+    expect(JSON.stringify(assignedAudit.metadata)).not.toContain('password');
+    expect(JSON.stringify(assignedAudit.metadata)).not.toContain('token');
+
+    const revoke = await request(app)
+      .delete(`/api/platform/users/${target.user.id}/platform-roles/${global.__rbacRoles.platformAdminRole.id}`)
+      .set('Authorization', `Bearer ${platformToken}`);
+    expect(revoke.status).toBe(200);
+    expect(await prisma.user_platform_roles.count({ where: { user_id: target.user.id, role_id: global.__rbacRoles.platformAdminRole.id } })).toBe(0);
+    expect(await prisma.user_organizations.count({ where: { user_id: target.user.id } })).toBe(membershipCountBefore);
+    expect(await prisma.user_roles.count({ where: { user_id: target.user.id } })).toBe(tenantRoleCountBefore);
+
+    const revokedAccess = await request(app)
+      .get('/api/platform/users')
+      .set('Authorization', `Bearer ${targetToken}`);
+    expect(revokedAccess.status).toBe(403);
+
+    const missingRevoke = await request(app)
+      .delete(`/api/platform/users/${target.user.id}/platform-roles/${global.__rbacRoles.platformAdminRole.id}`)
+      .set('Authorization', `Bearer ${platformToken}`);
+    expect(missingRevoke.status).toBe(404);
+
+    const inactivePlatformRole = await prisma.roles.create({
+      data: {
+        code: `phase2c-inactive-platform-${unique()}`,
+        name_ar: 'Inactive Platform Role',
+        scope: 'platform',
+        is_active: false,
+        create_date: new Date(),
+        write_date: new Date(),
+      },
+    });
+    const inactiveAssign = await request(app)
+      .post(`/api/platform/users/${target.user.id}/platform-roles`)
+      .set('Authorization', `Bearer ${platformToken}`)
+      .send({ roleId: inactivePlatformRole.id });
+    expect(inactiveAssign.status).toBe(404);
+
+    const tenantRoleAssign = await request(app)
+      .post(`/api/platform/users/${target.user.id}/platform-roles`)
+      .set('Authorization', `Bearer ${platformToken}`)
+      .send({ roleId: global.__rbacRoles.staffRole.id });
+    expect(tenantRoleAssign.status).toBe(404);
+
+    const inactiveUser = await prisma.users.create({
+      data: {
+        full_name: 'Phase 2C Inactive Platform Role Target',
+        email: `phase2c-inactive-platform-role-target-${unique()}@cfms.local`,
+        password_hash: 'not-used',
+        is_active: false,
+        create_date: new Date(),
+        write_date: new Date(),
+      },
+    });
+    const inactiveUserAssign = await request(app)
+      .post(`/api/platform/users/${inactiveUser.id}/platform-roles`)
+      .set('Authorization', `Bearer ${platformToken}`)
+      .send({ roleId: global.__rbacRoles.platformAdminRole.id });
+    expect(inactiveUserAssign.status).toBe(400);
+
+    const revokedAudit = await prisma.audit_logs.findFirst({
+      where: { actor_user_id: platformAdmin.id, action: 'platform_role.revoked', entity_id: assignment.id },
+    });
+    expect(revokedAudit).not.toBeNull();
+    expect(JSON.stringify(revokedAudit.metadata)).not.toContain('password');
+    expect(JSON.stringify(revokedAudit.metadata)).not.toContain('token');
+  });
+
   it('preserves required platform, membership, and role audit records', async () => {
     const userAuditActions = await prisma.audit_logs.findMany({
       where: { actor_user_id: platformAdmin.id, entity_type: 'user', entity_id: createdUserId },

@@ -46,6 +46,20 @@ const activateUser = catchAsync(async (req: AppRequest, res: AppResponse) => {
   res.status(200).json({ success: true, message: 'تم تفعيل المستخدم بنجاح', data: user });
 });
 
+const assignPlatformRole = catchAsync(async (req: AppRequest, res: AppResponse) => {
+  const assignment = await platformUserService.assignPlatformRole(
+    req.params.userId,
+    req.body.roleId,
+    req.user!.id
+  );
+  res.status(201).json({ success: true, message: 'تم إسناد دور المنصة بنجاح', data: assignment });
+});
+
+const revokePlatformRole = catchAsync(async (req: AppRequest, res: AppResponse) => {
+  await platformUserService.revokePlatformRole(req.params.userId, req.params.roleId, req.user!.id);
+  res.status(200).json({ success: true, message: 'تم إلغاء دور المنصة بنجاح' });
+});
+
 const listTenantMemberships = catchAsync(async (req: AppRequest, res: AppResponse) => {
   const result = await platformMembershipDiscoveryService.listTenantMemberships(req.params.organizationId, {
     page: req.query.page,
@@ -108,6 +122,8 @@ export {
   createUser,
   deactivateUser,
   activateUser,
+  assignPlatformRole,
+  revokePlatformRole,
   listTenantMemberships,
   listTenantRoles,
   listTenantOrganizationNodes,

@@ -11,6 +11,8 @@ import {
   createPlatformUserValidation,
   platformRoleAssignmentValidation,
   platformRoleChangeValidation,
+  platformUserRoleAssignmentValidation,
+  platformUserRoleRevocationValidation,
 } from '../validations/platformUserValidation';
 
 const router = express.Router();
@@ -28,6 +30,18 @@ router.post('/users', ...platformUsers, validate(createPlatformUserValidation), 
 router.get('/users/:userId', ...platformUsers, validate(platformUserIdParamValidation), platformUserController.getUserById);
 router.patch('/users/:userId/deactivate', ...platformUsers, validate(platformUserIdParamValidation), platformUserController.deactivateUser);
 router.patch('/users/:userId/activate', ...platformUsers, validate(platformUserIdParamValidation), platformUserController.activateUser);
+router.post(
+  '/users/:userId/platform-roles',
+  ...platformUsers,
+  validate(platformUserRoleAssignmentValidation),
+  platformUserController.assignPlatformRole
+);
+router.delete(
+  '/users/:userId/platform-roles/:roleId',
+  ...platformUsers,
+  validate(platformUserRoleRevocationValidation),
+  platformUserController.revokePlatformRole
+);
 
 router.get(
   '/tenants/:organizationId/memberships',

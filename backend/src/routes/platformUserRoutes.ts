@@ -9,6 +9,7 @@ import {
   listPlatformUsersValidation,
   listMembershipUserOptionsValidation,
   createPlatformUserValidation,
+  updatePlatformUserValidation,
   platformRoleAssignmentValidation,
   platformRoleChangeValidation,
   platformUserRoleAssignmentValidation,
@@ -28,6 +29,7 @@ router.get(
 );
 router.post('/users', ...platformUsers, validate(createPlatformUserValidation), platformUserController.createUser);
 router.get('/users/:userId', ...platformUsers, validate(platformUserIdParamValidation), platformUserController.getUserById);
+router.put('/users/:userId', ...platformUsers, validate(updatePlatformUserValidation), platformUserController.updateUser);
 router.patch('/users/:userId/deactivate', ...platformUsers, validate(platformUserIdParamValidation), platformUserController.deactivateUser);
 router.patch('/users/:userId/activate', ...platformUsers, validate(platformUserIdParamValidation), platformUserController.activateUser);
 router.post(

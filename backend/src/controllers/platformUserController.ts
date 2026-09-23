@@ -115,11 +115,17 @@ const changeRole = catchAsync(async (req: AppRequest, res: AppResponse) => {
   res.status(200).json({ success: true, message: 'تم تغيير الدور بنجاح', data: role });
 });
 
+const updateUser = catchAsync(async (req: AppRequest, res: AppResponse) => {
+  const user = await platformUserService.updateUser(req.params.userId, req.body, req.user!.id);
+  res.status(200).json({ success: true, message: 'تم تحديث بيانات المستخدم بنجاح', data: user });
+});
+
 export {
   listUsers,
   listMembershipUserOptions,
   getUserById,
   createUser,
+  updateUser,
   deactivateUser,
   activateUser,
   assignPlatformRole,

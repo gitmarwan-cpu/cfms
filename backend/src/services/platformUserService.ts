@@ -19,6 +19,11 @@ export interface PlatformUserCreatePayload {
   password: string;
 }
 
+export interface PlatformUserUpdatePayload {
+  fullName?: string;
+  email?: string;
+}
+
 export interface MembershipUserOptionsFilters {
   page?: string | number;
   limit?: string | number;
@@ -477,6 +482,63 @@ export const activateUser = async (userId: unknown, actorUserId: number) => {
       entityId: parsedUserId,
       metadata: { source: 'platform' },
     });
+    return mapUser(updated);
+  });
+};
+
+export const updateUser = async (
+  userId: unknown,
+  payload: PlatformUserUpdatePayload,
+  actorUserId: number
+) => {
+  const parsedUserId = assertUserId(userId);
+  const parsedActorUserId = assertUserId(actorUserId);
+
+  return prisma.$transaction(async (tx) => {
+    const user = await tx.users.findUnique({ where: { id: parsedUserId }, select: { id: true } });
+    if (!user) throw new ApiError(404, 'المستخدم غير موجود');
+
+    const data: Record<string, unknown> = { write_date: new Date(), write_uid: parsedActorUserId };
+    const updatedFields: Record<string, unknown> = {};
+
+    if (payload.fullName !== undefined) {
+      const trimmedName = payload.fullName.trim();
+      if (trimmedName.length < 2 || trimmedName.length > 150) {
+        throw new ApiError(422, 'الاسم الكامل يجب أن يكون بين 2 و 150 حرفاً');
+      }
+      data.full_name = trimmedName;
+      updatedFields.fullName = trimmedName;
+    }
+
+    if (payload.email !== undefined) {
+      const trimmedEmail = payload.email.trim().toLowerCase();
+      if (!/^\S+@\S+\.\S+$/.test(trimmedEmail)) {
+        throw new ApiError(422, 'البريد الإلكتروني غير صالح');
+      }
+      const existing = await tx.users.findFirst({
+        where: { email: trimmedEmail, id: { not: parsedUserId } },
+        select: { id: true },
+      });
+      if (existing) throw new ApiError(409, 'البريد الإلكتروني مستخدم بالفعل');
+      data.email = trimmedEmail;
+      updatedFields.email = trimmedEmail;
+    }
+
+    const updated = await tx.users.update({
+      where: { id: parsedUserId },
+      data: data as any,
+      select: USER_FIELDS,
+    });
+
+    await recordAuditEvent(tx, {
+      organizationId: null,
+      actorUserId: parsedActorUserId,
+      action: 'user.updated',
+      entityType: 'user',
+      entityId: parsedUserId,
+      metadata: { source: 'platform', fields: Object.keys(updatedFields) },
+    });
+
     return mapUser(updated);
   });
 };

@@ -518,4 +518,108 @@ describe('Phase 2C platform user and membership administration', () => {
       'user_role.changed',
     ]));
   });
+
+  describe('Platform User Profile Update', () => {
+    let testUser;
+    let existingUser;
+
+    beforeAll(async () => {
+      const now = new Date();
+      testUser = await prisma.users.create({
+        data: {
+          full_name: 'Original Name',
+          email: `update-test-${unique()}@cfms.local`,
+          password_hash: 'not-used',
+          is_active: true,
+          create_date: now,
+          write_date: now,
+        },
+      });
+      existingUser = await prisma.users.create({
+        data: {
+          full_name: 'Existing User',
+          email: `existing-conflict-${unique()}@cfms.local`,
+          password_hash: 'not-used',
+          is_active: true,
+          create_date: now,
+          write_date: now,
+        },
+      });
+    });
+
+    it('rejects unauthenticated and unauthorized requests', async () => {
+      const unauthenticated = await request(app)
+        .put(`/api/platform/users/${testUser.id}`)
+        .send({ fullName: 'New Name' });
+      expect(unauthenticated.status).toBe(401);
+
+      const unauthorized = await request(app)
+        .put(`/api/platform/users/${testUser.id}`)
+        .set('Authorization', `Bearer ${membershipsOnlyToken}`)
+        .send({ fullName: 'New Name' });
+      expect(unauthorized.status).toBe(403);
+    });
+
+    it('validates profile fields (422)', async () => {
+      const invalidEmail = await request(app)
+        .put(`/api/platform/users/${testUser.id}`)
+        .set('Authorization', `Bearer ${platformToken}`)
+        .send({ email: 'invalid-email-format' });
+      expect(invalidEmail.status).toBe(422);
+
+      const invalidName = await request(app)
+        .put(`/api/platform/users/${testUser.id}`)
+        .set('Authorization', `Bearer ${platformToken}`)
+        .send({ fullName: 'A' });
+      expect(invalidName.status).toBe(422);
+    });
+
+    it('rejects update for non-existent user (404)', async () => {
+      const response = await request(app)
+        .put('/api/platform/users/999999')
+        .set('Authorization', `Bearer ${platformToken}`)
+        .send({ fullName: 'Valid Name' });
+      expect(response.status).toBe(404);
+    });
+
+    it('rejects duplicate email (409)', async () => {
+      const response = await request(app)
+        .put(`/api/platform/users/${testUser.id}`)
+        .set('Authorization', `Bearer ${platformToken}`)
+        .send({ email: existingUser.email });
+      expect(response.status).toBe(409);
+    });
+
+    it('successfully updates fullName and email, updates write_uid/write_date, and records audit event', async () => {
+      const newEmail = `updated-email-${unique()}@cfms.local`;
+      const newName = 'Updated Full Name';
+
+      const response = await request(app)
+        .put(`/api/platform/users/${testUser.id}`)
+        .set('Authorization', `Bearer ${platformToken}`)
+        .send({ fullName: newName, email: newEmail });
+
+      expect(response.status).toBe(200);
+      expect(response.body.data.fullName).toBe(newName);
+      expect(response.body.data.email).toBe(newEmail);
+      expect(response.body.data.writeUid).toBe(platformAdmin.id);
+
+      const dbUser = await prisma.users.findUnique({ where: { id: testUser.id } });
+      expect(dbUser.full_name).toBe(newName);
+      expect(dbUser.email).toBe(newEmail);
+      expect(dbUser.write_uid).toBe(platformAdmin.id);
+
+      const auditLog = await prisma.audit_logs.findFirst({
+        where: {
+          action: 'user.updated',
+          entity_type: 'user',
+          entity_id: testUser.id,
+          actor_user_id: platformAdmin.id,
+        },
+      });
+      expect(auditLog).not.toBeNull();
+      expect(auditLog.organization_id).toBeNull();
+      expect(auditLog.metadata).toMatchObject({ source: 'platform', fields: expect.arrayContaining(['fullName', 'email']) });
+    });
+  });
 });

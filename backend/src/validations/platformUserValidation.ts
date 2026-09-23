@@ -49,12 +49,19 @@ const platformUserRoleRevocationValidation = [
   param('roleId').isInt({ min: 1 }).withMessage('معرّف الدور غير صالح'),
 ];
 
+const updatePlatformUserValidation = [
+  ...platformUserIdParamValidation,
+  body('fullName').optional().isString().isLength({ min: 2, max: 150 }).withMessage('الاسم الكامل يجب أن يكون بين 2 و 150 حرفاً'),
+  body('email').optional().isEmail().withMessage('البريد الإلكتروني غير صالح'),
+];
+
 export {
   platformUserIdParamValidation,
   platformOrganizationUserParams,
   listPlatformUsersValidation,
   listMembershipUserOptionsValidation,
   createPlatformUserValidation,
+  updatePlatformUserValidation,
   platformRoleAssignmentValidation,
   platformRoleChangeValidation,
   platformUserRoleAssignmentValidation,

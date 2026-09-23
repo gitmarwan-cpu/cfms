@@ -6,6 +6,7 @@ import ApiError from '../utils/ApiError';
 import { getEffectivePlatformPermissions, getEffectivePlatformRoleCodes, getEffectiveRoleCodes } from './rbacService';
 import { recordAuditEvent } from './auditService';
 import { validatePasswordPolicy } from '../validations/passwordPolicy';
+import { getValidatedJwtSecret } from '../middlewares/auth';
 
 export interface RegisterPayload {
   email: string;
@@ -96,8 +97,8 @@ const recordSuccessfulLoginEvent = async (user: { id: number; default_organizati
 };
 
 export const generateToken = async (user: { id: number }): Promise<string> => {
+  const secret = getValidatedJwtSecret();
   const roleCodes = await getEffectiveRoleCodes(user.id);
-  const secret = process.env.JWT_SECRET || 'secret';
   return jwt.sign({ sub: user.id, roles: roleCodes }, secret, {
     expiresIn: '8h',
   });

@@ -9,6 +9,16 @@ import {
 } from '../services/rbacService';
 
 const INVALID_SESSION_MESSAGE = 'الجلسة غير صالحة أو منتهية، الرجاء تسجيل الدخول مجدداً';
+const MIN_RUNTIME_JWT_SECRET_LENGTH = 32;
+
+export const getValidatedJwtSecret = (): string => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) throw new Error('JWT_SECRET is required');
+  if (process.env.NODE_ENV !== 'test' && secret.length < MIN_RUNTIME_JWT_SECRET_LENGTH) {
+    throw new Error('JWT_SECRET must be at least 32 characters outside test');
+  }
+  return secret;
+};
 
 const toSafeInteger = (value: unknown): number | null => {
   if (typeof value === 'number') return Number.isSafeInteger(value) && value > 0 ? value : null;
@@ -44,7 +54,7 @@ const mapUser = (user: {
 });
 
 const getJwtPayload = (token: string): { sub?: unknown } => {
-  return jwt.verify(token, process.env.JWT_SECRET!) as { sub?: unknown };
+  return jwt.verify(token, getValidatedJwtSecret()) as { sub?: unknown };
 };
 
 export const authenticate = async (req: any, res: any, next: (error?: unknown) => void): Promise<void> => {

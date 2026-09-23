@@ -1,14 +1,13 @@
 import app from './app';
 import prisma from './prisma/client';
 import { startSlaEvaluationWorker, stopSlaEvaluationWorker } from './workers/slaWorker';
+import { getValidatedJwtSecret } from './middlewares/auth';
 
 const PORT = process.env.PORT || 4000;
 
 const validateProductionConfiguration = (): void => {
+  getValidatedJwtSecret();
   if (process.env.NODE_ENV !== 'production') return;
-  if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
-    throw new Error('JWT_SECRET must be at least 32 characters in production');
-  }
   if (!process.env.CORS_ORIGIN) {
     throw new Error('CORS_ORIGIN is required in production');
   }

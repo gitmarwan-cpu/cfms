@@ -5,7 +5,8 @@ const jwt = require('jsonwebtoken');
 const request = require('supertest');
 const { default: prisma } = require('../src/prisma/client');
 const { prepareTestDatabase, closeTestDatabase } = require('./testDatabase');
-const { authenticate } = require('../src/middlewares/auth.ts');
+const { authenticate, getValidatedJwtSecret } = require('../src/middlewares/auth.ts');
+const { generateToken } = require('../src/services/authService');
 const { errorHandler } = require('../src/middlewares/errorHandler');
 const { resolveAuthenticatedTenant } = require('../src/middlewares/tenant');
 
@@ -94,6 +95,25 @@ describe('Prisma authentication middleware', () => {
 
   const tokenFor = (sub, expiresIn = '1h') => jwt.sign({ sub }, process.env.JWT_SECRET, { expiresIn });
 
+  it('requires an explicit JWT secret and uses it for token signing and verification', async () => {
+    const originalSecret = process.env.JWT_SECRET;
+    try {
+      delete process.env.JWT_SECRET;
+      expect(() => getValidatedJwtSecret()).toThrow('JWT_SECRET is required');
+      await expect(generateToken({ id: activeUser.id })).rejects.toThrow('JWT_SECRET is required');
+
+      const configuredSecret = 'explicit_test_secret_for_jwt_verification_32';
+      process.env.JWT_SECRET = configuredSecret;
+      const token = await generateToken({ id: activeUser.id });
+      expect(jwt.verify(token, configuredSecret)).toMatchObject({ sub: activeUser.id });
+      await expect(
+        request(createApp()).get('/protected').set('Authorization', `Bearer ${token}`)
+      ).resolves.toMatchObject({ status: 200 });
+    } finally {
+      process.env.JWT_SECRET = originalSecret;
+    }
+  });
+
   it('authenticates an active Prisma user and preserves request.user shape', async () => {
     const response = await request(createApp())
       .get('/protected')
@@ -151,4 +171,3 @@ describe('Prisma authentication middleware', () => {
     expect(response.status).toBe(403);
   });
 });
-

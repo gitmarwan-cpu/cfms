@@ -1,5 +1,6 @@
 import prisma from '../prisma/client';
 import ApiError from '../utils/ApiError';
+import jwt from 'jsonwebtoken';
 import {
   getEffectivePermissions,
   getEffectivePlatformPermissions,
@@ -43,8 +44,7 @@ const mapUser = (user: {
 });
 
 const getJwtPayload = (token: string): { sub?: unknown } => {
-  const jwt = require('jsonwebtoken');
-  return jwt.verify(token, process.env.JWT_SECRET) as { sub?: unknown };
+  return jwt.verify(token, process.env.JWT_SECRET!) as { sub?: unknown };
 };
 
 export const authenticate = async (req: any, res: any, next: (error?: unknown) => void): Promise<void> => {

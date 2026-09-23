@@ -8,4 +8,3 @@ router.get('/governorates/:governorateId/districts', locationController.getDistr
 router.get('/districts', locationController.getAllDistricts);
 
 export default router;
-module.exports = router;

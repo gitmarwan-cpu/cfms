@@ -1,7 +1,7 @@
 'use strict';
 
 const express = require('express');
-const locationRoutes = require('../src/routes/locationRoutes');
+const { default: locationRoutes } = require('../src/routes/locationRoutes');
 const { errorHandler, notFoundHandler } = require('../src/middlewares/errorHandler');
 
 const app = express();

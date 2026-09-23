@@ -20,7 +20,7 @@
 
 const { createUserWithRole, createOrganization, getDefaultOrg, prisma } = require('./setup');
 const request = require('supertest');
-const app = require('../src/app');
+const { default: app } = require('../src/app');
 const bcrypt = require('bcryptjs');
 
 const timestamp = () => new Date();

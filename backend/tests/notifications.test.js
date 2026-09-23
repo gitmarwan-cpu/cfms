@@ -3,7 +3,7 @@
 const { createOrganization, createUserWithRole, prisma } = require('./setup');
 
 const request = require('supertest');
-const app = require('../src/app');
+const { default: app } = require('../src/app');
 const complaintService = require('../src/services/complaintService.ts');
 
 const unique = () => `${Date.now()}-${Math.floor(Math.random() * 100000)}`;

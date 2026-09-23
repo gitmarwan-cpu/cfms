@@ -2,7 +2,7 @@
 
 const jwt = require('jsonwebtoken');
 const request = require('supertest');
-const app = require('../src/app');
+const { default: app } = require('../src/app');
 const organizationService = require('../src/services/organizationService.ts');
 const { createOrganization, createUserWithRole, prisma } = require('./setup');
 

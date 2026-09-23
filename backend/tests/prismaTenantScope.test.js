@@ -1,7 +1,7 @@
 'use strict';
 
 const { withTenantScope, withTemplateOverrideScope, assertBelongsToTenant } = require('../src/utils/prismaTenantScope');
-const ApiError = require('../src/utils/ApiError');
+const { default: ApiError } = require('../src/utils/ApiError');
 
 describe('prismaTenantScope — withTenantScope', () => {
   test('injects organizationId into an empty where clause', () => {

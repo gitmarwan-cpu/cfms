@@ -1,4 +1,5 @@
 import express from 'express';
+import { param } from 'express-validator';
 import * as complaintController from '../controllers/complaintController';
 import validate from '../middlewares/validate';
 import upload, { validateUploadedFileSignatures } from '../middlewares/upload';
@@ -10,6 +11,15 @@ const router = express.Router();
 router.use(authenticate, resolveAuthenticatedTenant);
 router.post('/', authorizePermission('complaints.create'), upload.array('attachments', 3), validateUploadedFileSignatures, validate(createComplaintValidation), complaintController.createStaffComplaint);
 router.get('/', authorizePermission('complaints.view_all'), validate(listComplaintsValidation), complaintController.listComplaints);
+router.get(
+  '/:complaintId/attachments/:attachmentId',
+  authorizePermission('complaints.view_all'),
+  validate([
+    param('complaintId').isInt({ min: 1 }).withMessage('معرّف الشكوى غير صالح'),
+    param('attachmentId').isInt({ min: 1 }).withMessage('معرّف المرفق غير صالح'),
+  ]),
+  complaintController.downloadComplaintAttachment
+);
 router.get('/:id/transitions', authorizePermission('complaints.assign'), validate(complaintIdParamValidation), complaintController.listComplaintTransitions);
 router.get('/:id', authorizePermission('complaints.view_all'), validate(complaintIdParamValidation), complaintController.getComplaint);
 router.patch('/:id/status', authorizePermission('complaints.assign'), validate(updateStatusValidation), complaintController.updateComplaintStatus);

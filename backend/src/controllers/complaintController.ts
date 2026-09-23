@@ -1,6 +1,9 @@
 import type { AppRequest, AppResponse } from '../types/http';
+import type { AppNext } from '../types/http';
+import type { Response } from 'express';
 
 import catchAsync from '../utils/catchAsync';
+import ApiError from '../utils/ApiError';
 import * as complaintService from '../services/complaintService';
 import * as slaService from '../services/slaService';
 const submitPublicComplaint = catchAsync(async (req: AppRequest, res: AppResponse) => {
@@ -26,6 +29,19 @@ const listComplaints = catchAsync(async (req: AppRequest, res: AppResponse) => {
 const getComplaint = catchAsync(async (req: AppRequest, res: AppResponse) => {
   const complaint = await complaintService.getComplaintById(req.organizationId, req.params.id);
   res.status(200).json({ success: true, data: complaint });
+});
+
+const downloadComplaintAttachment = catchAsync(async (req: AppRequest, res: Response, next: AppNext) => {
+  const attachment = await complaintService.getComplaintAttachmentForDownload(
+    req.organizationId,
+    req.params.complaintId,
+    req.params.attachmentId
+  );
+  res.setHeader('Content-Type', attachment.mimeType);
+  res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(attachment.originalName)}`);
+  res.sendFile(attachment.filePath, (error) => {
+    if (error && !res.headersSent) next(new ApiError(404, 'المرفق غير موجود'));
+  });
 });
 
 const listComplaintTransitions = catchAsync(async (req: AppRequest, res: AppResponse) => {
@@ -63,4 +79,4 @@ const regenerateTrackingPin = catchAsync(async (req: AppRequest, res: AppRespons
   res.status(200).json({ success: true, message: `تم إنشاء رمز متابعة جديد وإرساله عبر ${result.channel}`, data: result });
 });
 
-export { submitPublicComplaint, trackPublicComplaint, createStaffComplaint, listComplaints, getComplaint, listComplaintTransitions, updateComplaintStatus, assignComplaint, escalateComplaint, regenerateTrackingPin };
+export { submitPublicComplaint, trackPublicComplaint, createStaffComplaint, listComplaints, getComplaint, downloadComplaintAttachment, listComplaintTransitions, updateComplaintStatus, assignComplaint, escalateComplaint, regenerateTrackingPin };

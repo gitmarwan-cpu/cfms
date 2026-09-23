@@ -1,4 +1,5 @@
 import { Prisma } from '@prisma/client';
+import fs from 'node:fs/promises';
 import prisma from '../prisma/client';
 import ApiError from '../utils/ApiError';
 import * as locationService from './locationService';
@@ -9,6 +10,7 @@ import { sendComplaintReceipt, sendTrackingPinUpdate } from './whatsappService';
 import generateReferenceCode from '../utils/generateReferenceCode';
 import { generatePin, hashPin, verifyPin } from '../utils/pin';
 import { resolveActiveItem } from './referenceDataService';
+import { resolveStoredUploadPath } from '../middlewares/upload';
 
 type DatabaseClient = typeof prisma | Prisma.TransactionClient;
 type IdInput = string | number | null | undefined;
@@ -670,6 +672,42 @@ export const getComplaintById = async (organizationId: IdInput, id: IdInput) => 
   if (!complaint) throw new ApiError(404, NOT_FOUND_ERROR);
   const referenceItems = await loadComplainantReferenceItems([complaint], prisma);
   return mapComplaint(complaint, referenceItems);
+};
+
+export const getComplaintAttachmentForDownload = async (
+  organizationId: IdInput,
+  complaintId: IdInput,
+  attachmentId: IdInput
+) => {
+  const parsedOrganizationId = requireOrganizationId(organizationId);
+  const parsedComplaintId = requireComplaintId(complaintId);
+  const parsedAttachmentId = requireComplaintId(attachmentId);
+
+  const attachment = await prisma.complaint_attachments.findFirst({
+    where: {
+      id: parsedAttachmentId,
+      complaint_id: parsedComplaintId,
+      complaints: { organization_id: parsedOrganizationId },
+    },
+    select: { original_name: true, stored_file_name: true, mime_type: true },
+  });
+  if (!attachment) throw new ApiError(404, NOT_FOUND_ERROR);
+
+  const filePath = resolveStoredUploadPath(attachment.stored_file_name);
+  if (!filePath) throw new ApiError(404, NOT_FOUND_ERROR);
+
+  try {
+    const fileStat = await fs.stat(filePath);
+    if (!fileStat.isFile()) throw new Error('Attachment is not a regular file');
+  } catch {
+    throw new ApiError(404, NOT_FOUND_ERROR);
+  }
+
+  return {
+    filePath,
+    originalName: attachment.original_name,
+    mimeType: attachment.mime_type,
+  };
 };
 
 export const getComplaintTransitions = async (organizationId: IdInput, id: IdInput) => {

@@ -6,6 +6,7 @@ import {
   updateComplaintStatus,
   updateComplaintAssignment,
   escalateComplaint,
+  downloadComplaintAttachment,
   fetchOrganizationNodes,
   type AdminComplaintDetail,
   type ComplaintStatus,
@@ -17,7 +18,7 @@ import type { ApiClientError } from '../../api/axiosClient';
 import AuditMetadata from '../../components/admin/AuditMetadata';
 import { useAuth } from '../../context/AuthContext';
 import { formatDateTime } from '../../utils/dateTime';
-import { AlertTriangle, Paperclip } from 'lucide-react';
+import { AlertTriangle, Download, Paperclip } from 'lucide-react';
 
 const STATUS_LABELS: Record<ComplaintStatus, string> = {
   new: 'جديد',
@@ -68,6 +69,8 @@ export default function ComplaintDetailPage() {
 
   // Org data for assignment dropdowns
   const [organizationNodes, setOrganizationNodes] = useState<OrganizationNodeDto[]>([]);
+  const [downloadingAttachmentId, setDownloadingAttachmentId] = useState<number | null>(null);
+  const [attachmentError, setAttachmentError] = useState('');
 
   const loadData = useCallback(() => {
     if (!id) return;
@@ -173,6 +176,27 @@ export default function ComplaintDetailPage() {
       setEscalateError(apiErr.message || 'حدث خطأ أثناء التصعيد');
     } finally {
       setEscalateSaving(false);
+    }
+  };
+
+  const handleDownloadAttachment = async (attachment: AdminComplaintDetail['attachments'][number]) => {
+    setAttachmentError('');
+    setDownloadingAttachmentId(attachment.id);
+    try {
+      const blob = await downloadComplaintAttachment(attachment.complaintId, attachment.id);
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = attachment.originalName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+    } catch (err) {
+      const apiErr = err as ApiClientError;
+      setAttachmentError(apiErr.message || 'تعذر تنزيل المرفق');
+    } finally {
+      setDownloadingAttachmentId(null);
     }
   };
 
@@ -343,6 +367,7 @@ export default function ComplaintDetailPage() {
               {data.attachments.length > 0 && (
                 <div className="cd-section">
                   <h3 className="cd-section-title">المرفقات</h3>
+                  {attachmentError && <div className="alert alert-danger">{attachmentError}</div>}
                   <ul className="cd-attachment-list">
                     {data.attachments.map((att) => (
                       <li key={att.id} className="cd-attachment">
@@ -350,6 +375,16 @@ export default function ComplaintDetailPage() {
                         <span className="cd-file-size">
                           ({(att.sizeBytes / 1024).toFixed(0)} KB)
                         </span>
+                        <button
+                          type="button"
+                          className="btn btn-outline"
+                          onClick={() => handleDownloadAttachment(att)}
+                          disabled={downloadingAttachmentId === att.id}
+                          aria-label={`تنزيل المرفق ${att.originalName}`}
+                        >
+                          <Download size={14} aria-hidden="true" />
+                          {downloadingAttachmentId === att.id ? 'جاري التنزيل...' : 'تنزيل'}
+                        </button>
                       </li>
                     ))}
                   </ul>

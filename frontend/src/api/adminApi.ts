@@ -263,6 +263,17 @@ export const regenerateTrackingPin = async (
   return { success: res.data.success, message: res.data.message };
 };
 
+export const downloadComplaintAttachment = async (
+  complaintId: number,
+  attachmentId: number
+): Promise<Blob> => {
+  const res = await axiosClient.get<Blob>(
+    `/complaints/${complaintId}/attachments/${attachmentId}`,
+    { responseType: 'blob' }
+  );
+  return res.data;
+};
+
 
 // ── Notification Types ───────────────────────────────────────────────
 

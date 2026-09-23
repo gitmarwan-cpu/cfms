@@ -18,6 +18,18 @@ const MIME_TO_EXTENSION: Record<string, string> = {
 const uploadDirectory = process.env.CFMS_UPLOAD_DIR || path.join(process.cwd(), 'uploads');
 fs.mkdirSync(uploadDirectory, { recursive: true });
 
+export const resolveStoredUploadPath = (storedFileName: string): string | null => {
+  if (!storedFileName || storedFileName.includes('\0') || path.basename(storedFileName) !== storedFileName) {
+    return null;
+  }
+
+  const uploadRoot = path.resolve(uploadDirectory);
+  const resolvedPath = path.resolve(uploadRoot, storedFileName);
+  const relativePath = path.relative(uploadRoot, resolvedPath);
+  if (!relativePath || relativePath.startsWith('..') || path.isAbsolute(relativePath)) return null;
+  return resolvedPath;
+};
+
 const storage = multer.diskStorage({
   destination: (req: any, file: any, cb: (error: Error | null, destination: string) => void) => {
     cb(null, uploadDirectory);

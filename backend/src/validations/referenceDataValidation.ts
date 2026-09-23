@@ -1,4 +1,4 @@
-const { param, body } = require('express-validator');
+import { param, body } from 'express-validator';
 const listKeyParamValidation = [param('key').matches(/^[a-z0-9_]+$/).withMessage('مفتاح القائمة غير صالح')];
 const itemIdParamValidation = [...listKeyParamValidation, param('itemId').isInt({ min: 1 }).withMessage('معرّف العنصر غير صالح')];
 

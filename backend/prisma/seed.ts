@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { Prisma, PrismaClient } from '@prisma/client';
 
-const bcrypt = require('bcryptjs') as { hash(value: string, rounds: number): Promise<string> };
+import bcrypt from 'bcryptjs';
 
 type Db = PrismaClient | Prisma.TransactionClient;
 

@@ -1,4 +1,4 @@
-const { body, param } = require('express-validator');
+import { body, param } from 'express-validator';
 const TYPE_VALUES = ['complaint', 'proposal'];
 
 const slaRuleIdParamValidation = [param('id').isInt({ min: 1 }).withMessage('معرّف قاعدة مهلة المعالجة غير صالح')];

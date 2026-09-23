@@ -1,4 +1,4 @@
-const { body } = require('express-validator');
+import { body } from 'express-validator';
 
 /**
  * Shared password policy (Phase 3) — the single authoritative rule set for

@@ -1,4 +1,4 @@
-const { body } = require('express-validator');
+import { body } from 'express-validator';
 import { passwordPolicyBodyValidation } from './passwordPolicy';
 const createTenantValidation = [
   body('legalName').trim().notEmpty().withMessage('اسم المؤسسة مطلوب').isLength({ min: 2, max: 200 }),

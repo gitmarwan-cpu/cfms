@@ -1,8 +1,5 @@
-const bcrypt = require('bcryptjs') as {
-  hash(value: string, rounds: number): Promise<string>;
-  compare(value: string, hash: string): Promise<boolean>;
-};
-const crypto = require('crypto') as { randomInt(min: number, max: number): number };
+import bcrypt from 'bcryptjs';
+import crypto from 'node:crypto';
 
 export const generatePin = (): string => crypto.randomInt(100000, 999999).toString();
 

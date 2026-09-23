@@ -1,7 +1,7 @@
-const multer = require('multer');
-const path = require('path');
-const crypto = require('crypto');
-const fs = require('fs');
+import multer from 'multer';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import fs from 'node:fs';
 const fsPromises = fs.promises;
 import ApiError from '../utils/ApiError';
 
@@ -19,10 +19,10 @@ const uploadDirectory = process.env.CFMS_UPLOAD_DIR || path.join(process.cwd(), 
 fs.mkdirSync(uploadDirectory, { recursive: true });
 
 const storage = multer.diskStorage({
-  destination: (req: any, file: any, cb: (error: Error | null, destination?: string) => void) => {
+  destination: (req: any, file: any, cb: (error: Error | null, destination: string) => void) => {
     cb(null, uploadDirectory);
   },
-  filename: (req: any, file: { mimetype: string }, cb: (error: Error | null, filename?: string) => void) => {
+  filename: (req: any, file: { mimetype: string }, cb: (error: Error | null, filename: string) => void) => {
     const uniqueSuffix = crypto.randomBytes(16).toString('hex');
     const ext = MIME_TO_EXTENSION[file.mimetype] || '';
     cb(null, `${Date.now()}-${uniqueSuffix}${ext}`);

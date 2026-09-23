@@ -1,4 +1,4 @@
-const { param, query } = require('express-validator');
+import { param, query } from 'express-validator';
 const lifecycleStatuses = ['provisioning', 'active', 'suspended', 'deactivated', 'archived'];
 
 const organizationIdValidation = [

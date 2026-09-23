@@ -1,4 +1,4 @@
-const { param, body } = require('express-validator');
+import { param, body } from 'express-validator';
 import { passwordPolicyBodyValidation } from './passwordPolicy';
 /**
  * Validation chains for the Phase 3 membership + password endpoints.

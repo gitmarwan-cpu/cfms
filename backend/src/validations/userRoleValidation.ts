@@ -1,4 +1,4 @@
-const { param, body } = require('express-validator');
+import { param, body } from 'express-validator';
 const userIdParamValidation = [param('userId').isInt({ min: 1 }).withMessage('معرّف المستخدم غير صالح')];
 const userRoleIdParamValidation = [param('userRoleId').isInt({ min: 1 }).withMessage('معرّف التعيين غير صالح')];
 const assignRoleValidation = [

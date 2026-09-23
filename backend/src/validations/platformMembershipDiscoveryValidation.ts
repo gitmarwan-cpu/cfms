@@ -1,4 +1,4 @@
-const { param, query } = require('express-validator');
+import { param, query } from 'express-validator';
 const tenantParamValidation = [
   param('organizationId').isInt({ min: 1 }).withMessage('معرّف المؤسسة غير صالح'),
 ];

@@ -1,4 +1,4 @@
-const { body, param, query } = require('express-validator');
+import { body, param, query } from 'express-validator';
 import * as referenceDataService from '../services/referenceDataService';
 
 const TYPE_VALUES = ['complaint', 'proposal'];

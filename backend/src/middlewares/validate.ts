@@ -1,7 +1,7 @@
 import ApiError from '../utils/ApiError';
 import type { AppNext, AppRequest, AppResponse } from '../types/http';
 
-const { validationResult } = require('express-validator');
+import { validationResult } from 'express-validator';
 
 const validate = (validations: any[]) => async (req: AppRequest, res: AppResponse, next: AppNext): Promise<void> => {
   await Promise.all(validations.map((validation) => validation.run(req)));

@@ -1,4 +1,4 @@
-const { body, param, query } = require('express-validator');
+import { body, param, query } from 'express-validator';
 import { passwordPolicyBodyValidation } from './passwordPolicy';
 const platformUserIdParamValidation = [
   param('userId').isInt({ min: 1 }).withMessage('معرّف المستخدم غير صالح'),

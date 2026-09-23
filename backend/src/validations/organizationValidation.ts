@@ -1,4 +1,4 @@
-const { body, param } = require('express-validator');
+import { body, param } from 'express-validator';
 const HEX_COLOR = /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/;
 
 const updateOrganizationValidation = [
@@ -58,7 +58,7 @@ const updateNodeValidation = [
   param('id').isInt({ min: 1 }).withMessage('معرف الوحدة غير صالح'),
   body('name').optional().trim().isLength({ min: 2, max: 200 }),
   body('orgUnitTypeId').optional({ checkFalsy: true }).isInt({ min: 1 }),
-  body('parentId').optional({ checkNull: true }),
+  body('parentId').optional({ nullable: true }),
   body('code').optional({ checkFalsy: true }).isLength({ max: 60 }),
   body('shortName').optional({ checkFalsy: true }).isLength({ max: 80 }),
   body('countryId').optional({ checkFalsy: true }).isInt({ min: 1 }),

@@ -1,4 +1,4 @@
-const { body, param } = require('express-validator');
+import { body, param } from 'express-validator';
 const organizationIdParamValidation = [
   param('organizationId').isInt({ min: 1 }).withMessage('معرّف المؤسسة غير صالح'),
 ];

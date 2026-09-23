@@ -162,7 +162,8 @@ const loadRole = async (organizationId: number, id: number): Promise<RoleRespons
 const replaceRolePermissions = async (
   client: DbClient,
   roleId: number,
-  permissionIds: number[]
+  permissionIds: number[],
+  isPlatformRole: boolean = false
 ): Promise<void> => {
   await client.role_permissions.deleteMany({ where: { role_id: roleId } });
   if (permissionIds.length === 0) return;
@@ -172,8 +173,14 @@ const replaceRolePermissions = async (
       OR: [{ module: 'platform' }, { code: { startsWith: 'platform.' } }],
     },
   });
-  if (platformPermissionCount > 0) {
-    throw new ApiError(403, 'لا يمكن منح صلاحيات المنصة لدور مستأجر');
+  if (isPlatformRole) {
+    if (platformPermissionCount !== permissionIds.length) {
+      throw new ApiError(403, 'لا يمكن منح صلاحيات المستأجر لدور المنصة');
+    }
+  } else {
+    if (platformPermissionCount > 0) {
+      throw new ApiError(403, 'لا يمكن منح صلاحيات المنصة لدور مستأجر');
+    }
   }
   await client.role_permissions.createMany({
     data: permissionIds.map((permission_id) => ({ role_id: roleId, permission_id, created_at: new Date() })),
@@ -337,4 +344,117 @@ export const listPermissions = async (): Promise<PermissionResponse[]> => {
     orderBy: [{ module: 'asc' }, { code: 'asc' }],
   });
   return permissions.map(mapPermission);
+};
+
+export const listPlatformRoles = async (): Promise<RoleResponse[]> => {
+  const roles = await prisma.roles.findMany({
+    where: { scope: 'platform', organization_id: null },
+    orderBy: { id: 'asc' },
+    select: ROLE_WITH_PERMISSIONS_SELECT,
+  });
+  return roles.map(mapRole);
+};
+
+export const getPlatformRoleById = async (id: RoleId): Promise<RoleResponse> => {
+  const parsedId = toSafeInteger(id);
+  if (parsedId === null) throw new ApiError(404, 'الدور غير موجود');
+  const role = await prisma.roles.findFirst({
+    where: { id: parsedId, scope: 'platform', organization_id: null },
+    select: ROLE_WITH_PERMISSIONS_SELECT,
+  });
+  if (!role) throw new ApiError(404, 'الدور غير موجود');
+  return mapRole(role);
+};
+
+export const createPlatformRole = async (
+  payload: RolePayload,
+  actorUserId?: number | null
+): Promise<RoleResponse> => {
+  if (RESERVED_ROLE_CODES.includes(payload.code as 'admin' | 'staff') || payload.code === 'platform_admin') {
+    throw new ApiError(422, 'هذا الكود محجوز للأدوار النظامية ولا يمكن استخدامه لدور مخصص');
+  }
+  const existing = await prisma.roles.findFirst({ where: { code: payload.code, organization_id: null, scope: 'platform' } });
+  if (existing) throw new ApiError(409, 'يوجد دور بنفس الكود مسبقاً في المنصة');
+
+  const now = new Date();
+  const created = await prisma.$transaction(async (tx) => {
+    const role = await tx.roles.create({
+      data: {
+        code: payload.code,
+        name_ar: payload.nameAr,
+        name_en: payload.nameEn,
+        description: payload.description,
+        is_system: false,
+        is_active: true,
+        organization_id: null,
+        scope: 'platform',
+        create_date: now,
+        write_date: now,
+        create_uid: actorUserId ?? null,
+        write_uid: actorUserId ?? null,
+      },
+      select: ROLE_SELECT,
+    });
+    if (Array.isArray(payload.permissionIds) && payload.permissionIds.length) {
+      await replaceRolePermissions(tx, role.id, payload.permissionIds.map((id) => toSafeInteger(id) as number), true);
+    }
+    await recordAuditEvent(tx, {
+      organizationId: null,
+      actorUserId: actorUserId ?? null,
+      action: 'platform_role.created',
+      entityType: 'role',
+      entityId: role.id,
+      metadata: { code: role.code },
+    });
+    return role;
+  });
+  return getPlatformRoleById(created.id);
+};
+
+export const updatePlatformRole = async (
+  id: RoleId,
+  payload: RoleUpdatePayload,
+  actorUserId?: number | null
+): Promise<RoleResponse> => {
+  const parsedId = toSafeInteger(id);
+  const role = parsedId
+    ? await prisma.roles.findUnique({ where: { id: parsedId }, select: ROLE_SELECT })
+    : null;
+
+  if (!role || role.scope !== 'platform' || role.organization_id !== null) {
+    throw new ApiError(404, 'الدور غير موجود');
+  }
+
+  if (role.is_system) {
+    if (payload.isActive === false) throw new ApiError(403, 'لا يمكن تعطيل الأدوار النظامية (platform_admin)');
+    if (payload.permissionIds !== undefined) throw new ApiError(403, 'لا يمكن تعديل صلاحيات الأدوار النظامية (platform_admin)');
+  }
+
+  const data: Record<string, unknown> = { write_date: new Date() };
+  if (payload.nameAr !== undefined) data.name_ar = payload.nameAr;
+  if (payload.nameEn !== undefined) data.name_en = payload.nameEn;
+  if (payload.description !== undefined) data.description = payload.description;
+  if (payload.isActive !== undefined && !role.is_system) data.is_active = payload.isActive;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.roles.update({ where: { id: parsedId as number }, data: data as any });
+    if (Array.isArray(payload.permissionIds) && !role.is_system) {
+      await replaceRolePermissions(tx, parsedId as number, payload.permissionIds.map((permissionId) => toSafeInteger(permissionId) as number), true);
+    }
+
+    let action = 'platform_role.updated';
+    if (payload.isActive === false && role.is_active === true) action = 'platform_role.deactivated';
+    else if (payload.isActive === true && role.is_active === false) action = 'platform_role.activated';
+    else if (payload.permissionIds !== undefined) action = 'platform_role.permissions_updated';
+
+    await recordAuditEvent(tx, {
+      organizationId: null,
+      actorUserId: actorUserId ?? null,
+      action,
+      entityType: 'role',
+      entityId: parsedId as number,
+      metadata: { fields: Object.keys(payload) },
+    });
+  });
+  return getPlatformRoleById(parsedId as number);
 };

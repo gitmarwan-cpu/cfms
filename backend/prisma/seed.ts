@@ -140,6 +140,7 @@ const PLATFORM_PERMISSIONS = [
   ['platform.tenant.create', 'إنشاء المستأجرين وإعدادهم'],
   ['platform.tenant.lifecycle', 'إدارة دورة حياة المستأجرين'],
   ['platform.users.manage', 'إدارة مستخدمي المنصة'],
+  ['platform.roles.manage', 'إدارة أدوار المنصة'],
   ['platform.memberships.manage', 'إدارة عضويات المستأجرين'],
   ['platform.audit.view', 'عرض سجل تدقيق المنصة'],
 ] as const;

@@ -15,6 +15,7 @@ import slaRoutes from './slaRoutes';
 import platformTenantRoutes from './platformTenantRoutes';
 import platformUserRoutes from './platformUserRoutes';
 import platformAuditRoutes from './platformAuditRoutes';
+import platformRoleRoutes from './platformRoleRoutes';
 import prisma from '../prisma/client';
 import type { AppRequest, AppResponse } from '../types/http';
 
@@ -43,6 +44,7 @@ router.use('/reports', reportRoutes);
 router.use('/sla-rules', slaRoutes);
 router.use('/platform', platformTenantRoutes);
 router.use('/platform', platformUserRoutes);
+router.use('/platform/roles', platformRoleRoutes);
 router.use('/platform/audit-logs', platformAuditRoutes);
 
 export default router;

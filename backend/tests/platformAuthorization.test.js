@@ -3,7 +3,7 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const request = require('supertest');
-const prisma = require('../src/prisma/client');
+const { default: prisma } = require('../src/prisma/client');
 const { createUserWithRole, getDefaultOrg } = require('./setup');
 const { authenticate, authorizePlatformPermission } = require('../src/middlewares/auth');
 const { resolveAuthenticatedTenant } = require('../src/middlewares/tenant');

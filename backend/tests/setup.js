@@ -7,7 +7,7 @@ process.env.JWT_SECRET = 'test_secret_key_for_jest_only';
 process.env.JWT_EXPIRES_IN = '1h';
 
 const { prepareTestDatabase, closeTestDatabase } = require('./testDatabase');
-const prisma = require('../src/prisma/client');
+const { default: prisma } = require('../src/prisma/client');
 const bcrypt = require('bcryptjs');
 
 const REFERENCE_SEED = [

@@ -3,7 +3,7 @@
 require('./setup');
 const request = require('supertest');
 const { default: app } = require('../src/app');
-const prisma = require('../src/prisma/client');
+const { default: prisma } = require('../src/prisma/client');
 const { createUserWithRole, createOrganization } = require('./setup');
 
 describe('Complaints API (Public Portal)', () => {

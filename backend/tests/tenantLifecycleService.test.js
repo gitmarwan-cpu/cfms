@@ -1,6 +1,6 @@
 'use strict';
 
-const prisma = require('../src/prisma/client');
+const { default: prisma } = require('../src/prisma/client');
 const { prepareTestDatabase, closeTestDatabase } = require('./testDatabase');
 const { transitionTenantLifecycle } = require('../src/services/tenantLifecycleService.ts');
 

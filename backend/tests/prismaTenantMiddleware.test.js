@@ -2,7 +2,7 @@
 
 const express = require('express');
 const request = require('supertest');
-const prisma = require('../src/prisma/client');
+const { default: prisma } = require('../src/prisma/client');
 const { prepareTestDatabase, closeTestDatabase } = require('./testDatabase');
 const { errorHandler } = require('../src/middlewares/errorHandler');
 const { resolvePublicTenant, resolveAuthenticatedTenant } = require('../src/middlewares/tenant.ts');

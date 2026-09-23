@@ -3,7 +3,7 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const request = require('supertest');
-const prisma = require('../src/prisma/client');
+const { default: prisma } = require('../src/prisma/client');
 const { prepareTestDatabase, closeTestDatabase } = require('./testDatabase');
 const { authenticate } = require('../src/middlewares/auth.ts');
 const { errorHandler } = require('../src/middlewares/errorHandler');

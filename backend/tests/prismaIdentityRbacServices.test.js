@@ -1,7 +1,7 @@
 'use strict';
 
 const bcrypt = require('bcryptjs');
-const prisma = require('../src/prisma/client');
+const { default: prisma } = require('../src/prisma/client');
 const { prepareTestDatabase, closeTestDatabase } = require('./testDatabase');
 const authService = require('../src/services/authService.ts');
 const roleService = require('../src/services/roleService.ts');

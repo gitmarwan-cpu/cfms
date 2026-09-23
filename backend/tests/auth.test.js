@@ -3,7 +3,7 @@
 const { createOrganization, createUserWithRole } = require('./setup');
 const request = require('supertest');
 const { default: app } = require('../src/app');
-const prisma = require('../src/prisma/client');
+const { default: prisma } = require('../src/prisma/client');
 
 describe('Auth API', () => {
   beforeAll(async () => {

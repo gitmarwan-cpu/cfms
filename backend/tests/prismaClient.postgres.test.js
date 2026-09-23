@@ -4,7 +4,7 @@ require('dotenv').config();
 
 const { getRequiredTestDatabaseUrl } = require('../src/config/testDatabaseUrl');
 const { prepareTestDatabase, closeTestDatabase } = require('./testDatabase');
-const prisma = require('../src/prisma/client');
+const { default: prisma } = require('../src/prisma/client');
 
 getRequiredTestDatabaseUrl();
 

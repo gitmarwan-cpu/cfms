@@ -2,7 +2,7 @@
 
 require('./setup');
 
-const prisma = require('../src/prisma/client');
+const { default: prisma } = require('../src/prisma/client');
 const complaintService = require('../src/services/complaintService.ts');
 const reportService = require('../src/services/reportService.ts');
 const referenceDataService = require('../src/services/referenceDataService');

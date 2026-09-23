@@ -1,6 +1,6 @@
 'use strict';
 
-const prisma = require('../src/prisma/client');
+const { default: prisma } = require('../src/prisma/client');
 const { Prisma } = require('@prisma/client');
 const { parseTestDatabaseUrl } = require('../src/config/testDatabaseUrl');
 

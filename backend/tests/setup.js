@@ -210,6 +210,7 @@ beforeAll(async () => {
     'platform.tenant.lifecycle',
     'platform.users.manage',
     'platform.memberships.manage',
+    'platform.audit.view',
   ];
   const platformPermissions = await prisma.permissions.createManyAndReturn({
     data: platformPermissionCodes.map((code) => ({

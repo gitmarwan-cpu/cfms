@@ -141,6 +141,7 @@ const PLATFORM_PERMISSIONS = [
   ['platform.tenant.lifecycle', 'إدارة دورة حياة المستأجرين'],
   ['platform.users.manage', 'إدارة مستخدمي المنصة'],
   ['platform.memberships.manage', 'إدارة عضويات المستأجرين'],
+  ['platform.audit.view', 'عرض سجل تدقيق المنصة'],
 ] as const;
 const STAFF_DEFAULT_CODES = ['organization.view', 'reference_data.view', 'org_structure.view', 'complaints.view_own'];
 

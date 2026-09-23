@@ -86,3 +86,68 @@ export const listAuditLogs = async (organizationId: number, filters: AuditLogFil
     pagination: { total, page, limit, totalPages: Math.ceil(total / limit) },
   };
 };
+
+const PLATFORM_AUDIT_METADATA_KEYS = new Set([
+  'source',
+  'method',
+  'userId',
+  'roleId',
+  'roleCode',
+  'previousStatus',
+  'nextStatus',
+  'reason',
+]);
+
+const sanitizePlatformAuditMetadata = (metadata: Prisma.JsonValue | null) => {
+  if (metadata === null || typeof metadata !== 'object' || Array.isArray(metadata)) return null;
+  return Object.fromEntries(
+    Object.entries(metadata).filter(([key]) => PLATFORM_AUDIT_METADATA_KEYS.has(key))
+  );
+};
+
+export const listPlatformAuditLogs = async (filters: AuditLogFilters = {}) => {
+  const page = Math.max(1, Number.parseInt(String(filters.page || ''), 10) || 1);
+  const limit = Math.min(100, Math.max(1, Number.parseInt(String(filters.limit || ''), 10) || 50));
+  const entityId = toPositiveInteger(filters.entityId);
+  const where: Prisma.audit_logsWhereInput = { organization_id: null };
+  if (filters.entityType) where.entity_type = filters.entityType;
+  if (filters.entityId !== undefined) where.entity_id = entityId;
+
+  const [rows, total] = await Promise.all([
+    prisma.audit_logs.findMany({
+      where,
+      orderBy: { created_at: 'desc' },
+      skip: (page - 1) * limit,
+      take: limit,
+      select: {
+        id: true,
+        organization_id: true,
+        actor_user_id: true,
+        action: true,
+        entity_type: true,
+        entity_id: true,
+        metadata: true,
+        created_at: true,
+        users: { select: { id: true, full_name: true, email: true } },
+      },
+    }),
+    prisma.audit_logs.count({ where }),
+  ]);
+
+  return {
+    data: rows.map((row) => ({
+      id: row.id,
+      organizationId: row.organization_id,
+      actorUserId: row.actor_user_id,
+      actor: row.users
+        ? { id: row.users.id, fullName: row.users.full_name, email: row.users.email }
+        : null,
+      action: row.action,
+      entityType: row.entity_type,
+      entityId: row.entity_id,
+      metadata: sanitizePlatformAuditMetadata(row.metadata),
+      createdAt: row.created_at,
+    })),
+    pagination: { total, page, limit, totalPages: Math.ceil(total / limit) },
+  };
+};

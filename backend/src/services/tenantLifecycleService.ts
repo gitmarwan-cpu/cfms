@@ -24,7 +24,12 @@ export const assertActiveTenant = async (organizationId: OrganizationId, client:
   if (parsedOrganizationId === null) throw new ApiError(422, 'المؤسسة غير موجودة');
 
   const organization = await client.organizations.findFirst({
-    where: { id: parsedOrganizationId, parent_id: null },
+    where: {
+      id: parsedOrganizationId,
+      parent_id: null,
+      root_organization_id: null,
+      org_unit_type_id: null,
+    },
     select: { id: true, lifecycle_status: true, is_active: true, deleted_at: true },
   });
   if (!organization) throw new ApiError(404, 'المؤسسة غير موجودة');

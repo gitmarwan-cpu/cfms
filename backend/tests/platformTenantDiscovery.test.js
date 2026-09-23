@@ -205,4 +205,68 @@ describe('Phase 3F platform tenant discovery API', () => {
       .set('Authorization', `Bearer ${platformToken}`);
     expect(missingResponse.status).toBe(404);
   });
+
+  it('does not treat malformed top-level organizations as root tenants', async () => {
+    const anchor = await createTenant({ legalName: 'Phase 3F Root Invariant Anchor', slug: `phase3f-anchor-${unique()}` });
+    const unitType = await prisma.org_unit_types.create({
+      data: {
+        organization_id: anchor.id,
+        code: `phase3f-malformed-type-${unique()}`,
+        name_ar: 'نوع اختبار',
+        name_en: 'Test Type',
+        hierarchy_level: 1,
+        is_active: true,
+        create_date: new Date(),
+        write_date: new Date(),
+      },
+    });
+
+    const malformed = await Promise.all([
+      createTenant({ legalName: 'Phase 3F Malformed Root Organization', slug: `phase3f-malformed-root-${unique()}` }),
+      createTenant({ legalName: 'Phase 3F Malformed Unit Organization', slug: `phase3f-malformed-unit-${unique()}` }),
+      createTenant({ legalName: 'Phase 3F Malformed Both Organization', slug: `phase3f-malformed-both-${unique()}` }),
+    ]);
+
+    await prisma.organizations.update({
+      where: { id: malformed[0].id },
+      data: { root_organization_id: anchor.id },
+    });
+    await prisma.organizations.update({
+      where: { id: malformed[1].id },
+      data: { org_unit_type_id: unitType.id },
+    });
+    await prisma.organizations.update({
+      where: { id: malformed[2].id },
+      data: { root_organization_id: anchor.id, org_unit_type_id: unitType.id },
+    });
+
+    const list = await request(app)
+      .get('/api/platform/tenants')
+      .query({ search: 'phase3f-malformed-' })
+      .set('Authorization', `Bearer ${platformToken}`);
+    expect(list.status).toBe(200);
+    expect(list.body.data).toHaveLength(0);
+    expect(list.body.pagination.total).toBe(0);
+
+    for (const organization of malformed) {
+      const detail = await request(app)
+        .get(`/api/platform/tenants/${organization.id}`)
+        .set('Authorization', `Bearer ${platformToken}`);
+      expect(detail.status).toBe(404);
+
+      const publicSettings = await request(app)
+        .get(`/api/public/${organization.slug}/organization`);
+      expect(publicSettings.status).toBe(404);
+
+      const tenantUser = await createUserWithRole({
+        fullName: `Phase 3F Malformed Tenant User ${organization.id}`,
+        email: `phase3f-malformed-user-${organization.id}-${unique()}@cfms.local`,
+        organizationId: organization.id,
+      });
+      const authenticatedSettings = await request(app)
+        .get('/api/organization')
+        .set('Authorization', `Bearer ${tokenFor(tenantUser.user.id)}`);
+      expect(authenticatedSettings.status).toBe(403);
+    }
+  });
 });

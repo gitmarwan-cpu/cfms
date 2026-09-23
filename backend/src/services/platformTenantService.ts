@@ -103,7 +103,11 @@ const mapDetailTenant = (organization: TenantDetailRecord) => ({
 });
 
 const buildRootTenantWhere = (filters: PlatformTenantListFilters): Prisma.organizationsWhereInput => {
-  const where: Prisma.organizationsWhereInput = { parent_id: null };
+  const where: Prisma.organizationsWhereInput = {
+    parent_id: null,
+    root_organization_id: null,
+    org_unit_type_id: null,
+  };
   const lifecycleStatus = parseLifecycleStatus(filters.lifecycleStatus);
   if (lifecycleStatus) where.lifecycle_status = lifecycleStatus;
 
@@ -144,7 +148,12 @@ export const listTenants = async (filters: PlatformTenantListFilters = {}) => {
 export const getTenant = async (organizationId: unknown) => {
   const parsedOrganizationId = toPositiveInteger(organizationId, 'معرّف المؤسسة');
   const organization = await prisma.organizations.findFirst({
-    where: { id: parsedOrganizationId, parent_id: null },
+    where: {
+      id: parsedOrganizationId,
+      parent_id: null,
+      root_organization_id: null,
+      org_unit_type_id: null,
+    },
     select: TENANT_DETAIL_FIELDS,
   });
 

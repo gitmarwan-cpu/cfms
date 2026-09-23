@@ -66,7 +66,6 @@ export const NAV_GROUPS: NavGroup[] = [
       { to: '/admin/platform/users', label: 'مستخدمو المنصة', icon: Users, platformPermission: 'platform.users.manage' },
       { to: '/admin/platform/tenants', label: 'دليل المستأجرين', icon: Building2, platformPermission: 'platform.tenant.lifecycle' },
       { to: '/admin/platform/tenants/new', label: 'تهيئة مستأجر', icon: Building2, platformPermission: 'platform.tenant.create' },
-      { to: '/admin/platform/tenants', label: 'دورة حياة المستأجرين', icon: Timer, platformPermission: 'platform.tenant.lifecycle' },
       { to: '/admin/platform/memberships-roles', label: 'العضويات والأدوار', icon: ShieldCheck, platformPermission: 'platform.memberships.manage' },
     ],
   },

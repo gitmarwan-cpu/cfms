@@ -197,14 +197,6 @@ export default function App() {
             }
           />
           <Route
-            path="platform/tenants/lifecycle"
-            element={
-              <PlatformPermissionGate permission="platform.tenant.lifecycle">
-                <PlatformPlaceholder title="دورة حياة المستأجرين" />
-              </PlatformPermissionGate>
-            }
-          />
-          <Route
             path="platform/memberships-roles"
             element={
               <PlatformPermissionGate permission="platform.memberships.manage">

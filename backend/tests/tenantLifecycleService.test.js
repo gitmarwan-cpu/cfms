@@ -101,6 +101,7 @@ describe('Tenant lifecycle transition service', () => {
     expect(suspended).toMatchObject({
       id: organization.id,
       lifecycle_status: 'suspended',
+      is_active: false,
       status_changed_by_user_id: platformActor.id,
       status_reason: 'Operational pause',
     });
@@ -127,6 +128,7 @@ describe('Tenant lifecycle transition service', () => {
     const archived = await transitionTenantLifecycle(organization.id, 'archived', platformActor.id, 'Retention only');
     expect(archived).toMatchObject({
       lifecycle_status: 'archived',
+      is_active: false,
       status_changed_by_user_id: platformActor.id,
       status_reason: 'Retention only',
     });
@@ -139,6 +141,7 @@ describe('Tenant lifecycle transition service', () => {
     );
     expect(activated).toMatchObject({
       lifecycle_status: 'active',
+      is_active: true,
       status_changed_by_user_id: platformActor.id,
       status_reason: 'Initial activation',
     });

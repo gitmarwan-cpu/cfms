@@ -105,7 +105,7 @@ const createOrganizationAndDefaults = async (
       date_format: 'DD/MM/YYYY',
       anonymous_complaints_policy: 'allowed',
       notification_settings: {},
-      is_active: true,
+      is_active: false,
       lifecycle_status: 'provisioning',
       status_changed_at: now,
       status_changed_by_user_id: actorUserId,

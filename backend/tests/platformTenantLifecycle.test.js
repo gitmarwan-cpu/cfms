@@ -158,6 +158,16 @@ describe('Phase 2B platform tenant lifecycle API', () => {
     });
     expect(response.body.data.statusChangedAt).toBeTruthy();
 
+    const dbTenant = await prisma.organizations.findUnique({ where: { id: tenant.id } });
+    expect(dbTenant.is_active).toBe(false);
+    expect(dbTenant.lifecycle_status).toBe('suspended');
+
+    const tenantDetail = await request(app)
+      .get(`/api/platform/tenants/${tenant.id}`)
+      .set('Authorization', `Bearer ${platformToken}`);
+    expect(tenantDetail.body.data.isActive).toBe(false);
+    expect(tenantDetail.body.data.lifecycleStatus).toBe('suspended');
+
     const platformMembership = await prisma.user_organizations.findUnique({
       where: { user_id_organization_id: { user_id: platformAdmin.id, organization_id: tenant.id } },
     });
@@ -183,6 +193,16 @@ describe('Phase 2B platform tenant lifecycle API', () => {
       statusChangedByUserId: platformAdmin.id,
       statusReason: 'Pause ended',
     });
+
+    const dbTenant = await prisma.organizations.findUnique({ where: { id: tenant.id } });
+    expect(dbTenant.is_active).toBe(true);
+    expect(dbTenant.lifecycle_status).toBe('active');
+
+    const tenantDetail = await request(app)
+      .get(`/api/platform/tenants/${tenant.id}`)
+      .set('Authorization', `Bearer ${platformToken}`);
+    expect(tenantDetail.body.data.isActive).toBe(true);
+    expect(tenantDetail.body.data.lifecycleStatus).toBe('active');
   });
 
   it('deactivates an active tenant and archives it after deactivation', async () => {
@@ -192,6 +212,10 @@ describe('Phase 2B platform tenant lifecycle API', () => {
       .send({ reason: 'Tenant closed' });
     expect(deactivated.status).toBe(200);
     expect(deactivated.body.data).toMatchObject({ lifecycleStatus: 'deactivated', tenantId: tenant.id });
+
+    const deactivatedDb = await prisma.organizations.findUnique({ where: { id: tenant.id } });
+    expect(deactivatedDb.is_active).toBe(false);
+    expect(deactivatedDb.lifecycle_status).toBe('deactivated');
 
     const archived = await request(app)
       .patch(lifecycleUrl('archive'))
@@ -204,6 +228,10 @@ describe('Phase 2B platform tenant lifecycle API', () => {
       statusChangedByUserId: platformAdmin.id,
       statusReason: 'Retention only',
     });
+
+    const archivedDb = await prisma.organizations.findUnique({ where: { id: tenant.id } });
+    expect(archivedDb.is_active).toBe(false);
+    expect(archivedDb.lifecycle_status).toBe('archived');
 
     for (const token of [tenantAdminToken, tenantUserToken, platformToken]) {
       const response = await request(app)

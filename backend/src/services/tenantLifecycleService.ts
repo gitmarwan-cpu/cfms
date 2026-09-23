@@ -104,6 +104,7 @@ export const transitionTenantLifecycle = async (
       where: { id: organization.id },
       data: {
         lifecycle_status: nextStatus,
+        is_active: nextStatus === 'active',
         status_changed_at: changedAt,
         status_changed_by_user_id: parsedActorUserId,
         status_reason: normalizedReason,
@@ -113,6 +114,7 @@ export const transitionTenantLifecycle = async (
       select: {
         id: true,
         lifecycle_status: true,
+        is_active: true,
         status_changed_at: true,
         status_changed_by_user_id: true,
         status_reason: true,

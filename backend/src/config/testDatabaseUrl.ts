@@ -40,4 +40,3 @@ export const parseTestDatabaseUrl = (value = process.env[TEST_DATABASE_ENV]): { 
 export const getRequiredTestDatabaseUrl = (): string => parseTestDatabaseUrl().url;
 
 export { TEST_DATABASE_ENV };
-module.exports = { TEST_DATABASE_ENV, parseTestDatabaseUrl, getRequiredTestDatabaseUrl };

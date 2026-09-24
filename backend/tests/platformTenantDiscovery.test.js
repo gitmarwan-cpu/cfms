@@ -9,13 +9,14 @@ const unique = () => `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
 const tokenFor = (userId) => jwt.sign({ sub: userId }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
 describe('Phase 3F platform tenant discovery API', () => {
+  let platformAdmin;
   let platformToken;
   let membershipsOnlyToken;
   let tenantToken;
 
   beforeAll(async () => {
     const now = new Date();
-    const platformAdmin = await prisma.users.create({
+    platformAdmin = await prisma.users.create({
       data: {
         full_name: 'Phase 3F Platform Admin',
         email: `phase3f-platform-${unique()}@cfms.local`,
@@ -204,6 +205,64 @@ describe('Phase 3F platform tenant discovery API', () => {
       .get('/api/platform/tenants/999999999')
       .set('Authorization', `Bearer ${platformToken}`);
     expect(missingResponse.status).toBe(404);
+  });
+
+  it('returns populated country, governorate, district, and statusChangedByUser details for root tenant detail', async () => {
+    const country = await prisma.countries.findFirst();
+    const governorate = await prisma.governorates.findFirst();
+    const district = await prisma.districts.findFirst();
+
+    const tenantWithLocations = await createTenant({
+      legalName: `Phase 3F Location Tenant ${unique()}`,
+      slug: `phase3f-loc-${unique()}`,
+    });
+    const now = new Date();
+    await prisma.organizations.update({
+      where: { id: tenantWithLocations.id },
+      data: {
+        country_id: country ? country.id : undefined,
+        governorate_id: governorate ? governorate.id : undefined,
+        district_id: district ? district.id : undefined,
+        status_changed_by_user_id: platformAdmin.id,
+        status_changed_at: now,
+        status_reason: 'Testing reference resolution',
+      },
+    });
+
+    const response = await request(app)
+      .get(`/api/platform/tenants/${tenantWithLocations.id}`)
+      .set('Authorization', `Bearer ${platformToken}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.data).toMatchObject({
+      id: tenantWithLocations.id,
+      legalName: tenantWithLocations.legalName || tenantWithLocations.legal_name,
+      slug: tenantWithLocations.slug,
+      statusChangedByUserId: platformAdmin.id,
+      statusChangedByUser: expect.objectContaining({
+        id: platformAdmin.id,
+        fullName: 'Phase 3F Platform Admin',
+      }),
+    });
+
+    if (country) {
+      expect(response.body.data.country).toMatchObject({
+        id: country.id,
+        nameAr: country.name_ar,
+      });
+    }
+    if (governorate) {
+      expect(response.body.data.governorate).toMatchObject({
+        id: governorate.id,
+        nameAr: governorate.name_ar,
+      });
+    }
+    if (district) {
+      expect(response.body.data.district).toMatchObject({
+        id: district.id,
+        nameAr: district.name_ar,
+      });
+    }
   });
 
   it('does not treat malformed top-level organizations as root tenants', async () => {

@@ -170,6 +170,11 @@ export default function PlatformTenantDetailPage() {
 
   const status = statusMeta[tenant.lifecycleStatus];
 
+  const countryName = tenant.country?.nameAr || tenant.country?.nameEn || '—';
+  const governorateName = tenant.governorate?.nameAr || tenant.governorate?.nameEn || '—';
+  const districtName = tenant.district?.nameAr || tenant.district?.nameEn || '—';
+  const statusChangedByName = tenant.statusChangedByUser?.fullName || tenant.statusChangedByUser?.email || '—';
+
   return (
     <div>
       <PageHeader
@@ -210,13 +215,13 @@ export default function PlatformTenantDetailPage() {
             <div><dt>البريد الإلكتروني</dt><dd dir="ltr">{tenant.email || '—'}</dd></div>
             <div><dt>الموقع الإلكتروني</dt><dd dir="ltr">{tenant.website || '—'}</dd></div>
             <div><dt>الحالة الفعلية</dt><dd>{tenant.isActive ? 'مفعّلة' : 'غير مفعّلة'}</dd></div>
-            <div><dt>الدولة</dt><dd>{tenant.countryId ?? '—'}</dd></div>
-            <div><dt>المحافظة</dt><dd>{tenant.governorateId ?? '—'}</dd></div>
-            <div><dt>المديرية</dt><dd>{tenant.districtId ?? '—'}</dd></div>
+            <div><dt>الدولة</dt><dd>{countryName}</dd></div>
+            <div><dt>المحافظة</dt><dd>{governorateName}</dd></div>
+            <div><dt>المديرية</dt><dd>{districtName}</dd></div>
             <div><dt>تاريخ الإنشاء</dt><dd>{formatDateTime(tenant.createdAt)}</dd></div>
             <div><dt>آخر تحديث</dt><dd>{formatDateTime(tenant.writeDate)}</dd></div>
             <div><dt>آخر تغيير للحالة</dt><dd>{formatDateTime(tenant.statusChangedAt)}</dd></div>
-            <div><dt>منفّذ تغيير الحالة</dt><dd>{tenant.statusChangedByUserId ?? '—'}</dd></div>
+            <div><dt>منفّذ تغيير الحالة</dt><dd>{statusChangedByName}</dd></div>
             <div><dt>سبب تغيير الحالة</dt><dd>{tenant.statusReason || '—'}</dd></div>
             <div><dt>تاريخ الأرشفة/الحذف</dt><dd>{formatDateTime(tenant.deletedAt)}</dd></div>
             <div><dt>العقدة الأصل</dt><dd>{tenant.parentId ?? '—'}</dd></div>

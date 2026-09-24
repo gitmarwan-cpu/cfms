@@ -43,6 +43,34 @@ const TENANT_DETAIL_FIELDS = {
   parent_id: true,
   root_organization_id: true,
   org_unit_type_id: true,
+  country_ref: {
+    select: {
+      id: true,
+      name_ar: true,
+      name_en: true,
+    },
+  },
+  governorates: {
+    select: {
+      id: true,
+      name_ar: true,
+      name_en: true,
+    },
+  },
+  districts: {
+    select: {
+      id: true,
+      name_ar: true,
+      name_en: true,
+    },
+  },
+  status_changed_by: {
+    select: {
+      id: true,
+      full_name: true,
+      email: true,
+    },
+  },
 } as const;
 
 type TenantDirectoryRecord = Prisma.organizationsGetPayload<{ select: typeof TENANT_DIRECTORY_FIELDS }>;
@@ -100,6 +128,34 @@ const mapDetailTenant = (organization: TenantDetailRecord) => ({
   parentId: organization.parent_id,
   rootOrganizationId: organization.root_organization_id,
   orgUnitTypeId: organization.org_unit_type_id,
+  country: organization.country_ref
+    ? {
+        id: organization.country_ref.id,
+        nameAr: organization.country_ref.name_ar,
+        nameEn: organization.country_ref.name_en ?? null,
+      }
+    : null,
+  governorate: organization.governorates
+    ? {
+        id: organization.governorates.id,
+        nameAr: organization.governorates.name_ar,
+        nameEn: organization.governorates.name_en ?? null,
+      }
+    : null,
+  district: organization.districts
+    ? {
+        id: organization.districts.id,
+        nameAr: organization.districts.name_ar,
+        nameEn: organization.districts.name_en ?? null,
+      }
+    : null,
+  statusChangedByUser: organization.status_changed_by
+    ? {
+        id: organization.status_changed_by.id,
+        fullName: organization.status_changed_by.full_name,
+        email: organization.status_changed_by.email,
+      }
+    : null,
 });
 
 const buildRootTenantWhere = (filters: PlatformTenantListFilters): Prisma.organizationsWhereInput => {

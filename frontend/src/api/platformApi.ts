@@ -192,6 +192,18 @@ export interface PlatformTenantDirectoryItem {
   createdAt: string | null;
 }
 
+export interface TenantLocationReference {
+  id: number;
+  nameAr: string;
+  nameEn: string | null;
+}
+
+export interface TenantUserReference {
+  id: number;
+  fullName: string;
+  email: string;
+}
+
 export interface PlatformTenantDetails extends PlatformTenantDirectoryItem {
   description: string | null;
   email: string | null;
@@ -202,6 +214,10 @@ export interface PlatformTenantDetails extends PlatformTenantDirectoryItem {
   parentId: number | null;
   rootOrganizationId: number | null;
   orgUnitTypeId: number | null;
+  country?: TenantLocationReference | null;
+  governorate?: TenantLocationReference | null;
+  district?: TenantLocationReference | null;
+  statusChangedByUser?: TenantUserReference | null;
 }
 
 export interface PlatformTenantLifecycleResult {

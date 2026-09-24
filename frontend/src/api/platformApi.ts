@@ -7,6 +7,12 @@ export interface PlatformUserListParams {
   isActive?: 'true' | 'false';
 }
 
+export interface PrimaryOrganizationNodeSummary {
+  id: number;
+  legalName: string;
+  code: string | null;
+}
+
 export interface PlatformUser {
   id: number;
   fullName: string;
@@ -18,6 +24,7 @@ export interface PlatformUser {
   writeUid: number | null;
   defaultOrganizationId: number | null;
   primaryOrganizationNodeId: number | null;
+  primaryOrganizationNode?: PrimaryOrganizationNodeSummary | null;
 }
 
 export interface PlatformUserListItem extends PlatformUser {

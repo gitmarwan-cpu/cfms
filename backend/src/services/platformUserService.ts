@@ -41,6 +41,13 @@ const USER_FIELDS = {
   write_uid: true,
   default_organization_id: true,
   primary_organization_node_id: true,
+  primary_organization_node: {
+    select: {
+      id: true,
+      legal_name: true,
+      code: true,
+    },
+  },
 } as const;
 
 const MEMBERSHIP_USER_OPTION_FIELDS = {
@@ -86,6 +93,13 @@ const mapUser = (user: any) => ({
   writeUid: user.write_uid ?? null,
   defaultOrganizationId: user.default_organization_id ?? null,
   primaryOrganizationNodeId: user.primary_organization_node_id ?? null,
+  primaryOrganizationNode: user.primary_organization_node
+    ? {
+        id: user.primary_organization_node.id,
+        legalName: user.primary_organization_node.legal_name,
+        code: user.primary_organization_node.code ?? null,
+      }
+    : null,
 });
 
 const normalizeCreatePayload = (payload: PlatformUserCreatePayload) => {

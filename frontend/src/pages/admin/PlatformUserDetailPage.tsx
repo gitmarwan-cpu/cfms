@@ -76,6 +76,17 @@ export default function PlatformUserDetailPage() {
     return <><PageHeader title="تفاصيل مستخدم المنصة" actions={backAction} /><DataState loading={false} error={error || 'المستخدم غير موجود.'} empty={false} onRetry={loadUser}>{null}</DataState></>;
   }
 
+  const defaultOrgName =
+    (user.defaultOrganizationId
+      ? user.memberships.find((m) => m.organizationId === user.defaultOrganizationId)?.organization.legal_name
+      : undefined) ||
+    user.memberships.find((m) => m.isPrimary)?.organization.legal_name ||
+    '—';
+
+  const primaryNodeName = user.primaryOrganizationNode
+    ? `${user.primaryOrganizationNode.legalName}${user.primaryOrganizationNode.code ? ` (${user.primaryOrganizationNode.code})` : ''}`
+    : '—';
+
   return (
     <div>
       <PageHeader title={user.fullName} description="إدارة حساب المستخدم على مستوى المنصة فقط." actions={backAction} />
@@ -103,11 +114,43 @@ export default function PlatformUserDetailPage() {
             <div><dt>البريد الإلكتروني</dt><dd dir="ltr">{user.email}</dd></div>
             <div><dt>تاريخ الإنشاء</dt><dd>{formatDateTime(user.createDate)}</dd></div>
             <div><dt>آخر تحديث</dt><dd>{formatDateTime(user.writeDate)}</dd></div>
-            <div><dt>المؤسسة الافتراضية</dt><dd>{user.defaultOrganizationId ?? '—'}</dd></div>
-            <div><dt>العقدة التنظيمية الأساسية</dt><dd>{user.primaryOrganizationNodeId ?? '—'}</dd></div>
+            <div><dt>المؤسسة الافتراضية</dt><dd>{defaultOrgName}</dd></div>
+            <div><dt>العقدة التنظيمية الأساسية</dt><dd>{primaryNodeName}</dd></div>
             <div><dt>عدد العضويات</dt><dd>{user.memberships.length}</dd></div>
             <div><dt>أدوار المنصة</dt><dd>{user.platformRoles.length || 'لا توجد'}</dd></div>
           </dl>
+        </div>
+      </div>
+
+      <div className="card" style={{ marginTop: '24px' }}>
+        <div className="card__body">
+          <h3 className="admin-section-title" style={{ marginBottom: '16px' }}>العضويات في المؤسسات ({user.memberships.length})</h3>
+          {user.memberships.length === 0 ? (
+            <p className="admin-page-description">لا توجد عضويات لهذا المستخدم.</p>
+          ) : (
+            <div className="admin-table-wrap">
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>المؤسسة</th>
+                    <th>نوع العضوية</th>
+                    <th>حالة العضوية</th>
+                    <th>حالة المؤسسة</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {user.memberships.map((membership) => (
+                    <tr key={membership.id}>
+                      <td><strong>{membership.organization.legal_name}</strong></td>
+                      <td>{membership.isPrimary ? <StatusBadge tone="info">أساسية</StatusBadge> : 'فرعية'}</td>
+                      <td><StatusBadge tone={membership.isActive ? 'success' : 'neutral'}>{membership.isActive ? 'نشطة' : 'معطّلة'}</StatusBadge></td>
+                      <td><StatusBadge tone={membership.organization.lifecycle_status === 'active' ? 'success' : 'warning'}>{membership.organization.lifecycle_status}</StatusBadge></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
 

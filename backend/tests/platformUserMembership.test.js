@@ -200,7 +200,40 @@ describe('Phase 2C platform user and membership administration', () => {
       .get(`/api/platform/users/${createdUserId}`)
       .set('Authorization', `Bearer ${platformToken}`);
     expect(view.status).toBe(200);
-    expect(view.body.data).toMatchObject({ id: createdUserId, memberships: [], tenantRoles: [], platformRoles: [] });
+    expect(view.body.data).toMatchObject({ id: createdUserId, memberships: [], tenantRoles: [], platformRoles: [], primaryOrganizationNode: null });
+  });
+
+  it('returns primaryOrganizationNode and membership organization legal names on user detail endpoint', async () => {
+    const nodeOrg = await createOrganization({
+      legalName: `Phase 2C Node Org ${unique()}`,
+      slug: `phase2c-node-org-${unique()}`,
+    });
+    const userWithNode = await prisma.users.create({
+      data: {
+        full_name: 'User With Node',
+        email: `user-with-node-${unique()}@cfms.local`,
+        password_hash: 'not-used',
+        is_active: true,
+        create_date: new Date(),
+        write_date: new Date(),
+        primary_organization_node_id: nodeOrg.id,
+      },
+    });
+
+    const response = await request(app)
+      .get(`/api/platform/users/${userWithNode.id}`)
+      .set('Authorization', `Bearer ${platformToken}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.data).toMatchObject({
+      id: userWithNode.id,
+      fullName: 'User With Node',
+      primaryOrganizationNodeId: nodeOrg.id,
+      primaryOrganizationNode: {
+        id: nodeOrg.id,
+        legalName: nodeOrg.legal_name,
+      },
+    });
   });
 
   it('redacts membership and role details for users-only admins while retaining full detail for dual-permission admins', async () => {

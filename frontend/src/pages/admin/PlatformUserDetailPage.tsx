@@ -9,8 +9,16 @@ import {
 } from '../../api/platformApi';
 import { ConfirmDialog, DataState } from '../../components/admin/AdminUi';
 import { PageHeader } from '../../components/patterns/PageHeader';
-import { StatusBadge } from '../../components/ui/StatusBadge';
+import { StatusBadge, type StatusTone } from '../../components/ui/StatusBadge';
 import { formatDateTime } from '../../utils/dateTime';
+
+const statusMeta: Record<string, { label: string; tone: StatusTone } | undefined> = {
+  provisioning: { label: 'قيد التهيئة', tone: 'info' },
+  active: { label: 'نشط', tone: 'success' },
+  suspended: { label: 'موقوف', tone: 'warning' },
+  deactivated: { label: 'معطّل', tone: 'danger' },
+  archived: { label: 'مؤرشف', tone: 'neutral' },
+};
 
 const parseUserId = (value: string | undefined): number | null => {
   if (!value || !/^[1-9]\d*$/.test(value)) return null;
@@ -139,14 +147,18 @@ export default function PlatformUserDetailPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {user.memberships.map((membership) => (
-                    <tr key={membership.id}>
-                      <td><strong>{membership.organization.legal_name}</strong></td>
-                      <td>{membership.isPrimary ? <StatusBadge tone="info">أساسية</StatusBadge> : 'فرعية'}</td>
-                      <td><StatusBadge tone={membership.isActive ? 'success' : 'neutral'}>{membership.isActive ? 'نشطة' : 'معطّلة'}</StatusBadge></td>
-                      <td><StatusBadge tone={membership.organization.lifecycle_status === 'active' ? 'success' : 'warning'}>{membership.organization.lifecycle_status}</StatusBadge></td>
-                    </tr>
-                  ))}
+                  {user.memberships.map((membership) => {
+                    const orgStatus = membership.organization.lifecycle_status;
+                    const meta = statusMeta[orgStatus];
+                    return (
+                      <tr key={membership.id}>
+                        <td><strong>{membership.organization.legal_name}</strong></td>
+                        <td>{membership.isPrimary ? <StatusBadge tone="info">أساسية</StatusBadge> : 'فرعية'}</td>
+                        <td><StatusBadge tone={membership.isActive ? 'success' : 'neutral'}>{membership.isActive ? 'نشطة' : 'معطّلة'}</StatusBadge></td>
+                        <td><StatusBadge tone={meta?.tone || 'neutral'}>{meta?.label || '—'}</StatusBadge></td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

@@ -5,7 +5,7 @@ import OrganizationSwitcher from './OrganizationSwitcher';
 import ChangePasswordDialog from './ChangePasswordDialog';
 import { useEffect, useRef, useState } from 'react';
 
-type NavItem = { path: string; label: string; icon: string; exact: boolean; permission?: string; adminOnly?: boolean };
+type NavItem = { path: string; label: string; icon: string; exact: boolean; permission?: string; platformPermission?: string; adminOnly?: boolean };
 
 const NAV_ITEMS: NavItem[] = [
   {
@@ -29,10 +29,13 @@ const NAV_ITEMS: NavItem[] = [
   { path: '/admin/reference-data', label: 'البيانات المرجعية', icon: '☷', exact: false, permission: 'reference_data.view' },
   { path: '/admin/sla', label: 'SLA', icon: '⏱', exact: false, permission: 'organization.view' },
   { path: '/admin/audit', label: 'سجل التدقيق', icon: '◷', exact: false, adminOnly: true },
+  { path: '/admin/platform/tenants', label: 'دليل المستأجرين', icon: '🌍', exact: false, platformPermission: 'platform.tenant.lifecycle' },
+  { path: '/admin/platform/users', label: 'مستخدمو المنصة', icon: '🧑‍💻', exact: false, platformPermission: 'platform.users.manage' },
+  { path: '/admin/platform/memberships-roles', label: 'عضويات المستأجرين', icon: '🔗', exact: false, platformPermission: 'platform.memberships.manage' },
 ];
 
 export default function AdminLayout() {
-  const { user, logout, currentOrganizationId } = useAuth();
+  const { user, logout, currentOrganizationId, hasPlatformPermission } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -47,6 +50,7 @@ export default function AdminLayout() {
 
   const canSee = (item: NavItem) => {
     if (item.adminOnly) return user?.roleCodes.includes('admin') || false;
+    if (item.platformPermission) return hasPlatformPermission(item.platformPermission);
     if (!item.permission) return true;
     return user?.permissions?.some(
       (permission) => permission.code === item.permission && permission.organizationId === currentOrganizationId

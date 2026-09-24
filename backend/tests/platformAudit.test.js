@@ -99,6 +99,42 @@ describe('Platform audit visibility', () => {
         {
           organization_id: tenant.id,
           actor_user_id: platformAdmin.id,
+          action: 'organization.created',
+          entity_type: 'organization',
+          entity_id: tenant.id,
+          metadata: { source: 'platform' },
+          created_at: new Date(now.getTime() + 2500),
+        },
+        {
+          organization_id: tenant.id,
+          actor_user_id: platformAdmin.id,
+          action: 'organization.lifecycle.changed',
+          entity_type: 'organization',
+          entity_id: tenant.id,
+          metadata: { previousStatus: 'provisioning', nextStatus: 'active', reason: 'Approved' },
+          created_at: new Date(now.getTime() + 2600),
+        },
+        {
+          organization_id: tenant.id,
+          actor_user_id: platformAdmin.id,
+          action: 'user_role.assigned',
+          entity_type: 'user_role',
+          entity_id: 900003,
+          metadata: { source: 'platform', userId: 901, roleId: 902 },
+          created_at: new Date(now.getTime() + 2700),
+        },
+        {
+          organization_id: tenant.id,
+          actor_user_id: platformAdmin.id,
+          action: 'membership.granted',
+          entity_type: 'user_organization',
+          entity_id: 900004,
+          metadata: { source: 'platform', userId: 901 },
+          created_at: new Date(now.getTime() + 2800),
+        },
+        {
+          organization_id: tenant.id,
+          actor_user_id: platformAdmin.id,
           action: 'tenant-only.audit.event',
           entity_type: 'organization',
           entity_id: tenant.id,
@@ -121,7 +157,40 @@ describe('Platform audit visibility', () => {
     ]));
     expect(response.body.data).not.toEqual(expect.arrayContaining([
       expect.objectContaining({ action: 'tenant-only.audit.event' }),
+      expect.objectContaining({ action: 'organization.created' }),
     ]));
+  });
+
+  it('returns platform tenant-targeted events when organizationId query param is provided', async () => {
+    const response = await request(app)
+      .get('/api/platform/audit-logs')
+      .query({ organizationId: tenant.id })
+      .set('Authorization', `Bearer ${platformToken}`);
+
+    expect(response.status).toBe(200);
+    const actions = response.body.data.map((entry) => entry.action);
+
+    expect(actions).toContain('organization.created');
+    expect(actions).toContain('organization.lifecycle.changed');
+    expect(actions).toContain('user_role.assigned');
+    expect(actions).toContain('membership.granted');
+
+    expect(actions).not.toContain('tenant-only.audit.event');
+    expect(actions).not.toContain('platform_role.assigned');
+    expect(actions).not.toContain('platform_role.revoked');
+
+    for (const entry of response.body.data) {
+      expect(entry.organizationId).toBe(tenant.id);
+    }
+  });
+
+  it('rejects invalid organizationId parameter with 422', async () => {
+    const response = await request(app)
+      .get('/api/platform/audit-logs')
+      .query({ organizationId: 'invalid' })
+      .set('Authorization', `Bearer ${platformToken}`);
+
+    expect(response.status).toBe(422);
   });
 
   it('requires the platform audit permission and rejects tenant users', async () => {

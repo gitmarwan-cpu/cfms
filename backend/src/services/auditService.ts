@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import prisma from '../prisma/client';
+import ApiError from '../utils/ApiError';
 
 type AuditClient = typeof prisma | Prisma.TransactionClient;
 
@@ -17,6 +18,7 @@ export interface AuditLogFilters {
   limit?: string | number;
   entityType?: string;
   entityId?: string | number;
+  organizationId?: string | number;
 }
 
 const toPositiveInteger = (value: string | number | undefined): number | null => {
@@ -109,7 +111,22 @@ export const listPlatformAuditLogs = async (filters: AuditLogFilters = {}) => {
   const page = Math.max(1, Number.parseInt(String(filters.page || ''), 10) || 1);
   const limit = Math.min(100, Math.max(1, Number.parseInt(String(filters.limit || ''), 10) || 50));
   const entityId = toPositiveInteger(filters.entityId);
-  const where: Prisma.audit_logsWhereInput = { organization_id: null };
+  const where: Prisma.audit_logsWhereInput = {};
+
+  if (filters.organizationId !== undefined) {
+    const organizationId = toPositiveInteger(filters.organizationId);
+    if (!organizationId) {
+      throw new ApiError(422, 'معرّف المؤسسة غير صالح');
+    }
+    where.organization_id = organizationId;
+    where.OR = [
+      { metadata: { path: ['source'], equals: 'platform' } },
+      { action: { in: ['organization.created', 'organization.lifecycle.changed'] } },
+    ];
+  } else {
+    where.organization_id = null;
+  }
+
   if (filters.entityType) where.entity_type = filters.entityType;
   if (filters.entityId !== undefined) where.entity_id = entityId;
 

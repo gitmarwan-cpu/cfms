@@ -521,3 +521,56 @@ export const changePlatformTenantRole = (
   input: PlatformTenantRoleInput
 ): Promise<PlatformTenantRoleAssignment> =>
   unwrap<PlatformTenantRoleAssignment>(axiosClient.patch(`/platform/tenants/${organizationId}/users/${userId}/roles/${userRoleId}`, input));
+
+export interface PlatformAuditLogActor {
+  id: number;
+  fullName: string;
+  email: string;
+}
+
+export interface PlatformAuditLog {
+  id: number;
+  organizationId: number | null;
+  actorUserId: number | null;
+  actor: PlatformAuditLogActor | null;
+  action: string;
+  entityType: string;
+  entityId: number | null;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export interface PlatformAuditListParams {
+  page?: number;
+  limit?: number;
+  entityType?: string;
+  entityId?: string;
+  organizationId?: string;
+}
+
+export interface PlatformAuditListResponse {
+  data: PlatformAuditLog[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}
+
+export const fetchPlatformAuditLogs = async (
+  params: PlatformAuditListParams = {}
+): Promise<PlatformAuditListResponse> => {
+  const query: Record<string, string> = {};
+  if (params.page !== undefined) query.page = String(params.page);
+  if (params.limit !== undefined) query.limit = String(params.limit);
+  if (params.entityType) query.entityType = params.entityType;
+  if (params.entityId) query.entityId = params.entityId;
+  if (params.organizationId) query.organizationId = params.organizationId;
+
+  const response = await axiosClient.get<ApiEnvelope<PlatformAuditLog[]>>('/platform/audit-logs', { params: query });
+  return {
+    data: response.data.data,
+    pagination: response.data.pagination ?? { total: 0, page: 1, limit: 50, totalPages: 0 },
+  };
+};

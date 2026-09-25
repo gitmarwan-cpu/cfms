@@ -32,6 +32,7 @@ const NAV_ITEMS: NavItem[] = [
   { path: '/admin/platform/tenants', label: 'دليل المستأجرين', icon: '🌍', exact: false, platformPermission: 'platform.tenant.lifecycle' },
   { path: '/admin/platform/users', label: 'مستخدمو المنصة', icon: '🧑‍💻', exact: false, platformPermission: 'platform.users.manage' },
   { path: '/admin/platform/memberships-roles', label: 'عضويات المستأجرين', icon: '🔗', exact: false, platformPermission: 'platform.memberships.manage' },
+  { path: '/admin/platform/audit', label: 'سجل تدقيق المنصة', icon: '◷', exact: false, platformPermission: 'platform.audit.view' },
 ];
 
 export default function AdminLayout() {

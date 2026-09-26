@@ -346,6 +346,20 @@ export const listPermissions = async (): Promise<PermissionResponse[]> => {
   return permissions.map(mapPermission);
 };
 
+export const listPlatformPermissions = async (): Promise<PermissionResponse[]> => {
+  const permissions = await prisma.permissions.findMany({
+    where: {
+      OR: [
+        { module: 'platform' },
+        { code: { startsWith: 'platform.' } },
+      ],
+    },
+    orderBy: [{ module: 'asc' }, { code: 'asc' }],
+  });
+  return permissions.map(mapPermission);
+};
+
+
 export const listPlatformRoles = async (): Promise<RoleResponse[]> => {
   const roles = await prisma.roles.findMany({
     where: { scope: 'platform', organization_id: null },

@@ -332,4 +332,73 @@ describe('Platform Role Lifecycle', () => {
       expect(response.status).toBe(403);
     });
   });
+
+  describe('GET /api/platform/roles/permissions', () => {
+    it('returns 401 for unauthenticated requests', async () => {
+      const response = await request(app).get('/api/platform/roles/permissions');
+      expect(response.status).toBe(401);
+    });
+
+    it('returns 403 for a user without platform.roles.manage', async () => {
+      const response = await request(app)
+        .get('/api/platform/roles/permissions')
+        .set('Authorization', `Bearer ${insufficientToken}`);
+      expect(response.status).toBe(403);
+    });
+
+    it('returns 403 for a tenant-only admin (no platform role)', async () => {
+      const response = await request(app)
+        .get('/api/platform/roles/permissions')
+        .set('Authorization', `Bearer ${tenantAdminToken}`);
+      expect(response.status).toBe(403);
+    });
+
+    it('returns 200 with platform permissions for authorized platform-role manager', async () => {
+      const response = await request(app)
+        .get('/api/platform/roles/permissions')
+        .set('Authorization', `Bearer ${platformAdminToken}`);
+
+      expect(response.status).toBe(200);
+      expect(Array.isArray(response.body.data)).toBe(true);
+      expect(response.body.data.length).toBeGreaterThan(0);
+    });
+
+    it('returns ONLY platform permissions (no tenant permissions)', async () => {
+      const response = await request(app)
+        .get('/api/platform/roles/permissions')
+        .set('Authorization', `Bearer ${platformAdminToken}`);
+
+      expect(response.status).toBe(200);
+      const nonPlatform = response.body.data.filter(
+        (p) => p.module !== 'platform' && !p.code.startsWith('platform.')
+      );
+      expect(nonPlatform.length).toBe(0);
+    });
+
+    it('works without X-Organization-Id header (no tenant context required)', async () => {
+      // Deliberately omit any org header
+      const response = await request(app)
+        .get('/api/platform/roles/permissions')
+        .set('Authorization', `Bearer ${platformAdminToken}`)
+        .unset('X-Organization-Id');
+
+      expect(response.status).toBe(200);
+      expect(Array.isArray(response.body.data)).toBe(true);
+    });
+
+    it('returns permissions with expected shape (id, code, module)', async () => {
+      const response = await request(app)
+        .get('/api/platform/roles/permissions')
+        .set('Authorization', `Bearer ${platformAdminToken}`);
+
+      expect(response.status).toBe(200);
+      for (const perm of response.body.data) {
+        expect(perm).toMatchObject({
+          id: expect.any(Number),
+          code: expect.stringMatching(/^platform\./),
+          module: expect.any(String),
+        });
+      }
+    });
+  });
 });

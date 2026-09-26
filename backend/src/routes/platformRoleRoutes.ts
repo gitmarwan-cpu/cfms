@@ -12,6 +12,7 @@ const router = express.Router();
 
 router.use(authenticate, authorizePlatformPermission('platform.roles.manage'));
 
+router.get('/permissions', platformRoleController.listPlatformPermissions);
 router.get('/', platformRoleController.listPlatformRoles);
 router.get('/:id', validate(roleIdParamValidation), platformRoleController.getPlatformRole);
 router.post('/', validate(createRoleValidation), platformRoleController.createPlatformRole);

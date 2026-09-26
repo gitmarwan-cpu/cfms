@@ -24,6 +24,7 @@ import PlatformTenantsPage from './pages/admin/PlatformTenantsPage';
 import PlatformTenantDetailPage from './pages/admin/PlatformTenantDetailPage';
 import TenantProvisioningPage from './pages/admin/TenantProvisioningPage';
 import PlatformMembershipsRolesPage from './pages/admin/PlatformMembershipsRolesPage';
+import PlatformRolesPage from './pages/admin/PlatformRolesPage';
 import PlatformAuditLogPage from './pages/admin/PlatformAuditLogPage';
 import PermissionGate, { AdminRoleGate, PlatformPermissionGate } from './components/admin/PermissionGate';
 
@@ -202,6 +203,14 @@ export default function App() {
             element={
               <PlatformPermissionGate permission="platform.memberships.manage">
                 <PlatformMembershipsRolesPage />
+              </PlatformPermissionGate>
+            }
+          />
+          <Route
+            path="platform/roles"
+            element={
+              <PlatformPermissionGate permission="platform.roles.manage">
+                <PlatformRolesPage />
               </PlatformPermissionGate>
             }
           />

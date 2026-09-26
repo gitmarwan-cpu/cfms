@@ -574,3 +574,62 @@ export const fetchPlatformAuditLogs = async (
     pagination: response.data.pagination ?? { total: 0, page: 1, limit: 50, totalPages: 0 },
   };
 };
+
+// ── Platform Role management ──────────────────────────────────────────────────
+
+/** Platform-scoped permission as returned by GET /platform/roles/permissions. */
+export interface PlatformPermission {
+  id: number;
+  code: string;
+  module: string;
+  descriptionAr: string | null;
+}
+
+/** Full platform role as returned by GET /platform/roles and GET /platform/roles/:id. */
+export interface PlatformRole {
+  id: number;
+  code: string;
+  organizationId: number | null;
+  nameAr: string;
+  nameEn: string | null;
+  description: string | null;
+  isSystem: boolean;
+  isActive: boolean;
+  scope: 'platform';
+  permissions: PlatformPermission[];
+  createDate: string | null;
+  writeDate: string | null;
+}
+
+/** Payload for POST /platform/roles. */
+export interface CreatePlatformRoleInput {
+  code: string;
+  nameAr: string;
+  nameEn?: string | null;
+  description?: string | null;
+  permissionIds?: number[];
+}
+
+/** Payload for PUT /platform/roles/:id. */
+export interface UpdatePlatformRoleInput {
+  nameAr?: string;
+  nameEn?: string | null;
+  description?: string | null;
+  isActive?: boolean;
+  permissionIds?: number[];
+}
+
+export const fetchPlatformRoles = (): Promise<PlatformRole[]> =>
+  unwrap<PlatformRole[]>(axiosClient.get('/platform/roles'));
+
+export const fetchPlatformRole = (id: number): Promise<PlatformRole> =>
+  unwrap<PlatformRole>(axiosClient.get(`/platform/roles/${id}`));
+
+export const createPlatformRole = (input: CreatePlatformRoleInput): Promise<PlatformRole> =>
+  unwrap<PlatformRole>(axiosClient.post('/platform/roles', input));
+
+export const updatePlatformRole = (id: number, input: UpdatePlatformRoleInput): Promise<PlatformRole> =>
+  unwrap<PlatformRole>(axiosClient.put(`/platform/roles/${id}`, input));
+
+export const fetchPlatformPermissions = (): Promise<PlatformPermission[]> =>
+  unwrap<PlatformPermission[]>(axiosClient.get('/platform/roles/permissions'));

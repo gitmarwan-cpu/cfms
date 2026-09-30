@@ -83,3 +83,15 @@ Response إلى المستفيد: { id, referenceCode, trackingPin }
 | 2.3 Assignment بمستخدم/عقدة تنظيمية/تصعيد | ✅ إسناد فردي + عقدة تنظيمية؛ Groups ليست جهات تعيين؛ التصعيد ضمن SLA لاحقاً |
 | 2.4 Dashboard | ⏳ غير مبني |
 | 2.5 Public Tracking | ✅ منجز |
+
+## تفويض تغيير حالة الطلب (مُنفَّذ)
+
+- `complaints.assign` يبقى الصلاحية الأساسية لكل تغيير حالة، ولقراءة الانتقالات
+  (`GET /:id/transitions`)، وللإسناد (`PATCH /:id/assignment`).
+- `complaints.close` صلاحية **إضافية** مطلوبة فقط عند الإغلاق (`resolved → closed`).
+  أي أن الإغلاق يتطلب `complaints.assign` **و** `complaints.close` معاً.
+- الرفض (`new → rejected` و`in_review → rejected`) يبقى ضمن `complaints.assign`
+  وحده دون أي تغيير.
+- `GET /:id/transitions` يحتفظ بدلالته الحالية (انتقالات سير العمل الفعلية) ولا
+  يُرشَّح حسب صلاحية المنفِّذ؛ إخفاء إجراء الإغلاق عمّن لا يملك `complaints.close`
+  مسؤولية الواجهة.

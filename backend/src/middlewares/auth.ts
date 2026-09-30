@@ -151,6 +151,25 @@ export const authorizePermission = (
 };
 
 /**
+ * Applies `permissionCode` only when the request body field `field` equals one of `values`.
+ * Used to layer an additive, state-specific permission requirement on top of a base route
+ * permission (e.g. closing a complaint) while reusing the exact same tenant-scoped check.
+ * Requests that do not target one of `values` pass through unchanged.
+ */
+export const authorizePermissionForBodyValue = (
+  field: string,
+  values: readonly string[],
+  permissionCode: string
+) => (req: any, res: any, next: (error?: unknown) => void): void => {
+  const rawValue = req.body?.[field];
+  if (typeof rawValue !== 'string' || !values.includes(rawValue)) {
+    next();
+    return;
+  }
+  authorizePermission(permissionCode)(req, res, next);
+};
+
+/**
  * Authorizes only platform-scoped permissions. This intentionally does not
  * consult tenant membership, tenant roles, or tenant permissions.
  */

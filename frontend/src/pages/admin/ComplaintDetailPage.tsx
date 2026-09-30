@@ -42,6 +42,7 @@ export default function ComplaintDetailPage() {
   const { user, hasPermission, currentOrganizationId } = useAuth();
   const organizationId = currentOrganizationId ?? user?.defaultOrganizationId ?? null;
   const canAssign = organizationId !== null && organizationId !== undefined && hasPermission('complaints.assign', organizationId);
+  const canClose = organizationId !== null && organizationId !== undefined && hasPermission('complaints.close', organizationId);
   const canEscalate = organizationId !== null && organizationId !== undefined && hasPermission('complaints.escalate', organizationId);
   const [data, setData] = useState<AdminComplaintDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -120,6 +121,10 @@ export default function ComplaintDetailPage() {
     if (canAssign) fetchOrganizationNodes().then(setOrganizationNodes).catch(() => {/* Non-critical */});
   }, [canAssign]);
 
+  // Closing additionally requires `complaints.close` on the backend. The transitions endpoint keeps
+  // returning the real workflow transitions, so the UI hides the actions the active user cannot perform.
+  const visibleTransitions = canClose ? transitions : transitions.filter((transition) => transition.toStatus !== 'closed');
+
   const handleStatusUpdate = async (newStatus: ComplaintStatus) => {
     setStatusError('');
     setStatusSaving(true);
@@ -132,7 +137,9 @@ export default function ComplaintDetailPage() {
       const apiErr = err as ApiClientError;
       setStatusError(apiErr.status === 409
         ? 'لا يمكن تنفيذ هذا الانتقال من الحالة الحالية. راجع الحالة الحالية واختر إجراءً متاحاً.'
-        : apiErr.message || 'حدث خطأ أثناء تحديث الحالة');
+        : apiErr.status === 403
+          ? 'لا تملك الصلاحية اللازمة لتنفيذ هذا الإجراء على الطلب ضمن هذه المؤسسة.'
+          : apiErr.message || 'حدث خطأ أثناء تحديث الحالة');
     } finally {
       setStatusSaving(false);
     }
@@ -481,10 +488,10 @@ export default function ComplaintDetailPage() {
                 {statusError && <div className="alert alert-danger cd-alert-sm" role="alert" aria-live="polite">{statusError}</div>}
                 {transitionsLoading && <div className="admin-readonly-note" role="status" aria-live="polite">جارٍ تحميل الإجراءات المتاحة…</div>}
                 {!transitionsLoading && transitionsError && <div className="alert alert-danger" role="alert" aria-live="polite">تعذر التحقق من الانتقالات المتاحة، لذلك لن تُعرض إجراءات الحالة حالياً. {transitionsError}</div>}
-                {!transitionsLoading && !transitionsError && transitions.length === 0 && <div className="admin-readonly-note" role="status">لا توجد انتقالات متاحة من الحالة الحالية.</div>}
-                {!transitionsLoading && !transitionsError && transitions.length > 0 && (
+                {!transitionsLoading && !transitionsError && visibleTransitions.length === 0 && <div className="admin-readonly-note" role="status">لا توجد انتقالات متاحة من الحالة الحالية.</div>}
+                {!transitionsLoading && !transitionsError && visibleTransitions.length > 0 && (
                   <div className="cd-status-actions">
-                    {transitions.map((transition) => <button key={transition.id} className="btn btn-outline cd-status-btn" onClick={() => setUpdatingStatus(transition.toStatus)} disabled={statusSaving} type="button">{transition.nameAr || STATUS_LABELS[transition.toStatus] || transition.toStatus}</button>)}
+                    {visibleTransitions.map((transition) => <button key={transition.id} className="btn btn-outline cd-status-btn" onClick={() => setUpdatingStatus(transition.toStatus)} disabled={statusSaving} type="button">{transition.nameAr || STATUS_LABELS[transition.toStatus] || transition.toStatus}</button>)}
                   </div>
                 )}
               </> : <div className="admin-readonly-note" role="status">لا تملك صلاحية تغيير حالة الطلب.</div>}

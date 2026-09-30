@@ -363,3 +363,445 @@ describe('Complaint assignment API', () => {
     expect(response.body.message).toContain('custom');
   });
 });
+
+describe("Complaint close authorization (complaints.close)", () => {
+  let organization;
+  let foreignOrganization;
+  let district;
+  let adminToken;
+  let assignOnlyToken;
+  let assignOnlyUserId;
+  let assignAndCloseToken;
+  let assignAndCloseUserId;
+  let closeOnlyToken;
+  let nonAssignToken;
+  let assignOnlyRoleId;
+  let assignAndCloseRoleId;
+  let categoryItem;
+  let channelItem;
+
+  const loginToken = async (email) => {
+    const response = await request(app)
+      .post("/api/auth/login")
+      .send({ email, password: "Password123" });
+    expect(response.status).toBe(200);
+    return response.body.data.token;
+  };
+
+  // Permissions are always resolved by code from the catalog (never by hard-coded ids).
+  const permissionIdsByCode = async (codes) => {
+    const permissions = await prisma.permissions.findMany({
+      where: { code: { in: codes } },
+    });
+    expect(permissions.map((permission) => permission.code).sort()).toEqual(
+      [...codes].sort(),
+    );
+    return permissions.map((permission) => permission.id);
+  };
+
+  const createCustomRole = async (code, permissionCodes) => {
+    const permissionIds = await permissionIdsByCode(permissionCodes);
+    const response = await request(app)
+      .post("/api/roles")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ code, nameAr: `دور اختبار ${code}`, permissionIds });
+    expect(response.status).toBe(201);
+    return response.body.data;
+  };
+
+  const createMemberWithCustomRole = async (label, roleId) => {
+    const { user } = await createUserWithRole(
+      {
+        fullName: `مستخدم ${label}`,
+        email: `close-guard.${label}.${Date.now()}@cfms.local`,
+        roleCode: "staff",
+        organizationId: organization.id,
+      },
+      "Password123",
+    );
+    // Keep the effective permission set exactly equal to the custom role under test.
+    await prisma.user_roles.deleteMany({ where: { user_id: user.id } });
+    await prisma.user_roles.create({
+      data: {
+        user_id: user.id,
+        role_id: roleId,
+        organization_id: organization.id,
+        create_date: new Date(),
+        write_date: new Date(),
+      },
+    });
+    return { userId: user.id, token: await loginToken(user.email) };
+  };
+
+  // This suite verifies authorization, not submission: complaints are seeded directly so the
+  // assertions stay deterministic and do not consume the public submission rate limit
+  // (20 requests/hour per client), which is exercised by the public portal suite above.
+  const createComplaint = async (targetOrganization = organization) => {
+    const targetDistrict = targetOrganization.id === organization.id
+      ? district
+      : await prisma.districts.findFirst({
+          where: { governorate_id: targetOrganization.governorate_id },
+        });
+    const complaint = await prisma.complaints.create({
+      data: {
+        organization_id: targetOrganization.id,
+        type: "complaint",
+        reference_code: `CG${Date.now().toString(36).toUpperCase()}${Math.floor(Math.random() * 1296)
+          .toString(36)
+          .toUpperCase()
+          .padStart(2, "0")}`,
+        is_anonymous: true,
+        description: "شكوى اختبارية لتفويض الإغلاق",
+        status: "new",
+        consent_given: true,
+        governorate_id: targetOrganization.governorate_id,
+        district_id: targetDistrict.id,
+        category_item_id: categoryItem.id,
+        channel_item_id: channelItem.id,
+        create_date: new Date(),
+        write_date: new Date(),
+      },
+      select: { id: true },
+    });
+    return complaint.id;
+  };
+
+  const setStatus = (token, complaintId, status) =>
+    request(app)
+      .patch(`/api/complaints/${complaintId}/status`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ status });
+
+  const statusSnapshot = async (complaintId) => ({
+    status: (
+      await prisma.complaints.findUnique({
+        where: { id: complaintId },
+        select: { status: true },
+      })
+    ).status,
+    history: await prisma.complaint_status_history.count({
+      where: { complaint_id: complaintId },
+    }),
+    audits: await prisma.audit_logs.count({
+      where: {
+        entity_type: "complaint",
+        entity_id: complaintId,
+        action: "complaint.status_changed",
+      },
+    }),
+    notifications: await prisma.notifications.count({
+      where: { entity_id: complaintId },
+    }),
+  });
+
+  beforeAll(async () => {
+    organization = await createOrganization({
+      legalName: "مؤسسة تفويض الإغلاق",
+      slug: `close-guard-${Date.now()}`,
+    });
+    foreignOrganization = await createOrganization({
+      legalName: "مؤسسة أخرى",
+      slug: `close-guard-other-${Date.now()}`,
+    });
+    district = await prisma.districts.findFirst({
+      where: { governorate_id: organization.governorate_id },
+    });
+    // Reference items reused when seeding complaints directly (see createComplaint below).
+    categoryItem = await prisma.reference_list_items.findFirst({
+      where: {
+        is_active: true,
+        code: "service_quality",
+        reference_lists: { key: "complaint_category" },
+      },
+    });
+    channelItem = await prisma.reference_list_items.findFirst({
+      where: {
+        is_active: true,
+        code: "website",
+        reference_lists: { key: "channel" },
+      },
+    });
+    expect(categoryItem?.id).toBeTruthy();
+    expect(channelItem?.id).toBeTruthy();
+
+    const { user: adminUser } = await createUserWithRole(
+      {
+        fullName: "مدير تفويض الإغلاق",
+        email: `close-guard.admin.${Date.now()}@cfms.local`,
+        roleCode: "admin",
+        organizationId: organization.id,
+      },
+      "Password123",
+    );
+    adminToken = await loginToken(adminUser.email);
+
+    const suffix = Date.now();
+    assignOnlyRoleId = (
+      await createCustomRole(`close_guard_assign_${suffix}`, [
+        "complaints.assign",
+      ])
+    ).id;
+    assignAndCloseRoleId = (
+      await createCustomRole(`close_guard_full_${suffix}`, [
+        "complaints.assign",
+        "complaints.close",
+      ])
+    ).id;
+    const closeOnlyRoleId = (
+      await createCustomRole(`close_guard_close_${suffix}`, [
+        "complaints.close",
+      ])
+    ).id;
+
+    const assignOnly = await createMemberWithCustomRole(
+      "assign-only",
+      assignOnlyRoleId,
+    );
+    assignOnlyToken = assignOnly.token;
+    assignOnlyUserId = assignOnly.userId;
+
+    const assignAndClose = await createMemberWithCustomRole(
+      "assign-close",
+      assignAndCloseRoleId,
+    );
+    assignAndCloseToken = assignAndClose.token;
+    assignAndCloseUserId = assignAndClose.userId;
+
+    closeOnlyToken = (
+      await createMemberWithCustomRole("close-only", closeOnlyRoleId)
+    ).token;
+
+    const { user: plainStaff } = await createUserWithRole(
+      {
+        fullName: "مستخدم بلا صلاحيات",
+        email: `close-guard.none.${Date.now()}@cfms.local`,
+        roleCode: "staff",
+        organizationId: organization.id,
+      },
+      "Password123",
+    );
+    nonAssignToken = await loginToken(plainStaff.email);
+  });
+
+  it("ينشئ مدير المؤسسة أدواراً مخصصة بالصلاحيات المطلوبة باستخدام رموز الصلاحيات", async () => {
+    const assignOnlyRole = await request(app)
+      .get(`/api/roles/${assignOnlyRoleId}`)
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(assignOnlyRole.status).toBe(200);
+    expect(
+      assignOnlyRole.body.data.permissions.map((permission) => permission.code),
+    ).toEqual(["complaints.assign"]);
+
+    const assignAndCloseRole = await request(app)
+      .get(`/api/roles/${assignAndCloseRoleId}`)
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(assignAndCloseRole.status).toBe(200);
+    expect(
+      assignAndCloseRole.body.data.permissions
+        .map((permission) => permission.code)
+        .sort(),
+    ).toEqual(["complaints.assign", "complaints.close"]);
+  });
+
+  it("يرفض الإغلاق لمن يملك complaints.assign فقط دون أي أثر جانبي", async () => {
+    const complaintId = await createComplaint();
+    await request(app)
+      .patch(`/api/complaints/${complaintId}/assignment`)
+      .set("Authorization", `Bearer ${assignOnlyToken}`)
+      .send({ assigneeUserId: assignOnlyUserId, assigneeOrganizationId: null })
+      .expect(200);
+
+    expect(
+      (await setStatus(assignOnlyToken, complaintId, "in_review")).status,
+    ).toBe(200);
+    expect(
+      (await setStatus(assignOnlyToken, complaintId, "resolved")).status,
+    ).toBe(200);
+
+    const before = await statusSnapshot(complaintId);
+    expect(before.status).toBe("resolved");
+
+    const denied = await setStatus(assignOnlyToken, complaintId, "closed");
+    expect(denied.status).toBe(403);
+    expect(await statusSnapshot(complaintId)).toEqual(before);
+  });
+
+  it("يسمح بالإغلاق لمن يملك complaints.assign و complaints.close", async () => {
+    const complaintId = await createComplaint();
+    await request(app)
+      .patch(`/api/complaints/${complaintId}/assignment`)
+      .set("Authorization", `Bearer ${assignAndCloseToken}`)
+      .send({
+        assigneeUserId: assignAndCloseUserId,
+        assigneeOrganizationId: null,
+      })
+      .expect(200);
+
+    expect(
+      (await setStatus(assignAndCloseToken, complaintId, "in_review")).status,
+    ).toBe(200);
+    expect(
+      (await setStatus(assignAndCloseToken, complaintId, "resolved")).status,
+    ).toBe(200);
+
+    const closed = await setStatus(assignAndCloseToken, complaintId, "closed");
+    expect(closed.status).toBe(200);
+    expect(closed.body.data.status).toBe("closed");
+
+    const history = await prisma.complaint_status_history.findMany({
+      where: {
+        complaint_id: complaintId,
+        from_status: "resolved",
+        to_status: "closed",
+      },
+    });
+    expect(history).toHaveLength(1);
+    expect(history[0].changed_by_user_id).toBe(assignAndCloseUserId);
+
+    const audits = await prisma.audit_logs.findMany({
+      where: {
+        entity_type: "complaint",
+        entity_id: complaintId,
+        action: "complaint.status_changed",
+      },
+      orderBy: { id: "asc" },
+    });
+    expect(audits.filter((row) => row.metadata?.toStatus === "closed")).toEqual(
+      [
+        expect.objectContaining({
+          actor_user_id: assignAndCloseUserId,
+          metadata: { fromStatus: "resolved", toStatus: "closed" },
+        }),
+      ],
+    );
+  });
+
+  it("يرفض تغيير الحالة لمن يملك complaints.close فقط (assign مطلوب)", async () => {
+    const complaintId = await createComplaint();
+
+    expect(
+      (await setStatus(closeOnlyToken, complaintId, "closed")).status,
+    ).toBe(403);
+    expect(
+      (await setStatus(closeOnlyToken, complaintId, "in_review")).status,
+    ).toBe(403);
+
+    const transitions = await request(app)
+      .get(`/api/complaints/${complaintId}/transitions`)
+      .set("Authorization", `Bearer ${closeOnlyToken}`);
+    expect(transitions.status).toBe(403);
+
+    const untouchedByCloseOnly = await prisma.complaints.findUnique({
+      where: { id: complaintId },
+      select: { status: true },
+    });
+    expect(untouchedByCloseOnly.status).toBe("new");
+  });
+
+  it("يرفض تغيير الحالة لمن لا يملك أي من الصلاحيتين", async () => {
+    const complaintId = await createComplaint();
+
+    expect(
+      (await setStatus(nonAssignToken, complaintId, "closed")).status,
+    ).toBe(403);
+    expect(
+      (await setStatus(nonAssignToken, complaintId, "in_review")).status,
+    ).toBe(403);
+
+    const untouchedByStaff = await prisma.complaints.findUnique({
+      where: { id: complaintId },
+      select: { status: true },
+    });
+    expect(untouchedByStaff.status).toBe("new");
+  });
+
+  it("يبقي الرفض (rejected) ضمن complaints.assign دون تغيير", async () => {
+    const rejectedFromNew = await createComplaint();
+    const directRejection = await setStatus(
+      assignOnlyToken,
+      rejectedFromNew,
+      "rejected",
+    );
+    expect(directRejection.status).toBe(200);
+    expect(directRejection.body.data.status).toBe("rejected");
+
+    const rejectedFromReview = await createComplaint();
+    expect(
+      (await setStatus(assignOnlyToken, rejectedFromReview, "in_review"))
+        .status,
+    ).toBe(200);
+    const reviewRejection = await setStatus(
+      assignOnlyToken,
+      rejectedFromReview,
+      "rejected",
+    );
+    expect(reviewRejection.status).toBe(200);
+    expect(reviewRejection.body.data.status).toBe("rejected");
+
+    const rejectionAudits = await prisma.audit_logs.count({
+      where: {
+        entity_id: rejectedFromReview,
+        action: "complaint.status_changed",
+      },
+    });
+    expect(rejectionAudits).toBe(2);
+  });
+
+  it("يحافظ على 404 عند محاولة إغلاق شكوى مؤسسة أخرى بصلاحيتي assign و close", async () => {
+    const foreignComplaintId = await createComplaint(foreignOrganization);
+
+    const crossTenant = await setStatus(
+      assignAndCloseToken,
+      foreignComplaintId,
+      "closed",
+    );
+    expect(crossTenant.status).toBe(404);
+
+    const untouched = await prisma.complaints.findUnique({
+      where: { id: foreignComplaintId },
+      select: { status: true },
+    });
+    expect(untouched.status).toBe("new");
+  });
+
+  it("يحافظ على 409 للانتقال غير المعرّف لمن يملك الصلاحيتين", async () => {
+    const complaintId = await createComplaint();
+
+    const invalid = await setStatus(assignAndCloseToken, complaintId, "closed");
+    expect(invalid.status).toBe(409);
+
+    const stillNew = await prisma.complaints.findUnique({
+      where: { id: complaintId },
+      select: { status: true },
+    });
+    expect(stillNew.status).toBe("new");
+  });
+
+  it("يحافظ على دلالات سير العمل في قائمة الانتقالات (الترشيح مسؤولية الواجهة)", async () => {
+    const complaintId = await createComplaint();
+    expect(
+      (await setStatus(assignOnlyToken, complaintId, "in_review")).status,
+    ).toBe(200);
+    expect(
+      (await setStatus(assignOnlyToken, complaintId, "resolved")).status,
+    ).toBe(200);
+
+    const assignOnlyTransitions = await request(app)
+      .get(`/api/complaints/${complaintId}/transitions`)
+      .set("Authorization", `Bearer ${assignOnlyToken}`);
+    expect(assignOnlyTransitions.status).toBe(200);
+    expect(
+      assignOnlyTransitions.body.data.map((transition) => transition.toStatus),
+    ).toEqual(["closed"]);
+
+    const assignAndCloseTransitions = await request(app)
+      .get(`/api/complaints/${complaintId}/transitions`)
+      .set("Authorization", `Bearer ${assignAndCloseToken}`);
+    expect(assignAndCloseTransitions.status).toBe(200);
+    expect(
+      assignAndCloseTransitions.body.data.map(
+        (transition) => transition.toStatus,
+      ),
+    ).toEqual(["closed"]);
+  });
+});

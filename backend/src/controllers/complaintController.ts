@@ -6,6 +6,19 @@ import catchAsync from '../utils/catchAsync';
 import ApiError from '../utils/ApiError';
 import * as complaintService from '../services/complaintService';
 import * as slaService from '../services/slaService';
+
+/**
+ * Derives the complaint read scope of the authenticated caller from trusted RBAC data
+ * (effective permissions for the active organization + the authenticated user id).
+ * Query/body/params/headers are never consulted for scope.
+ */
+const resolveComplaintVisibility = (req: AppRequest) =>
+  complaintService.resolveComplaintVisibility({
+    organizationId: req.organizationId,
+    userId: req.user?.id ?? null,
+    permissions: req.user?.permissions,
+  });
+
 const submitPublicComplaint = catchAsync(async (req: AppRequest, res: AppResponse) => {
   const { complaint, trackingPin } = await complaintService.createComplaint(req.organizationId, req.body, req.files);
   res.status(201).json({ success: true, message: 'تم استلام طلبك بنجاح. احتفظ بالرقم المرجعي ورمز المتابعة لمتابعة حالة طلبك.', data: { id: complaint.id, referenceCode: complaint.referenceCode, trackingPin } });
@@ -22,12 +35,16 @@ const createStaffComplaint = catchAsync(async (req: AppRequest, res: AppResponse
 });
 
 const listComplaints = catchAsync(async (req: AppRequest, res: AppResponse) => {
-  const result = await complaintService.listComplaints(req.organizationId, req.query);
+  const result = await complaintService.listComplaints(req.organizationId, req.query, resolveComplaintVisibility(req));
   res.status(200).json({ success: true, ...result });
 });
 
 const getComplaint = catchAsync(async (req: AppRequest, res: AppResponse) => {
-  const complaint = await complaintService.getComplaintById(req.organizationId, req.params.id);
+  const complaint = await complaintService.getComplaintById(
+    req.organizationId,
+    req.params.id,
+    resolveComplaintVisibility(req)
+  );
   res.status(200).json({ success: true, data: complaint });
 });
 
@@ -35,7 +52,8 @@ const downloadComplaintAttachment = catchAsync(async (req: AppRequest, res: Resp
   const attachment = await complaintService.getComplaintAttachmentForDownload(
     req.organizationId,
     req.params.complaintId,
-    req.params.attachmentId
+    req.params.attachmentId,
+    resolveComplaintVisibility(req)
   );
   res.setHeader('Content-Type', attachment.mimeType);
   res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(attachment.originalName)}`);
@@ -70,6 +88,8 @@ const assignComplaint = catchAsync(async (req: AppRequest, res: AppResponse) => 
 
 const escalateComplaint = catchAsync(async (req: AppRequest, res: AppResponse) => {
   await slaService.escalateComplaint(req.organizationId, req.params.id, { note: req.body.note }, req.user!.id);
+  // Mutation coordination path: the tenant-wide lookup is intentionally left unchanged
+  // (Stage 9 covers read visibility only; mutation node scoping is a separate concern).
   const complaint = await complaintService.getComplaintById(req.organizationId, req.params.id);
   res.status(200).json({ success: true, message: 'تم تصعيد الشكوى', data: complaint });
 });

@@ -122,6 +122,25 @@ export const authorize = (...allowedRoles: string[]) => (req: any, res: any, nex
   next();
 };
 
+/**
+ * Tenant-scoped permission match: the code must have been granted for the effective
+ * organization, and — when a node scope is supplied — either the grant is tenant-wide
+ * (`organization_node_id IS NULL`) or it covers that exact node.
+ */
+const matchesTenantPermission = (
+  req: any,
+  permissionCode: string,
+  orgUnitId: number | null
+): boolean =>
+  Boolean(
+    req.user?.permissions?.some((permission: any) => {
+      if (permission.code !== permissionCode) return false;
+      if (permission.organizationId !== req.organizationId) return false;
+      if (orgUnitId === null) return true;
+      return permission.orgUnitId === null || permission.orgUnitId === orgUnitId;
+    })
+  );
+
 export const authorizePermission = (
   permissionCode: string,
   resolveOrgUnitId: ((req: any) => unknown) | null = null
@@ -136,14 +155,38 @@ export const authorizePermission = (
   }
 
   const orgUnitId = resolveOrgUnitId ? Number(resolveOrgUnitId(req)) || null : null;
-  const hasPermission = req.user.permissions?.some((permission: any) => {
-    if (permission.code !== permissionCode) return false;
-    if (permission.organizationId !== req.organizationId) return false;
-    if (orgUnitId === null) return true;
-    return permission.orgUnitId === null || permission.orgUnitId === orgUnitId;
-  });
+  if (!matchesTenantPermission(req, permissionCode, orgUnitId)) {
+    next(new ApiError(403, 'لا تملك صلاحية الوصول لهذا المورد ضمن هذه المؤسسة'));
+    return;
+  }
+  next();
+};
 
-  if (!hasPermission) {
+/**
+ * Authorizes when the active tenant grants at least one of `permissionCodes`, using the
+ * exact same tenant-scoped matching as `authorizePermission` with no node resolver.
+ *
+ * Used by read endpoints that accept alternative permission codes for the same resource
+ * (e.g. tenant-wide `complaints.view_all` OR own-scoped `complaints.view_own`). The
+ * per-record data scope (organization node / assignee) is NOT resolved here: it is
+ * enforced in the service layer from trusted RBAC data only — never from query, body,
+ * URL parameters or client headers.
+ */
+export const authorizeAnyPermission = (...permissionCodes: readonly string[]) => (
+  req: any,
+  res: any,
+  next: (error?: unknown) => void
+): void => {
+  if (!req.user) {
+    next(new ApiError(401, 'مطلوب تسجيل الدخول للوصول لهذا المورد'));
+    return;
+  }
+  if (!req.organizationId) {
+    next(new ApiError(500, 'خطأ داخلي: لم يتم تحديد سياق المؤسسة قبل التحقق من الصلاحية'));
+    return;
+  }
+
+  if (!permissionCodes.some((permissionCode) => matchesTenantPermission(req, permissionCode, null))) {
     next(new ApiError(403, 'لا تملك صلاحية الوصول لهذا المورد ضمن هذه المؤسسة'));
     return;
   }

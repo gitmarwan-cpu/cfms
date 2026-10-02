@@ -60,6 +60,109 @@ export interface ComplaintFilters {
   isSensitive?: string | boolean;
 }
 
+/**
+ * Trusted complaint read scope, derived ONLY from authenticated RBAC data
+ * (`req.user.permissions[].organizationId` / `.orgUnitId` and the authenticated user id).
+ * It is never derived from query parameters, body, URL parameters or client headers.
+ */
+export interface ComplaintVisibility {
+  /** `complaints.view_all` granted tenant-wide → every complaint of the tenant. */
+  viewAll: boolean;
+  /** `complaints.view_own` → complaints assigned directly to the authenticated user. */
+  viewOwn: boolean;
+  /** Distinct organization nodes carried by complaint read permissions → their assigned complaints. */
+  allowedNodeIds: number[];
+  /** Authenticated user id used by the `viewOwn` scope. */
+  viewerUserId: number | null;
+}
+
+export interface ComplaintVisibilitySource {
+  organizationId?: number | null;
+  userId?: number | null;
+  permissions?: Array<{
+    code?: string;
+    organizationId?: number;
+    orgUnitId?: number | null;
+  }> | null;
+}
+
+const VIEW_ALL_PERMISSION = 'complaints.view_all';
+const VIEW_OWN_PERMISSION = 'complaints.view_own';
+
+/** Never-matching predicate, used when the caller holds no applicable read scope. */
+const NO_VISIBLE_COMPLAINT: Prisma.complaintsWhereInput = { id: { lt: 0 } };
+
+const toScopeId = (value: unknown): number | null =>
+  typeof value === 'number' && Number.isSafeInteger(value) && value > 0 ? value : null;
+
+/**
+ * Builds the complaint read scope of the authenticated caller:
+ * - `complaints.view_all` without a node → all tenant complaints;
+ * - `complaints.view_all` / `complaints.view_own` with `organization_node_id = N` → the
+ *   complaints assigned to node N (exact node only; no subtree traversal);
+ * - `complaints.view_own` without a node → complaints assigned directly to the caller;
+ * - unassigned complaints are never visible through node scope or `view_own`.
+ * Permissions granted for another tenant never apply (the organization context is trusted).
+ */
+export const resolveComplaintVisibility = (source: ComplaintVisibilitySource): ComplaintVisibility => {
+  const organizationId = toScopeId(source.organizationId);
+  const visibility: ComplaintVisibility = {
+    viewAll: false,
+    viewOwn: false,
+    allowedNodeIds: [],
+    viewerUserId: toScopeId(source.userId),
+  };
+  if (organizationId === null) return visibility;
+
+  const nodeIds = new Set<number>();
+  for (const permission of source.permissions ?? []) {
+    if (permission?.organizationId !== organizationId) continue;
+    const nodeId = toScopeId(permission.orgUnitId);
+    if (permission.code === VIEW_ALL_PERMISSION) {
+      if (nodeId === null) visibility.viewAll = true;
+      else nodeIds.add(nodeId);
+      continue;
+    }
+    if (permission.code === VIEW_OWN_PERMISSION) {
+      visibility.viewOwn = true;
+      if (nodeId !== null) nodeIds.add(nodeId);
+    }
+  }
+
+  visibility.allowedNodeIds = [...nodeIds].sort((left, right) => left - right);
+  return visibility;
+};
+
+/**
+ * Translates a read scope into an additional Prisma predicate (OR between the applicable
+ * scopes). `undefined` means "no read-scope enforcement" and preserves the tenant-wide
+ * behaviour of internal/mutation callers.
+ */
+const buildComplaintVisibilityFilter = (
+  visibility?: ComplaintVisibility
+): Prisma.complaintsWhereInput | null => {
+  if (!visibility) return null;
+  if (visibility.viewAll) return null;
+
+  const clauses: Prisma.complaintsWhereInput[] = [];
+  if (visibility.viewOwn && visibility.viewerUserId !== null) {
+    clauses.push({ assigned_to_user_id: visibility.viewerUserId });
+  }
+  if (visibility.allowedNodeIds.length > 0) {
+    clauses.push({ assigned_to_organization_id: { in: [...visibility.allowedNodeIds] } });
+  }
+  if (clauses.length === 0) return NO_VISIBLE_COMPLAINT;
+  return clauses.length === 1 ? clauses[0] : { OR: clauses };
+};
+
+const withComplaintVisibility = (
+  where: Prisma.complaintsWhereInput,
+  visibility?: ComplaintVisibility
+): Prisma.complaintsWhereInput => {
+  const visibilityFilter = buildComplaintVisibilityFilter(visibility);
+  return visibilityFilter ? { AND: [where, visibilityFilter] } : where;
+};
+
 const REF_ITEM_SELECT = {
   id: true,
   code: true,
@@ -615,7 +718,11 @@ export const createComplaint = async (
   return { complaint: result.complaint, trackingPin: result.trackingPin };
 };
 
-export const listComplaints = async (organizationId: IdInput, filters: ComplaintFilters = {}) => {
+export const listComplaints = async (
+  organizationId: IdInput,
+  filters: ComplaintFilters = {},
+  visibility?: ComplaintVisibility
+) => {
   const parsedOrganizationId = requireOrganizationId(organizationId);
   const page = Number.parseInt(String(filters.page || ''), 10) || 1;
   const limit = Number.parseInt(String(filters.limit || ''), 10) || 20;
@@ -644,15 +751,19 @@ export const listComplaints = async (organizationId: IdInput, filters: Complaint
     where.is_sensitive = filters.isSensitive === 'true' || filters.isSensitive === true;
   }
 
+  // Tenant scope + trusted read visibility (view_all | assigned to me | assigned to one of
+  // my organization nodes). Existing filter semantics are untouched.
+  const scopedWhere = withComplaintVisibility(where, visibility);
+
   const [rows, total] = await Promise.all([
     prisma.complaints.findMany({
-      where,
+      where: scopedWhere,
       select: BASE_COMPLAINT_SELECT,
       orderBy: { create_date: 'desc' },
       skip: (page - 1) * limit,
       take: limit,
     }),
-    prisma.complaints.count({ where }),
+    prisma.complaints.count({ where: scopedWhere }),
   ]);
   const referenceItems = await loadComplainantReferenceItems(rows, prisma);
 
@@ -662,11 +773,29 @@ export const listComplaints = async (organizationId: IdInput, filters: Complaint
   };
 };
 
-export const getComplaintById = async (organizationId: IdInput, id: IdInput) => {
+/**
+ * Tenant + read-visibility scoped detail lookup.
+ *
+ * When `visibility` is provided, complaints outside the caller's trusted read scope are
+ * treated exactly like complaints that do not exist → 404 `NOT_FOUND_ERROR` (never 403),
+ * preserving the existence-hiding contract of `docs/TENANT_ISOLATION.md`.
+ *
+ * Callers that mutate or coordinate (e.g. returning the just-escalated complaint)
+ * intentionally omit `visibility` and keep the previous tenant-wide behaviour; mutation
+ * node scoping is a separate, not-yet-implemented concern (see docs/API_CONVENTIONS.md).
+ */
+export const getComplaintById = async (
+  organizationId: IdInput,
+  id: IdInput,
+  visibility?: ComplaintVisibility
+) => {
   const parsedOrganizationId = requireOrganizationId(organizationId);
   const parsedId = requireComplaintId(id);
   const complaint = await prisma.complaints.findFirst({
-    where: { id: parsedId, organization_id: parsedOrganizationId },
+    where: withComplaintVisibility(
+      { id: parsedId, organization_id: parsedOrganizationId },
+      visibility
+    ),
     select: DETAIL_COMPLAINT_SELECT,
   });
   if (!complaint) throw new ApiError(404, NOT_FOUND_ERROR);
@@ -677,7 +806,8 @@ export const getComplaintById = async (organizationId: IdInput, id: IdInput) => 
 export const getComplaintAttachmentForDownload = async (
   organizationId: IdInput,
   complaintId: IdInput,
-  attachmentId: IdInput
+  attachmentId: IdInput,
+  visibility?: ComplaintVisibility
 ) => {
   const parsedOrganizationId = requireOrganizationId(organizationId);
   const parsedComplaintId = requireComplaintId(complaintId);
@@ -687,7 +817,7 @@ export const getComplaintAttachmentForDownload = async (
     where: {
       id: parsedAttachmentId,
       complaint_id: parsedComplaintId,
-      complaints: { organization_id: parsedOrganizationId },
+      complaints: withComplaintVisibility({ organization_id: parsedOrganizationId }, visibility),
     },
     select: { original_name: true, stored_file_name: true, mime_type: true },
   });

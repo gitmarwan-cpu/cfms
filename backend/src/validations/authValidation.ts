@@ -12,6 +12,18 @@ const registerValidation = [
   body('email').isEmail().withMessage('البريد الإلكتروني غير صالح'),
   passwordPolicyBodyValidation('password'),
   body('roleCode').optional().isLength({ min: 2, max: 60 }),
+  // Node assignment fields (optional) — deep security validation is in authService.register()
+  body('organizationNodeIds')
+    .optional()
+    .isArray({ max: 100 })
+    .withMessage('organizationNodeIds يجب أن يكون مصفوفة'),
+  body('organizationNodeIds.*')
+    .isInt({ min: 1 })
+    .withMessage('كل معرّف عقدة يجب أن يكون عدداً صحيحاً موجباً'),
+  body('primaryOrganizationNodeId')
+    .optional({ nullable: true })
+    .isInt({ min: 1 })
+    .withMessage('معرّف العقدة الافتراضية يجب أن يكون عدداً صحيحاً موجباً'),
 ];
 
 // Self-service password change (POST /auth/change-password) — account-level,

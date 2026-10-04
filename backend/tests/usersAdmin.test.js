@@ -598,3 +598,339 @@ describe('Password Lifecycle (Phase 3)', () => {
   });
 
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Stage 13 — User Creation with Organization Node Assignment + Default Node
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('User Creation with Organization Node Assignment (Stage 13)', () => {
+  const { generateToken } = require('../src/services/authService');
+  let adminToken;
+  let adminUser;
+  let defaultOrg;
+  let nodeA;
+  let nodeB;
+  let otherOrg;
+  let otherOrgNode;
+
+  beforeAll(async () => {
+    defaultOrg = getDefaultOrg();
+    const ts = Date.now();
+    const adminResult = await createUserWithRole(
+      { fullName: 'مدير العقد التجريبي', email: `node.admin.${ts}@cfms.local`, roleCode: 'admin', organizationId: defaultOrg.id },
+      'Password123'
+    );
+    adminUser = adminResult.user;
+    adminToken = await generateToken(adminUser);
+
+    // Create 2 active organization nodes in defaultOrg
+    nodeA = await prisma.organizations.create({
+      data: {
+        legal_name: 'فرع العاصمة للاختبار',
+        short_name: 'فرع العاصمة',
+        slug: `node-a-${ts}-${Math.floor(Math.random() * 10000)}`,
+        parent_id: defaultOrg.id,
+        root_organization_id: defaultOrg.id,
+        country: 'Yemen',
+        default_language: 'ar',
+        timezone: 'Asia/Aden',
+        date_format: 'DD/MM/YYYY',
+        anonymous_complaints_policy: 'allowed',
+        notification_settings: {},
+        is_active: true,
+        create_date: new Date(),
+        write_date: new Date(),
+      },
+    });
+
+    nodeB = await prisma.organizations.create({
+      data: {
+        legal_name: 'فرع عدن للاختبار',
+        short_name: 'فرع عدن',
+        slug: `node-b-${ts}-${Math.floor(Math.random() * 10000)}`,
+        parent_id: defaultOrg.id,
+        root_organization_id: defaultOrg.id,
+        country: 'Yemen',
+        default_language: 'ar',
+        timezone: 'Asia/Aden',
+        date_format: 'DD/MM/YYYY',
+        anonymous_complaints_policy: 'allowed',
+        notification_settings: {},
+        is_active: true,
+        create_date: new Date(),
+        write_date: new Date(),
+      },
+    });
+
+    // Create a foreign tenant and its node for cross-tenant rejection testing
+    otherOrg = await createOrganization({ legalName: 'مؤسسة أجنبية', slug: `foreign-org-${ts}` });
+    otherOrgNode = await prisma.organizations.create({
+      data: {
+        legal_name: 'فرع أجنبي',
+        short_name: 'فرع خارجي',
+        slug: `foreign-node-${ts}-${Math.floor(Math.random() * 10000)}`,
+        parent_id: otherOrg.id,
+        root_organization_id: otherOrg.id,
+        country: 'Yemen',
+        default_language: 'ar',
+        timezone: 'Asia/Aden',
+        date_format: 'DD/MM/YYYY',
+        anonymous_complaints_policy: 'allowed',
+        notification_settings: {},
+        is_active: true,
+        create_date: new Date(),
+        write_date: new Date(),
+      },
+    });
+  });
+
+  it('يمكن لمدير مصرّح له إنشاء مستخدم مع عقدة تنظيمية واحدة مسموح بها وتعيينها كعقدة افتراضية', async () => {
+    const ts = Date.now();
+    const email = `single.node.${ts}@cfms.local`;
+    const res = await request(app)
+      .post('/api/auth/register')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        fullName: 'مستخدم عقدة واحدة',
+        email,
+        password: 'Password123',
+        roleCode: 'staff',
+        organizationNodeIds: [nodeA.id],
+        primaryOrganizationNodeId: nodeA.id,
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.email).toBe(email);
+    expect(res.body.data.primaryOrganizationNodeId).toBe(nodeA.id);
+
+    // Verify persistence in DB
+    const dbUser = await prisma.users.findUnique({ where: { email } });
+    expect(dbUser.primary_organization_node_id).toBe(nodeA.id);
+    expect(dbUser.default_organization_id).toBe(defaultOrg.id);
+
+    // Role = WHAT (staff), Node = WHERE (nodeA.id)
+    const roles = await prisma.user_roles.findMany({ where: { user_id: dbUser.id } });
+    expect(roles).toHaveLength(1);
+    expect(roles[0].organization_node_id).toBe(nodeA.id);
+    expect(roles[0].organization_id).toBe(defaultOrg.id);
+
+    // Tenant membership
+    const membership = await prisma.user_organizations.findFirst({
+      where: { user_id: dbUser.id, organization_id: defaultOrg.id },
+    });
+    expect(membership).toBeTruthy();
+    expect(membership.is_primary).toBe(true);
+  });
+
+  it('يمكن لمدير مصرّح له إنشاء مستخدم مع عدة عقد تنظيمية وتعيين إحداها كعقدة افتراضية', async () => {
+    const ts = Date.now();
+    const email = `multi.node.${ts}@cfms.local`;
+    const res = await request(app)
+      .post('/api/auth/register')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        fullName: 'مستخدم متعدد العقد',
+        email,
+        password: 'Password123',
+        roleCode: 'staff',
+        organizationNodeIds: [nodeA.id, nodeB.id],
+        primaryOrganizationNodeId: nodeB.id,
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.primaryOrganizationNodeId).toBe(nodeB.id);
+
+    const dbUser = await prisma.users.findUnique({ where: { email } });
+    expect(dbUser.primary_organization_node_id).toBe(nodeB.id);
+
+    // Role assignments: one per node
+    const roles = await prisma.user_roles.findMany({
+      where: { user_id: dbUser.id },
+      orderBy: { organization_node_id: 'asc' },
+    });
+    expect(roles).toHaveLength(2);
+    const assignedNodeIds = roles.map((r) => r.organization_node_id);
+    expect(assignedNodeIds).toContain(nodeA.id);
+    expect(assignedNodeIds).toContain(nodeB.id);
+  });
+
+  it('يرفض إنشاء المستخدم عندما تكون العقدة الافتراضية خارج مجموعة العقد المختارة (400)', async () => {
+    const ts = Date.now();
+    const res = await request(app)
+      .post('/api/auth/register')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        fullName: 'مستخدم افتراضية خاطئة',
+        email: `invalid.default.${ts}@cfms.local`,
+        password: 'Password123',
+        organizationNodeIds: [nodeA.id],
+        primaryOrganizationNodeId: nodeB.id, // nodeB is not in [nodeA]
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toContain('العقدة التنظيمية الافتراضية يجب أن تكون ضمن العقد المحددة');
+  });
+
+  it('يرفض إنشاء المستخدم عند تحديد عقد دون تحديد عقدة افتراضية (400)', async () => {
+    const ts = Date.now();
+    const res = await request(app)
+      .post('/api/auth/register')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        fullName: 'مستخدم بدون افتراضية',
+        email: `no.default.${ts}@cfms.local`,
+        password: 'Password123',
+        organizationNodeIds: [nodeA.id, nodeB.id],
+        // primaryOrganizationNodeId omitted
+      });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('يرفض تحديد عقدة افتراضية دون تحديد عقد تنظيمية أولاً (400)', async () => {
+    const ts = Date.now();
+    const res = await request(app)
+      .post('/api/auth/register')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        fullName: 'مستخدم افتراضية بلا عقد',
+        email: `default.only.${ts}@cfms.local`,
+        password: 'Password123',
+        organizationNodeIds: [],
+        primaryOrganizationNodeId: nodeA.id,
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toContain('لا يمكن تحديد عقدة افتراضية دون تحديد عقدة تنظيمية أولاً');
+  });
+
+  it('يرفض عقدة تنظيمية تنتمي لمؤسسة أخرى (عزل المستأجرين - 404)', async () => {
+    const ts = Date.now();
+    const res = await request(app)
+      .post('/api/auth/register')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        fullName: 'مستخدم مؤسسة أخرى',
+        email: `cross.tenant.${ts}@cfms.local`,
+        password: 'Password123',
+        organizationNodeIds: [otherOrgNode.id],
+        primaryOrganizationNodeId: otherOrgNode.id,
+      });
+
+    expect(res.status).toBe(404);
+  });
+
+  it('يرفض معرّف عقدة تنظيمية غير موجود (404)', async () => {
+    const ts = Date.now();
+    const res = await request(app)
+      .post('/api/auth/register')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        fullName: 'مستخدم عقدة وهمية',
+        email: `nonexistent.node.${ts}@cfms.local`,
+        password: 'Password123',
+        organizationNodeIds: [999999],
+        primaryOrganizationNodeId: 999999,
+      });
+
+    expect(res.status).toBe(404);
+  });
+
+  it('يرفض قيام مدير مقيّد بنطاق عقدة معينة بإسناد عقدة خارج نطاق صلاحياته (403)', async () => {
+    const ts = Date.now();
+    // Create a scoped admin whose admin role is restricted to nodeA only
+    const rolesRes = await request(app).get('/api/roles').set('Authorization', `Bearer ${adminToken}`);
+    const adminRoleId = rolesRes.body.data.find((r) => r.code === 'admin').id;
+
+    const scopedUser = await prisma.users.create({
+      data: {
+        full_name: 'مدير مقيّد بالعاصمة',
+        email: `scoped.admin.${ts}@cfms.local`,
+        password_hash: await bcrypt.hash('Password123', 10),
+        default_organization_id: defaultOrg.id,
+        create_date: new Date(),
+        write_date: new Date(),
+      },
+    });
+    await prisma.user_organizations.create({
+      data: {
+        user_id: scopedUser.id,
+        organization_id: defaultOrg.id,
+        is_primary: true,
+        is_active: true,
+        create_date: new Date(),
+        write_date: new Date(),
+      },
+    });
+    // Explicitly scope the admin role to nodeA ONLY
+    await prisma.user_roles.create({
+      data: {
+        user_id: scopedUser.id,
+        role_id: adminRoleId,
+        organization_id: defaultOrg.id,
+        organization_node_id: nodeA.id,
+        create_date: new Date(),
+        write_date: new Date(),
+      },
+    });
+
+    const scopedToken = await generateToken(scopedUser);
+
+    // Scoped admin attempts to create user with nodeB (outside scope)
+    const unauthorizedRes = await request(app)
+      .post('/api/auth/register')
+      .set('Authorization', `Bearer ${scopedToken}`)
+      .send({
+        fullName: 'مستخدم محاولة توسيع النطاق',
+        email: `scope.escalation.${ts}@cfms.local`,
+        password: 'Password123',
+        organizationNodeIds: [nodeB.id],
+        primaryOrganizationNodeId: nodeB.id,
+      });
+
+    expect(unauthorizedRes.status).toBe(403);
+    expect(unauthorizedRes.body.message).toContain('خارج نطاق صلاحياتك');
+
+    // Scoped admin CAN create a user within nodeA (their authorized scope)
+    const authorizedRes = await request(app)
+      .post('/api/auth/register')
+      .set('Authorization', `Bearer ${scopedToken}`)
+      .send({
+        fullName: 'مستخدم ضمن النطاق المصرّح',
+        email: `scoped.success.${ts}@cfms.local`,
+        password: 'Password123',
+        organizationNodeIds: [nodeA.id],
+        primaryOrganizationNodeId: nodeA.id,
+      });
+
+    expect(authorizedRes.status).toBe(201);
+    expect(authorizedRes.body.data.primaryOrganizationNodeId).toBe(nodeA.id);
+  });
+
+  it('يحافظ على السلوك السابق عند إنشاء مستخدم بدون تحديد عقد (دور على مستوى المؤسسة وعقدة افتراضية null)', async () => {
+    const ts = Date.now();
+    const email = `tenantwide.${ts}@cfms.local`;
+    const res = await request(app)
+      .post('/api/auth/register')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        fullName: 'مستخدم على مستوى المؤسسة',
+        email,
+        password: 'Password123',
+        roleCode: 'staff',
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.primaryOrganizationNodeId).toBeNull();
+
+    const dbUser = await prisma.users.findUnique({ where: { email } });
+    expect(dbUser.primary_organization_node_id).toBeNull();
+
+    const roles = await prisma.user_roles.findMany({ where: { user_id: dbUser.id } });
+    expect(roles).toHaveLength(1);
+    expect(roles[0].organization_node_id).toBeNull(); // tenant-wide
+  });
+});
+

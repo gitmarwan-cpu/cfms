@@ -14,6 +14,11 @@ export interface RegisterPayload {
   fullName: string;
   roleCode?: string;
   defaultOrganizationId?: number | string | null;
+  /** Organization nodes to assign to the new user. Each node becomes a separate
+   *  node-scoped role assignment. Empty/absent → tenant-wide role (existing behaviour). */
+  organizationNodeIds?: number[];
+  /** The user's default/landing node. Must be one of organizationNodeIds when provided. */
+  primaryOrganizationNodeId?: number | null;
 }
 
 export interface UserResponse {
@@ -129,7 +134,34 @@ export const login = async (email: string, password: string) => {
   };
 };
 
-export const register = async (organizationId: string | number, payload: RegisterPayload): Promise<UserResponse> => {
+/**
+ * Derives the set of organization node IDs the creator is authorized to assign.
+ *
+ * Returns `'all'` when the creator holds a tenant-wide `users.manage` grant
+ * (`orgUnitId === null`) — they may assign any active node in the tenant.
+ * Returns an array of specific node IDs when the creator's `users.manage`
+ * grants are all node-scoped.
+ *
+ * Never relies on client-supplied data — uses only trusted `req.user.permissions`.
+ */
+export const resolveCreatorAuthorizedNodeIds = (
+  creatorPermissions: ReadonlyArray<{ code: string; organizationId: number; orgUnitId: number | null }>,
+  tenantOrganizationId: number
+): 'all' | number[] => {
+  const entries = creatorPermissions
+    .filter((p) => p.code === 'users.manage' && p.organizationId === tenantOrganizationId)
+    .map((p) => p.orgUnitId);
+
+  if (entries.length === 0) return [];
+  if (entries.includes(null)) return 'all';
+  return entries.filter((id): id is number => id !== null);
+};
+
+export const register = async (
+  organizationId: string | number,
+  payload: RegisterPayload,
+  creatorPermissions: ReadonlyArray<{ code: string; organizationId: number; orgUnitId: number | null }> = []
+): Promise<UserResponse> => {
   const parsedOrganizationId = toSafeInteger(organizationId);
   if (parsedOrganizationId === null) throw new ApiError(400, 'المؤسسة غير موجودة');
 
@@ -137,6 +169,69 @@ export const register = async (organizationId: string | number, payload: Registe
   // change/reset endpoints). authValidation.ts mirrors this rule set for
   // HTTP-level validation — keep the two in sync by construction.
   validatePasswordPolicy(payload.password);
+
+  // ── Node assignment validation ────────────────────────────────────────────
+  if (payload.organizationNodeIds !== undefined && payload.organizationNodeIds !== null) {
+    if (!Array.isArray(payload.organizationNodeIds)) {
+      throw new ApiError(400, 'organizationNodeIds يجب أن يكون مصفوفة');
+    }
+    for (const item of payload.organizationNodeIds) {
+      if (typeof item !== 'number' || !Number.isSafeInteger(item) || item <= 0) {
+        throw new ApiError(400, 'كل معرّف عقدة يجب أن يكون عدداً صحيحاً موجباً');
+      }
+    }
+  }
+
+  let parsedPrimaryNodeId: number | null = null;
+  if (payload.primaryOrganizationNodeId !== undefined && payload.primaryOrganizationNodeId !== null) {
+    parsedPrimaryNodeId = toSafeInteger(payload.primaryOrganizationNodeId);
+    if (parsedPrimaryNodeId === null) {
+      throw new ApiError(400, 'معرّف العقدة الافتراضية يجب أن يكون عدداً صحيحاً موجباً');
+    }
+  }
+
+  const rawNodeIds = Array.isArray(payload.organizationNodeIds) ? payload.organizationNodeIds : [];
+  const uniqueNodeIds = [...new Set(rawNodeIds)];
+
+  if (uniqueNodeIds.length > 0) {
+    if (parsedPrimaryNodeId === null) {
+      throw new ApiError(400, 'يجب تحديد عقدة تنظيمية افتراضية من ضمن العقد المحددة');
+    }
+    if (!uniqueNodeIds.includes(parsedPrimaryNodeId)) {
+      throw new ApiError(400, 'العقدة التنظيمية الافتراضية يجب أن تكون ضمن العقد المحددة');
+    }
+  } else {
+    if (parsedPrimaryNodeId !== null) {
+      throw new ApiError(400, 'لا يمكن تحديد عقدة افتراضية دون تحديد عقدة تنظيمية أولاً');
+    }
+  }
+
+  if (uniqueNodeIds.length > 0) {
+    // Determine creator's authorized scope — server-side, never from browser
+    const authorizedScope = resolveCreatorAuthorizedNodeIds(creatorPermissions, parsedOrganizationId);
+
+    // Validate each submitted node against creator scope and tenant membership
+    for (const nodeId of uniqueNodeIds) {
+      // Creator scope check
+      if (authorizedScope !== 'all' && !authorizedScope.includes(nodeId)) {
+        throw new ApiError(403, `الوحدة التنظيمية ${nodeId} خارج نطاق صلاحياتك`);
+      }
+
+      // Tenant membership + existence check (server-side, not browser-supplied)
+      const node = await prisma.organizations.findFirst({
+        where: {
+          id: nodeId,
+          is_active: true,
+          deleted_at: null,
+          OR: [{ id: parsedOrganizationId }, { root_organization_id: parsedOrganizationId }],
+        },
+        select: { id: true },
+      });
+      if (!node) {
+        throw new ApiError(404, `الوحدة التنظيمية ${nodeId} غير موجودة أو غير مفعّلة ضمن مؤسستك`);
+      }
+    }
+  }
 
   const passwordHash = await bcrypt.hash(payload.password, 10);
 
@@ -164,6 +259,8 @@ export const register = async (organizationId: string | number, payload: Registe
           password_hash: passwordHash,
           is_active: true,
           default_organization_id: parsedOrganizationId,
+          // Set primary_organization_node_id when a valid default node was supplied
+          ...(parsedPrimaryNodeId !== null ? { primary_organization_node_id: parsedPrimaryNodeId } : {}),
           create_date: now,
           write_date: now,
         },
@@ -180,15 +277,34 @@ export const register = async (organizationId: string | number, payload: Registe
           write_date: now,
         },
       });
-      await tx.user_roles.create({
-        data: {
-          user_id: createdUser.id,
-          role_id: role.id,
-          organization_id: parsedOrganizationId,
-          create_date: now,
-          write_date: now,
-        },
-      });
+
+      if (uniqueNodeIds.length > 0) {
+        // Node = WHERE the role applies: create one scoped role row per selected node.
+        // This preserves the semantic: Role = WHAT, Node = WHERE.
+        for (const nodeId of uniqueNodeIds) {
+          await tx.user_roles.create({
+            data: {
+              user_id: createdUser.id,
+              role_id: role.id,
+              organization_id: parsedOrganizationId,
+              organization_node_id: nodeId,
+              create_date: now,
+              write_date: now,
+            },
+          });
+        }
+      } else {
+        // No nodes selected → tenant-wide role (existing behaviour preserved)
+        await tx.user_roles.create({
+          data: {
+            user_id: createdUser.id,
+            role_id: role.id,
+            organization_id: parsedOrganizationId,
+            create_date: now,
+            write_date: now,
+          },
+        });
+      }
 
       return createdUser;
     });

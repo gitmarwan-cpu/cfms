@@ -11,7 +11,9 @@ const login = catchAsync(async (req: AppRequest, res: AppResponse) => {
 });
 
 const register = catchAsync(async (req: AppRequest, res: AppResponse) => {
-  const user = await authService.register(req.organizationId!, req.body);
+  // Pass trusted server-side permissions so register() can validate creator node scope.
+  const creatorPermissions = req.user?.permissions ?? [];
+  const user = await authService.register(req.organizationId!, req.body, creatorPermissions);
   const userSafe = user;
   res.status(201).json({ success: true, message: 'تم إنشاء المستخدم بنجاح', data: userSafe });
 });

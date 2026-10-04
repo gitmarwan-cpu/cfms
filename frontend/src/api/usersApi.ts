@@ -54,6 +54,11 @@ export interface RegisterUserInput {
   password: string;
   /** Optional initial role code; the backend defaults to `staff` when omitted. */
   roleCode?: string;
+  /** Organization nodes to assign to the new user (WHERE the role applies).
+   *  Empty / absent → tenant-wide role assignment (existing behaviour). */
+  organizationNodeIds?: number[];
+  /** The user's default/landing node. Must be one of organizationNodeIds. */
+  primaryOrganizationNodeId?: number | null;
 }
 
 export interface UpdateUserInput {

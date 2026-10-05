@@ -51,6 +51,7 @@ describe('Complaint read visibility (organization node scoping)', () => {
   let complaintCombinedOwn;
   let attachmentNodeA;
   let attachmentNodeB;
+  let attachmentOwn;
   let districtId;
   const writtenFiles = [];
 
@@ -255,6 +256,7 @@ describe('Complaint read visibility (organization node scoping)', () => {
     };
     attachmentNodeA = await makeAttachment(complaintNodeA.id, 'node-a');
     attachmentNodeB = await makeAttachment(complaintNodeB.id, 'node-b');
+    attachmentOwn = await makeAttachment(complaintOwn.id, 'own');
   });
 
   afterAll(() => {
@@ -386,12 +388,23 @@ describe('Complaint read visibility (organization node scoping)', () => {
       .set('Authorization', `Bearer ${nodeAUserToken}`);
     expect(nodeScopedInScope.status).toBe(200);
 
-    // The attachment route keeps its `complaints.view_all` gate (unchanged in Stage 9), so an
-    // own-scoped caller is rejected before any data scope is applied.
-    const ownScoped = await request(app)
+    // An own-scoped caller cannot access attachments on complaints outside their assignment (404)
+    const ownScopedOutOfScope = await request(app)
       .get(`/api/complaints/${complaintNodeA.id}/attachments/${attachmentNodeA.id}`)
       .set('Authorization', `Bearer ${ownUserToken}`);
-    expect(ownScoped.status).toBe(403);
+    expect(ownScopedOutOfScope.status).toBe(404);
+
+    // An own-scoped caller can access attachments on complaints assigned to them (200)
+    const ownScopedInScope = await request(app)
+      .get(`/api/complaints/${complaintOwn.id}/attachments/${attachmentOwn.id}`)
+      .set('Authorization', `Bearer ${ownUserToken}`);
+    expect(ownScopedInScope.status).toBe(200);
+
+    // A caller without any complaint read permission is rejected at the route gate (403)
+    const withoutRead = await request(app)
+      .get(`/api/complaints/${complaintNodeA.id}/attachments/${attachmentNodeA.id}`)
+      .set('Authorization', `Bearer ${assignOnlyToken}`);
+    expect(withoutRead.status).toBe(403);
 
     const tenantWide = await request(app)
       .get(`/api/complaints/${complaintNodeB.id}/attachments/${attachmentNodeB.id}`)

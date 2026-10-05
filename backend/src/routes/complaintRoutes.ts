@@ -24,7 +24,7 @@ router.post('/', authorizePermission('complaints.create'), upload.array('attachm
 router.get('/', authorizeAnyPermission(...COMPLAINT_READ_PERMISSIONS), validate(listComplaintsValidation), complaintController.listComplaints);
 router.get(
   '/:complaintId/attachments/:attachmentId',
-  authorizePermission('complaints.view_all'),
+  authorizeAnyPermission(...COMPLAINT_READ_PERMISSIONS),
   validate([
     param('complaintId').isInt({ min: 1 }).withMessage('معرّف الشكوى غير صالح'),
     param('attachmentId').isInt({ min: 1 }).withMessage('معرّف المرفق غير صالح'),

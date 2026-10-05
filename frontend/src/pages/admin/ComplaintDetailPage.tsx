@@ -44,6 +44,9 @@ export default function ComplaintDetailPage() {
   const canAssign = organizationId !== null && organizationId !== undefined && hasPermission('complaints.assign', organizationId);
   const canClose = organizationId !== null && organizationId !== undefined && hasPermission('complaints.close', organizationId);
   const canEscalate = organizationId !== null && organizationId !== undefined && hasPermission('complaints.escalate', organizationId);
+  // Attachment download still requires `complaints.view_all` on the backend (unchanged contract):
+  // do not offer the action when it would result in a 403.
+  const canDownloadAttachments = organizationId !== null && organizationId !== undefined && (hasPermission('complaints.view_all', organizationId) || hasPermission('complaints.view_own', organizationId));
   const [data, setData] = useState<AdminComplaintDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -382,16 +385,18 @@ export default function ComplaintDetailPage() {
                         <span className="cd-file-size">
                           ({(att.sizeBytes / 1024).toFixed(0)} KB)
                         </span>
-                        <button
-                          type="button"
-                          className="btn btn-outline"
-                          onClick={() => handleDownloadAttachment(att)}
-                          disabled={downloadingAttachmentId === att.id}
-                          aria-label={`تنزيل المرفق ${att.originalName}`}
-                        >
-                          <Download size={14} aria-hidden="true" />
-                          {downloadingAttachmentId === att.id ? 'جاري التنزيل...' : 'تنزيل'}
-                        </button>
+                        {canDownloadAttachments && (
+                          <button
+                            type="button"
+                            className="btn btn-outline"
+                            onClick={() => handleDownloadAttachment(att)}
+                            disabled={downloadingAttachmentId === att.id}
+                            aria-label={`تنزيل المرفق ${att.originalName}`}
+                          >
+                            <Download size={14} aria-hidden="true" />
+                            {downloadingAttachmentId === att.id ? 'جاري التنزيل...' : 'تنزيل'}
+                          </button>
+                        )}
                       </li>
                     ))}
                   </ul>

@@ -14,12 +14,15 @@ describe('Complaint attachment retrieval', () => {
   let otherOrganization;
   let complaint;
   let otherComplaint;
+  let assignedComplaint;
   let attachment;
+  let assignedAttachment;
   let missingFileAttachment;
   let traversalAttachment;
   let adminToken;
   let otherAdminToken;
   let unauthorizedToken;
+  let noPermissionToken;
   let filePath;
   const fileContent = Buffer.from('%PDF-1.4\nCFMS attachment test\n');
 
@@ -47,11 +50,19 @@ describe('Complaint attachment retrieval', () => {
       roleCode: 'staff',
       organizationId: organization.id,
     }, 'Password123');
+    const { user: noPermission } = await createUserWithRole({
+      fullName: 'Attachment No Permission',
+      email: `attachment-noperm-${Date.now()}@cfms.local`,
+      roleCode: 'staff',
+      organizationId: organization.id,
+    }, 'Password123');
+    await prisma.user_roles.deleteMany({ where: { user_id: noPermission.id } });
 
     const login = async (email) => (await request(app).post('/api/auth/login').send({ email, password: 'Password123' })).body.data.token;
     adminToken = await login(admin.email);
     otherAdminToken = await login(otherAdmin.email);
     unauthorizedToken = await login(unauthorized.email);
+    noPermissionToken = await login(noPermission.email);
 
     const payload = (description) => ({
       type: 'complaint',
@@ -74,6 +85,22 @@ describe('Complaint attachment retrieval', () => {
       data: {
         complaint_id: complaint.id,
         original_name: 'evidence.pdf',
+        stored_file_name: storedFileName,
+        mime_type: 'application/pdf',
+        size_bytes: fileContent.length,
+        create_date: new Date(),
+        write_date: new Date(),
+      },
+    });
+    assignedComplaint = (await complaintService.createComplaint(organization.id, payload('Assigned staff complaint'))).complaint;
+    await prisma.complaints.update({
+      where: { id: assignedComplaint.id },
+      data: { assigned_to_user_id: unauthorized.id },
+    });
+    assignedAttachment = await prisma.complaint_attachments.create({
+      data: {
+        complaint_id: assignedComplaint.id,
+        original_name: 'assigned.pdf',
         stored_file_name: storedFileName,
         mime_type: 'application/pdf',
         size_bytes: fileContent.length,
@@ -120,14 +147,29 @@ describe('Complaint attachment retrieval', () => {
     expect(response.headers['content-disposition']).toContain("attachment; filename*=UTF-8''evidence.pdf");
   });
 
+  it('allows attachment retrieval for a staff user assigned to the complaint (view_own)', async () => {
+    const response = await request(app)
+      .get(`/api/complaints/${assignedComplaint.id}/attachments/${assignedAttachment.id}`)
+      .set('Authorization', `Bearer ${unauthorizedToken}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual(fileContent);
+    expect(response.headers['content-type']).toMatch(/^application\/pdf/);
+    expect(response.headers['content-disposition']).toContain("attachment; filename*=UTF-8''assigned.pdf");
+  });
+
   it('rejects unauthenticated and unauthorized retrieval', async () => {
     const unauthenticated = await request(app).get(`/api/complaints/${complaint.id}/attachments/${attachment.id}`);
-    const unauthorized = await request(app)
+    const noPermission = await request(app)
+      .get(`/api/complaints/${complaint.id}/attachments/${attachment.id}`)
+      .set('Authorization', `Bearer ${noPermissionToken}`);
+    const outOfScope = await request(app)
       .get(`/api/complaints/${complaint.id}/attachments/${attachment.id}`)
       .set('Authorization', `Bearer ${unauthorizedToken}`);
 
     expect(unauthenticated.status).toBe(401);
-    expect(unauthorized.status).toBe(403);
+    expect(noPermission.status).toBe(403);
+    expect(outOfScope.status).toBe(404);
   });
 
   it('rejects cross-tenant and mismatched complaint access with 404', async () => {

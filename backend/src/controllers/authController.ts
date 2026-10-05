@@ -53,7 +53,11 @@ const changePassword = catchAsync(async (req: AppRequest, res: AppResponse) => {
 });
 
 const forgotPassword = catchAsync(async (req: AppRequest, res: AppResponse) => {
-  await passwordRecoveryService.issuePasswordResetToken(req.body.email);
+  const token = await passwordRecoveryService.issuePasswordResetToken(req.body.email);
+  if (process.env.NODE_ENV !== 'production' && token) {
+    const origin = (process.env.CORS_ORIGIN || 'http://localhost:5173').replace(/\/+$/, '');
+    console.log(`[DEV ONLY] Password reset link: ${origin}/reset-password?token=${token}`);
+  }
   res.status(200).json({
     success: true,
     message: 'إذا كان البريد الإلكتروني مرتبطاً بحساب، فسيتم إرسال تعليمات إعادة التعيين إليه',

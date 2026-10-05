@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { login as loginApi } from '../../api/authApi';
 import { useAuth } from '../../context/AuthContext';
 import type { ApiClientError } from '../../api/axiosClient';
@@ -71,6 +71,18 @@ export default function LoginPage() {
               <button type="submit" className="btn btn-primary" disabled={loading} style={{ width: '100%' }}>
                 {loading ? 'جاري تسجيل الدخول...' : 'دخول'}
               </button>
+            </div>
+            <div style={{ marginTop: '16px', textAlign: 'center' }}>
+              <Link
+                to="/forgot-password"
+                style={{
+                  color: 'var(--color-primary, #2563eb)',
+                  textDecoration: 'none',
+                  fontSize: '0.9rem',
+                }}
+              >
+                نسيت كلمة المرور؟
+              </Link>
             </div>
           </form>
         </div>

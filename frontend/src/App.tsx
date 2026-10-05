@@ -7,6 +7,8 @@ import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/admin/ProtectedRoute';
 import AppShell from './components/shell/AppShell';
 import LoginPage from './pages/admin/LoginPage';
+import ForgotPasswordPage from './pages/admin/ForgotPasswordPage';
+import ResetPasswordPage from './pages/admin/ResetPasswordPage';
 import DashboardPage from './pages/admin/DashboardPage';
 import ComplaintListPage from './pages/admin/ComplaintListPage';
 import ComplaintDetailPage from './pages/admin/ComplaintDetailPage';
@@ -120,6 +122,22 @@ export default function App() {
         element={
           <AuthProvider>
             <LoginPage />
+          </AuthProvider>
+        }
+      />
+      <Route
+        path="/forgot-password"
+        element={
+          <AuthProvider>
+            <ForgotPasswordPage />
+          </AuthProvider>
+        }
+      />
+      <Route
+        path="/reset-password"
+        element={
+          <AuthProvider>
+            <ResetPasswordPage />
           </AuthProvider>
         }
       />

@@ -55,7 +55,20 @@ const complaintIdParamValidation = [param('id').isInt({ min: 1 }).withMessage('�
 const updateStatusValidation = [
   param('id').isInt({ min: 1 }).withMessage('معرّف الشكوى غير صالح'),
   body('status').isIn(STATUS_VALUES).withMessage('حالة غير صالحة'),
-  body('note').optional({ checkFalsy: true }).isLength({ max: 1000 }),
+  body('note')
+    .if(body('status').equals('resolved'))
+    .trim()
+    .notEmpty()
+    .withMessage('ملاحظة الحل مطلوبة عند حل الشكوى')
+    .bail()
+    .isLength({ max: 1000 })
+    .withMessage('الملاحظة يجب ألا تتجاوز 1000 حرف'),
+  body('note')
+    .if(body('status').not().equals('resolved'))
+    .optional({ checkFalsy: true })
+    .trim()
+    .isLength({ max: 1000 })
+    .withMessage('الملاحظة يجب ألا تتجاوز 1000 حرف'),
 ];
 const assignmentValidation = [
   param('id').isInt({ min: 1 }).withMessage('معرّف الشكوى غير صالح'),

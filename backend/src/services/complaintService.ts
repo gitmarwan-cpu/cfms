@@ -1028,6 +1028,14 @@ export const updateComplaintStatus = async (
     });
     if (!transition) throw new ApiError(409, INVALID_TRANSITION_ERROR);
 
+    const normalizedNote = typeof note === 'string' ? note.trim() : null;
+    if (normalizedNote !== null && normalizedNote.length > 1000) {
+      throw new ApiError(422, 'الملاحظة يجب ألا تتجاوز 1000 حرف');
+    }
+    if (newStatus === 'resolved' && (normalizedNote === null || normalizedNote === '')) {
+      throw new ApiError(422, 'ملاحظة الحل مطلوبة عند حل الشكوى');
+    }
+
     const statusChangedAt = new Date();
     const slaPatch = slaStatusForStatusChange({
       previousStatus: complaint.status,
@@ -1052,7 +1060,7 @@ export const updateComplaintStatus = async (
         complaint_id: complaint.id,
         from_status: complaint.status,
         to_status: newStatus,
-        note: note || null,
+        note: normalizedNote || null,
         changed_by_user_id: parsedChangedByUserId,
         created_at: new Date(),
       },

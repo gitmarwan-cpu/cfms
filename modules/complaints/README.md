@@ -111,6 +111,8 @@ Response إلى المستفيد: { id, referenceCode, trackingPin }
 
 - `complaints.assign` يبقى الصلاحية الأساسية لكل تغيير حالة، ولقراءة الانتقالات
   (`GET /:id/transitions`)، وللإسناد (`PATCH /:id/assignment`).
+- عند الانتقال إلى `resolved` يجب تقديم ملاحظة حل غير فارغة بعد إزالة المسافات
+  الزائدة، وبحد أقصى 1,000 حرف. تبقى الملاحظة اختيارية في انتقالات الحالات الأخرى.
 - `complaints.close` صلاحية **إضافية** مطلوبة فقط عند الإغلاق (`resolved → closed`).
   أي أن الإغلاق يتطلب `complaints.assign` **و** `complaints.close` معاً.
 - الرفض (`new → rejected` و`in_review → rejected`) يبقى ضمن `complaints.assign`

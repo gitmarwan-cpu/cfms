@@ -4,6 +4,7 @@ require('./setup');
 const request = require('supertest');
 const { default: app } = require('../src/app');
 const { default: prisma } = require('../src/prisma/client');
+const complaintService = require('../src/services/complaintService.ts');
 const { createUserWithRole, createOrganization } = require('./setup');
 
 describe('Complaints API (Public Portal)', () => {
@@ -803,5 +804,94 @@ describe("Complaint close authorization (complaints.close)", () => {
         (transition) => transition.toStatus,
       ),
     ).toEqual(["closed"]);
+  });
+
+  describe("إلزامية ملاحظة الحل عند الانتقال إلى resolved (GAP-03)", () => {
+    it("يرفض حل الشكوى إذا كانت الملاحظة مفقودة أو فارغة أو مسافات فقط (422)", async () => {
+      const complaintId = await createComplaint();
+      expect((await setStatus(assignOnlyToken, complaintId, "in_review")).status).toBe(200);
+
+      // Missing note
+      const missing = await request(app)
+        .patch(`/api/complaints/${complaintId}/status`)
+        .set("Authorization", `Bearer ${assignOnlyToken}`)
+        .send({ status: "resolved" });
+      expect(missing.status).toBe(422);
+
+      // Empty string note
+      const empty = await request(app)
+        .patch(`/api/complaints/${complaintId}/status`)
+        .set("Authorization", `Bearer ${assignOnlyToken}`)
+        .send({ status: "resolved", note: "" });
+      expect(empty.status).toBe(422);
+
+      // Whitespace-only note
+      const whitespace = await request(app)
+        .patch(`/api/complaints/${complaintId}/status`)
+        .set("Authorization", `Bearer ${assignOnlyToken}`)
+        .send({ status: "resolved", note: "    " });
+      expect(whitespace.status).toBe(422);
+    });
+
+    it("يقبل حل الشكوى عند تقديم ملاحظة حل غير فارغة (200)", async () => {
+      const complaintId = await createComplaint();
+      expect((await setStatus(assignOnlyToken, complaintId, "in_review")).status).toBe(200);
+
+      const resolved = await request(app)
+        .patch(`/api/complaints/${complaintId}/status`)
+        .set("Authorization", `Bearer ${assignOnlyToken}`)
+        .send({ status: "resolved", note: "تم إنجاز المعالجة وتسليم الخدمة" });
+      expect(resolved.status).toBe(200);
+      expect(resolved.body.data.status).toBe("resolved");
+
+      const history = await prisma.complaint_status_history.findFirst({
+        where: { complaint_id: complaintId, to_status: "resolved" },
+        orderBy: { id: "desc" },
+      });
+      expect(history?.note).toBe("تم إنجاز المعالجة وتسليم الخدمة");
+    });
+
+    it("يفرض ملاحظة الحل وحدّ 1000 حرف عند استدعاء الخدمة مباشرة", async () => {
+      const actorScope = {
+        userId: assignOnlyUserId,
+        tenantId: organization.id,
+        grants: [{ code: "complaints.assign", orgUnitId: null }],
+      };
+
+      const blankComplaintId = await createComplaint();
+      expect((await setStatus(assignOnlyToken, blankComplaintId, "in_review")).status).toBe(200);
+      await expect(
+        complaintService.updateComplaintStatus(
+          organization.id,
+          blankComplaintId,
+          "resolved",
+          "   ",
+          assignOnlyUserId,
+          actorScope,
+        ),
+      ).rejects.toMatchObject({ statusCode: 422 });
+
+      const oversizedComplaintId = await createComplaint();
+      expect((await setStatus(assignOnlyToken, oversizedComplaintId, "in_review")).status).toBe(200);
+      await expect(
+        complaintService.updateComplaintStatus(
+          organization.id,
+          oversizedComplaintId,
+          "resolved",
+          "x".repeat(1001),
+          assignOnlyUserId,
+          actorScope,
+        ),
+      ).rejects.toMatchObject({ statusCode: 422 });
+    });
+
+    it("يسمح بانتقالات الحالة الأخرى دون اشتراط الملاحظة", async () => {
+      const complaintId = await createComplaint();
+      const inReview = await request(app)
+        .patch(`/api/complaints/${complaintId}/status`)
+        .set("Authorization", `Bearer ${assignOnlyToken}`)
+        .send({ status: "in_review" });
+      expect(inReview.status).toBe(200);
+    });
   });
 });

@@ -138,6 +138,10 @@ export default function ComplaintDetailPage() {
   const visibleTransitions = canClose ? transitions : transitions.filter((transition) => transition.toStatus !== 'closed');
 
   const handleStatusUpdate = async (newStatus: ComplaintStatus) => {
+    if (newStatus === 'resolved' && !statusUpdateNote.trim()) {
+      setStatusError('ملاحظة الحل مطلوبة عند حل الشكوى.');
+      return;
+    }
     setStatusError('');
     setStatusSaving(true);
     try {
@@ -624,8 +628,17 @@ export default function ComplaintDetailPage() {
                     تغيير إلى: {STATUS_LABELS[updatingStatus]}
                   </div>
                   <div className="field cd-label-spaced">
-                    <label htmlFor="statusUpdateNote">ملاحظة التغيير (اختيارية)</label>
-                    <input id="statusUpdateNote" type="text" placeholder="أضف ملاحظة اختيارية…" value={statusUpdateNote} onChange={(e) => setStatusUpdateNote(e.target.value)} />
+                    <label htmlFor="statusUpdateNote">
+                      {updatingStatus === 'resolved' ? 'ملاحظة الحل (مطلوبة)' : 'ملاحظة التغيير (اختيارية)'}
+                    </label>
+                    <input
+                      id="statusUpdateNote"
+                      type="text"
+                      placeholder={updatingStatus === 'resolved' ? 'أدخل ملاحظة الحل…' : 'أضف ملاحظة اختيارية…'}
+                      value={statusUpdateNote}
+                      onChange={(e) => setStatusUpdateNote(e.target.value)}
+                      required={updatingStatus === 'resolved'}
+                    />
                   </div>
                   <div className="cd-inline">
                     <button

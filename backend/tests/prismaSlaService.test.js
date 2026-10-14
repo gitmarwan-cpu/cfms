@@ -365,3 +365,328 @@ describe('Prisma SLA service', () => {
     expect(notifications.length).toBe(1);
   });
 });
+
+describe('GAP-01: escalation assignment snapshots', () => {
+  let org;
+  let actor;
+  let assignee;
+  let operationalNode;
+  let locations;
+
+  beforeAll(async () => {
+    const governorate = await prisma.governorates.findUnique({ where: { name_en: 'Ibb' } });
+    const district = await prisma.districts.findFirst({
+      where: { governorate_id: governorate.id, name_en: 'Yarim' },
+    });
+    locations = { governorateId: String(governorate.id), districtId: String(district.id) };
+    const ts = Date.now();
+
+    org = await prisma.organizations.create({
+      data: {
+        legal_name: `GAP01 Org ${ts}`,
+        slug: `gap01-org-${ts}`,
+        country: 'Yemen',
+        governorate_id: governorate.id,
+        default_language: 'ar',
+        timezone: 'Asia/Aden',
+        date_format: 'DD/MM/YYYY',
+        primary_color: '#0e5f66',
+        secondary_color: '#0a464b',
+        accent_color: '#c77b3f',
+        anonymous_complaints_policy: 'allowed',
+        notification_settings: {},
+        is_active: true,
+        create_date: new Date(),
+        write_date: new Date(),
+      },
+    });
+
+    operationalNode = await prisma.organizations.create({
+      data: {
+        legal_name: `GAP01 Operational Node ${ts}`,
+        slug: `gap01-node-${ts}`,
+        country: 'Yemen',
+        governorate_id: governorate.id,
+        default_language: 'ar',
+        timezone: 'Asia/Aden',
+        date_format: 'DD/MM/YYYY',
+        primary_color: '#0e5f66',
+        secondary_color: '#0a464b',
+        accent_color: '#c77b3f',
+        anonymous_complaints_policy: 'allowed',
+        notification_settings: {},
+        parent_id: org.id,
+        root_organization_id: org.id,
+        is_active: true,
+        create_date: new Date(),
+        write_date: new Date(),
+      },
+    });
+
+    actor = await prisma.users.create({
+      data: {
+        full_name: `GAP01 Actor ${ts}`,
+        email: `gap01-actor-${ts}@cfms.local`,
+        password_hash: 'not-used',
+        is_active: true,
+        create_date: new Date(),
+        write_date: new Date(),
+      },
+    });
+
+    assignee = await prisma.users.create({
+      data: {
+        full_name: `GAP01 Assignee ${ts}`,
+        email: `gap01-assignee-${ts}@cfms.local`,
+        password_hash: 'not-used',
+        is_active: true,
+        create_date: new Date(),
+        write_date: new Date(),
+      },
+    });
+
+    await prisma.user_organizations.create({
+      data: {
+        user_id: actor.id,
+        organization_id: org.id,
+        is_primary: true,
+        is_active: true,
+        create_date: new Date(),
+        write_date: new Date(),
+      },
+    });
+
+    await prisma.user_organizations.create({
+      data: {
+        user_id: assignee.id,
+        organization_id: org.id,
+        is_primary: false,
+        is_active: true,
+        create_date: new Date(),
+        write_date: new Date(),
+      },
+    });
+
+    // Create an SLA rule so complaints get sla_due_at set
+    await slaService.createSlaRule(
+      org.id,
+      {
+        name: 'GAP01 Fast SLA',
+        complaintType: 'complaint',
+        firstResponseHours: 1,
+        resolutionHours: 2,
+        escalationIntervalHours: 2,
+        maxEscalationLevel: 3,
+      },
+      actor.id
+    );
+  });
+
+  const makeComplaint = () =>
+    complaintService.createComplaint(org.id, {
+      type: 'complaint',
+      isAnonymous: true,
+      governorateId: locations.governorateId,
+      districtId: locations.districtId,
+      category: 'service_quality',
+      description: 'A complaint for GAP-01 snapshot testing.',
+      consentGiven: true,
+    });
+
+  it('records the assigned user and organization node at the time of escalation', async () => {
+    const { complaint } = await makeComplaint();
+    // Assign to a user and the operational organization node
+    await complaintService.assignComplaint(
+      org.id,
+      complaint.id,
+      { assigneeUserId: assignee.id, assigneeOrganizationId: operationalNode.id },
+      actor.id,
+      scopeFor(actor.id, org.id, { code: 'complaints.assign', orgUnitId: null })
+    );
+
+    // Trigger escalation past the due date
+    const dueAt = new Date(complaint.slaDueAt);
+    await slaService.evaluateOrganizationSla(org.id, { now: dueAt, actorUserId: actor.id });
+
+    const event = await prisma.complaint_escalation_events.findFirst({
+      where: { complaint_id: complaint.id, organization_id: org.id },
+      orderBy: { created_at: 'desc' },
+    });
+
+    expect(event).not.toBeNull();
+    expect(event.assigned_to_user_id).toBe(assignee.id);
+    expect(event.assigned_to_organization_id).toBe(operationalNode.id);
+  });
+
+  it('records a null user and the operational organization node for organization-only assignment', async () => {
+    const { complaint } = await makeComplaint();
+    await complaintService.assignComplaint(
+      org.id,
+      complaint.id,
+      { assigneeOrganizationId: operationalNode.id },
+      actor.id,
+      scopeFor(actor.id, org.id, { code: 'complaints.assign', orgUnitId: null })
+    );
+
+    const dueAt = new Date(complaint.slaDueAt);
+    await slaService.evaluateOrganizationSla(org.id, { now: dueAt, actorUserId: actor.id });
+
+    const event = await prisma.complaint_escalation_events.findFirst({
+      where: { complaint_id: complaint.id, organization_id: org.id },
+      orderBy: { created_at: 'desc' },
+    });
+
+    expect(event).toMatchObject({
+      assigned_to_user_id: null,
+      assigned_to_organization_id: operationalNode.id,
+    });
+  });
+
+  it('records both assignment IDs for manual escalation', async () => {
+    const { complaint } = await makeComplaint();
+    await complaintService.assignComplaint(
+      org.id,
+      complaint.id,
+      { assigneeUserId: assignee.id, assigneeOrganizationId: operationalNode.id },
+      actor.id,
+      scopeFor(actor.id, org.id, { code: 'complaints.assign', orgUnitId: null })
+    );
+
+    await slaService.escalateComplaint(
+      org.id,
+      complaint.id,
+      { note: 'Manual GAP-01 escalation' },
+      actor.id,
+      scopeFor(actor.id, org.id, { code: 'complaints.escalate', orgUnitId: null })
+    );
+
+    const event = await prisma.complaint_escalation_events.findFirst({
+      where: { complaint_id: complaint.id, organization_id: org.id },
+      orderBy: { created_at: 'desc' },
+    });
+
+    expect(event).toMatchObject({
+      reason: 'manual',
+      assigned_to_user_id: assignee.id,
+      assigned_to_organization_id: operationalNode.id,
+    });
+  });
+
+  it('stores null for both snapshot fields when complaint has no assignment at escalation time', async () => {
+    const { complaint } = await makeComplaint();
+    // Do NOT assign — escalate immediately past due date
+
+    const dueAt = new Date(complaint.slaDueAt);
+    await slaService.evaluateOrganizationSla(org.id, { now: dueAt, actorUserId: actor.id });
+
+    const event = await prisma.complaint_escalation_events.findFirst({
+      where: { complaint_id: complaint.id, organization_id: org.id },
+      orderBy: { created_at: 'desc' },
+    });
+
+    expect(event).not.toBeNull();
+    expect(event.assigned_to_user_id).toBeNull();
+    expect(event.assigned_to_organization_id).toBeNull();
+  });
+
+  it('does NOT mutate the historical snapshot after the complaint is reassigned', async () => {
+    const { complaint } = await makeComplaint();
+    // First assign to assignee, then escalate to capture snapshot
+    await complaintService.assignComplaint(
+      org.id,
+      complaint.id,
+      { assigneeUserId: assignee.id },
+      actor.id,
+      scopeFor(actor.id, org.id, { code: 'complaints.assign', orgUnitId: null })
+    );
+
+    const dueAt = new Date(complaint.slaDueAt);
+    await slaService.evaluateOrganizationSla(org.id, { now: dueAt, actorUserId: actor.id });
+
+    // Capture the event snapshot before reassignment
+    const eventBefore = await prisma.complaint_escalation_events.findFirst({
+      where: { complaint_id: complaint.id, organization_id: org.id },
+      orderBy: { created_at: 'desc' },
+    });
+    expect(eventBefore.assigned_to_user_id).toBe(assignee.id);
+
+    // Now reassign to the actor (different user)
+    await complaintService.assignComplaint(
+      org.id,
+      complaint.id,
+      { assigneeUserId: actor.id },
+      actor.id,
+      scopeFor(actor.id, org.id, { code: 'complaints.assign', orgUnitId: null })
+    );
+
+    // The escalation event record must be unchanged
+    const eventAfter = await prisma.complaint_escalation_events.findFirst({
+      where: { id: eventBefore.id },
+    });
+    expect(eventAfter.assigned_to_user_id).toBe(assignee.id);
+    expect(eventAfter.assigned_to_organization_id).toBeNull();
+  });
+
+  it('captures the new assignment on a later escalation while preserving the first event', async () => {
+    const { complaint } = await makeComplaint();
+    await complaintService.assignComplaint(
+      org.id,
+      complaint.id,
+      { assigneeUserId: assignee.id, assigneeOrganizationId: operationalNode.id },
+      actor.id,
+      scopeFor(actor.id, org.id, { code: 'complaints.assign', orgUnitId: null })
+    );
+
+    const dueAt = new Date(complaint.slaDueAt);
+    await slaService.evaluateOrganizationSla(org.id, { now: dueAt, actorUserId: actor.id });
+
+    await complaintService.assignComplaint(
+      org.id,
+      complaint.id,
+      { assigneeUserId: actor.id, assigneeOrganizationId: operationalNode.id },
+      actor.id,
+      scopeFor(actor.id, org.id, { code: 'complaints.assign', orgUnitId: null })
+    );
+
+    const secondEscalationAt = new Date(dueAt.getTime() + 2 * slaService.MS_PER_HOUR);
+    await slaService.evaluateOrganizationSla(org.id, { now: secondEscalationAt, actorUserId: actor.id });
+    await slaService.evaluateOrganizationSla(org.id, { now: secondEscalationAt, actorUserId: actor.id });
+
+    const events = await prisma.complaint_escalation_events.findMany({
+      where: { complaint_id: complaint.id, organization_id: org.id },
+      orderBy: { to_level: 'asc' },
+    });
+
+    expect(events).toHaveLength(2);
+    expect(events[0]).toMatchObject({
+      to_level: 1,
+      assigned_to_user_id: assignee.id,
+      assigned_to_organization_id: operationalNode.id,
+    });
+    expect(events[1]).toMatchObject({
+      to_level: 2,
+      assigned_to_user_id: actor.id,
+      assigned_to_organization_id: operationalNode.id,
+    });
+  });
+
+  it('existing escalation behavior (level increment) remains intact', async () => {
+    const { complaint } = await makeComplaint();
+    await complaintService.assignComplaint(
+      org.id,
+      complaint.id,
+      { assigneeUserId: assignee.id },
+      actor.id,
+      scopeFor(actor.id, org.id, { code: 'complaints.assign', orgUnitId: null })
+    );
+
+    const dueAt = new Date(complaint.slaDueAt);
+    const result = await slaService.evaluateOrganizationSla(org.id, {
+      now: dueAt,
+      actorUserId: actor.id,
+    });
+    const item = result.complaints.find((c) => c.id === complaint.id);
+    expect(item.escalationLevel).toBe(1);
+    expect(item.slaStatus).toBe('overdue');
+  });
+});

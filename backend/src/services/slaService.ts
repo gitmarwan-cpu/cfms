@@ -510,6 +510,7 @@ const persistEscalation = async (
     id: number;
     sla_rule_id: number | null;
     assigned_to_user_id: number | null;
+    assigned_to_organization_id: number | null;
   },
   fromLevel: number,
   toLevel: number,
@@ -543,6 +544,8 @@ const persistEscalation = async (
       reason,
       note,
       triggered_by_user_id: actorUserId,
+      assigned_to_user_id: complaint.assigned_to_user_id ?? null,
+      assigned_to_organization_id: complaint.assigned_to_organization_id ?? null,
       created_at: now,
     },
   });

@@ -164,20 +164,24 @@ model sla_rules {
 }
 
 model complaint_escalation_events {
-  id                   Int           @id @default(autoincrement())
-  organization_id      Int
-  complaint_id         Int
-  sla_rule_id          Int?
-  from_level           Int
-  to_level             Int
-  reason               String        @db.VarChar(60)
-  note                 String?
-  triggered_by_user_id Int?
-  created_at           DateTime      @db.Timestamptz(6)
-  organizations        organizations @relation(fields: [organization_id], references: [id], onDelete: Cascade)
-  complaints           complaints    @relation(fields: [complaint_id], references: [id], onDelete: Cascade)
-  sla_rules            sla_rules?    @relation(fields: [sla_rule_id], references: [id], onDelete: SetNull)
-  users                users?        @relation(fields: [triggered_by_user_id], references: [id], onDelete: SetNull)
+  id                           Int            @id @default(autoincrement())
+  organization_id              Int
+  complaint_id                 Int
+  sla_rule_id                  Int?
+  from_level                   Int
+  to_level                     Int
+  reason                       String         @db.VarChar(60)
+  note                         String?
+  triggered_by_user_id         Int?
+  assigned_to_user_id          Int?
+  assigned_to_organization_id  Int?
+  created_at                   DateTime       @db.Timestamptz(6)
+  organizations                organizations  @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  complaints                   complaints     @relation(fields: [complaint_id], references: [id], onDelete: Cascade)
+  sla_rules                    sla_rules?     @relation(fields: [sla_rule_id], references: [id], onDelete: SetNull)
+  users                        users?         @relation(fields: [triggered_by_user_id], references: [id], onDelete: SetNull)
+  assigned_user                users?         @relation("EscalationAssignedUser", fields: [assigned_to_user_id], references: [id], onDelete: SetNull)
+  assigned_organization        organizations? @relation("EscalationAssignedOrganization", fields: [assigned_to_organization_id], references: [id], onDelete: SetNull)
 
   @@index([complaint_id], map: "complaint_escalation_events_complaint_id")
   @@index([organization_id, created_at], map: "complaint_escalation_events_organization_created_at")
@@ -448,6 +452,7 @@ model organizations {
   notifications                       notifications[]
   sla_rules                           sla_rules[]
   complaint_escalation_events         complaint_escalation_events[]
+  complaint_escalation_events_assigned complaint_escalation_events[] @relation("EscalationAssignedOrganization")
 
   @@index([country_id], map: "organizations_country_id")
   @@index([parent_id], map: "organizations_parent_id")
@@ -695,6 +700,7 @@ model users {
   audit_logs                                       audit_logs[]
   notifications                                    notifications[]
   complaint_escalation_events                      complaint_escalation_events[]
+  complaint_escalation_events_assigned             complaint_escalation_events[] @relation("EscalationAssignedUser")
   organizations                                    organizations?                @relation(fields: [default_organization_id], references: [id])
   primary_organization_node                        organizations?                @relation("UserPrimaryOrganizationNode", fields: [primary_organization_node_id], references: [id])
 

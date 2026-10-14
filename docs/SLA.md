@@ -36,6 +36,7 @@ SLA enforcement consists of three core components:
 3. **Escalation Events (`complaint_escalation_events`)**:
    - Immutable audit trail of all manual and automated escalations.
    - Records `from_level`, `to_level`, `reason` (`'overdue'` | `'manual'`), `note`, and `triggered_by_user_id`.
+   - `assigned_to_user_id` and `assigned_to_organization_id` preserve the responsible user and operational organization node at escalation time; later reassignment does not rewrite existing events.
 
 ---
 

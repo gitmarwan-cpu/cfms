@@ -1,4 +1,5 @@
 import { evaluateAllOrganizationsSla } from '../services/slaService';
+import { processNotificationOutboxBatch } from '../services/notificationService';
 
 let workerIntervalTimer: NodeJS.Timeout | null = null;
 let isCycleRunning = false;
@@ -8,6 +9,7 @@ export const runSlaWorkerCycle = async () => {
   isCycleRunning = true;
   try {
     const result = await evaluateAllOrganizationsSla();
+    await processNotificationOutboxBatch();
     return result;
   } catch (error) {
     console.error('[SLA Worker] Periodic evaluation error:', (error as Error).message);

@@ -9,6 +9,7 @@ const { parseTestDatabaseUrl } = require('../src/config/testDatabaseUrl');
 const TEST_TABLES = [
   'audit_logs',
   'notifications',
+  'notification_outbox',
   'countries',
   'governorates',
   'districts',

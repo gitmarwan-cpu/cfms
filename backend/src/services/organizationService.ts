@@ -2,6 +2,11 @@ import { Prisma, enum_organizations_anonymous_complaints_policy } from '@prisma/
 import prisma from '../prisma/client';
 import ApiError from '../utils/ApiError';
 import { recordAuditEvent } from './auditService';
+import {
+  mergeNotificationSettings,
+  parseSlaEscalationPolicy,
+  SLA_ESCALATION_POLICY_KEY,
+} from './slaEscalationPolicy';
 
 export type OrganizationId = string | number;
 
@@ -318,6 +323,28 @@ export const updateOrganization = async (
         );
       } else if (databaseField === 'notification_settings') {
         let newSettings = value as Record<string, any>;
+        if (Object.prototype.hasOwnProperty.call(newSettings, SLA_ESCALATION_POLICY_KEY)) {
+          const policyResult = parseSlaEscalationPolicy(newSettings[SLA_ESCALATION_POLICY_KEY]);
+          if (policyResult.kind === 'invalid') {
+            throw new ApiError(422, `إعداد سياسة تصعيد مهلة المعالجة غير صالح: ${policyResult.reason}`);
+          }
+          if (policyResult.kind === 'valid') {
+            const permissionRows = await prisma.permissions.findMany({
+              where: {
+                code: { in: policyResult.policy.permissionCodes },
+              },
+              select: { code: true, module: true },
+            });
+            const validCodes = new Set(
+              permissionRows
+                .filter((permission) => permission.module !== 'platform' && !permission.code.startsWith('platform.'))
+                .map((permission) => permission.code)
+            );
+            if (validCodes.size !== policyResult.policy.permissionCodes.length) {
+              throw new ApiError(422, 'تحتوي سياسة تصعيد مهلة المعالجة على صلاحية غير معروفة أو خاصة بالمنصة');
+            }
+          }
+        }
         if (newSettings?.whatsapp?.apiKey === '********') {
           const existingSettings = (organization.notification_settings as Record<string, any>) || {};
           newSettings = {
@@ -328,7 +355,7 @@ export const updateOrganization = async (
             }
           };
         }
-        data[databaseField] = newSettings;
+        data[databaseField] = mergeNotificationSettings(organization.notification_settings, newSettings);
       } else {
         data[databaseField] = value;
       }

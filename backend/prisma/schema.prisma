@@ -209,6 +209,7 @@ model notifications {
   organization_id   Int
   user_id           Int
   notification_type String        @db.VarChar(100)
+  idempotency_key   String?       @unique @db.VarChar(255)
   title             String        @db.VarChar(200)
   message           String
   entity_type       String?       @db.VarChar(100)
@@ -221,6 +222,32 @@ model notifications {
 
   @@index([organization_id, user_id, read_at, created_at], map: "notifications_user_inbox")
   @@index([organization_id, entity_type, entity_id], map: "notifications_entity")
+}
+
+model notification_outbox {
+  id                  Int      @id @default(autoincrement())
+  organization_id     Int
+  complaint_id        Int
+  recipient_user_id   Int
+  idempotency_key     String   @unique @db.VarChar(255)
+  notification_type   String   @db.VarChar(100)
+  title               String   @db.VarChar(200)
+  message             String
+  metadata            Json?
+  status              String   @default("pending") @db.VarChar(20)
+  attempt_count       Int      @default(0)
+  next_attempt_at     DateTime @db.Timestamptz(6)
+  locked_until        DateTime? @db.Timestamptz(6)
+  last_error          String?
+  created_at          DateTime @db.Timestamptz(6)
+  updated_at          DateTime @db.Timestamptz(6)
+  delivered_at        DateTime? @db.Timestamptz(6)
+  organizations       organizations @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  complaints          complaints @relation(fields: [complaint_id], references: [id], onDelete: Cascade)
+  recipient_user      users @relation(fields: [recipient_user_id], references: [id], onDelete: Cascade)
+
+  @@index([status, next_attempt_at, locked_until], map: "notification_outbox_claim")
+  @@index([organization_id, complaint_id], map: "notification_outbox_complaint")
 }
 
 model complaints {
@@ -264,6 +291,7 @@ model complaints {
   complaint_attachments                                                  complaint_attachments[]
   complaint_status_history                                               complaint_status_history[]
   complaint_escalation_events                                            complaint_escalation_events[]
+  notification_outbox                                                    notification_outbox[]
   sla_rules                                                              sla_rules?                    @relation(fields: [sla_rule_id], references: [id])
   users_complaints_assigned_to_user_idTousers                            users?                        @relation("complaints_assigned_to_user_idTousers", fields: [assigned_to_user_id], references: [id])
   organizations_complaints_assigned_to_organization_idToorganizations    organizations?                @relation("ComplaintsAssignedToOrganization", fields: [assigned_to_organization_id], references: [id], onDelete: Restrict)
@@ -453,6 +481,7 @@ model organizations {
   sla_rules                           sla_rules[]
   complaint_escalation_events         complaint_escalation_events[]
   complaint_escalation_events_assigned complaint_escalation_events[] @relation("EscalationAssignedOrganization")
+  notification_outbox                 notification_outbox[]
 
   @@index([country_id], map: "organizations_country_id")
   @@index([parent_id], map: "organizations_parent_id")
@@ -699,6 +728,7 @@ model users {
   password_reset_tokens                            password_reset_tokens[]
   audit_logs                                       audit_logs[]
   notifications                                    notifications[]
+  notification_outbox                              notification_outbox[]
   complaint_escalation_events                      complaint_escalation_events[]
   complaint_escalation_events_assigned             complaint_escalation_events[] @relation("EscalationAssignedUser")
   organizations                                    organizations?                @relation(fields: [default_organization_id], references: [id])

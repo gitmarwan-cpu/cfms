@@ -2,7 +2,7 @@
 
 ## Overview
 
-The SLA & Escalation module in CFMS automatically computes response/resolution deadlines for complaints, evaluates active complaints against rules, and escalates overdue complaints to the assigned user when one exists.
+The SLA & Escalation module in CFMS automatically computes response/resolution deadlines for complaints, evaluates active complaints against rules, and escalates overdue complaints. Recipient selection is tenant-aware and policy-driven; automated escalation remains independent of manual `complaints.escalate` authorization.
 
 ---
 
@@ -77,7 +77,9 @@ Tie-breaking: Lower `id` wins. If no rule matches, SLA calculation falls back to
   - If zero rows are updated (i.e. another process or tick already escalated to `:toLevel` or higher), the escalation process terminates early—preventing duplicate escalation events, notifications, or audit logs.
 
 - **Notification Dispatch**:
-  - Current behavior notifies only the assigned user. If no user is assigned, no in-app escalation recipient is created; manager fallback is not implemented and remains a future policy decision.
+  - An eligible assigned user (active account and active membership in the complaint tenant) is notified first.
+  - Otherwise, `organizations.notification_settings.slaEscalation` controls the tenant-wide fallback. The policy contains `enabled`, non-platform `permissionCodes`, and `matchMode` (`any` or `all`). Fallback recipients must have active accounts, active tenant membership, active tenant-wide role assignments (`organization_node_id IS NULL`), and the configured effective permissions. Invalid, disabled, missing, or empty policies fail closed without notifying an ineligible user.
+  - Escalation records and notification-outbox rows are created in the same transaction. Delivery is processed asynchronously with retry-safe idempotency; delivery failure does not roll back the committed escalation, and an unresolved recipient is recorded in the audit log.
 
 ---
 

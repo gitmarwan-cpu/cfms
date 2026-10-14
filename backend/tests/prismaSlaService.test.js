@@ -5,6 +5,8 @@ require('./setup');
 const { default: prisma } = require('../src/prisma/client');
 const complaintService = require('../src/services/complaintService.ts');
 const slaService = require('../src/services/slaService.ts');
+const organizationService = require('../src/services/organizationService.ts');
+const notificationService = require('../src/services/notificationService.ts');
 
 const scopeFor = (userId, tenantId, ...grants) => ({ userId, tenantId, grants });
 
@@ -826,5 +828,581 @@ describe('GAP-01: escalation assignment snapshots', () => {
     const item = result.complaints.find((c) => c.id === complaint.id);
     expect(item.escalationLevel).toBe(1);
     expect(item.slaStatus).toBe('overdue');
+  });
+});
+
+describe('GAP-06: unassigned escalation fallback notifications (Option B)', () => {
+  let orgA;
+  let orgB;
+  let orgZeroAdmin;
+  let nodeA;
+  let adminA;
+  let adminB;
+  let inactiveAdminA;
+  let nodeAdminA;
+  let staffA;
+  let restrictedA;
+  let locations;
+  let adminRole;
+  let staffRole;
+  let recipientRole;
+  const createdComplaintIds = [];
+
+  beforeAll(async () => {
+    locations = await getLocations();
+    adminRole = await prisma.roles.findFirst({ where: { code: 'admin', organization_id: null } });
+    staffRole = await prisma.roles.findFirst({ where: { code: 'staff', organization_id: null } });
+    const escalationPermission = await prisma.permissions.findUnique({ where: { code: 'complaints.escalate' } });
+    recipientRole = await prisma.roles.create({
+      data: {
+        code: `gap06-recipient-${Date.now()}`,
+        name_ar: 'مستلم تصعيد GAP-06',
+        name_en: 'GAP-06 Recipient',
+        description: 'GAP-06 permission policy fixture',
+        is_system: false,
+        is_active: true,
+        scope: 'tenant',
+        create_date: new Date(),
+        write_date: new Date(),
+        role_permissions: { create: [{ permission_id: escalationPermission.id, created_at: new Date() }] },
+      },
+    });
+    const ts = Date.now();
+
+    const governorate = await prisma.governorates.findUnique({ where: { name_en: 'Ibb' } });
+
+    // Org A (primary test organization)
+    orgA = await prisma.organizations.create({
+      data: {
+        legal_name: `GAP06 Org A ${ts}`,
+        slug: `gap06-org-a-${ts}`,
+        country: 'Yemen',
+        governorate_id: governorate.id,
+        default_language: 'ar',
+        timezone: 'Asia/Aden',
+        date_format: 'DD/MM/YYYY',
+        primary_color: '#0e5f66',
+        secondary_color: '#0a464b',
+        accent_color: '#c77b3f',
+        anonymous_complaints_policy: 'allowed',
+        notification_settings: {
+          slaEscalation: { enabled: true, permissionCodes: ['complaints.view_all'], matchMode: 'any' },
+        },
+        is_active: true,
+        create_date: new Date(),
+        write_date: new Date(),
+      },
+    });
+
+    // Sub-node under Org A
+    nodeA = await prisma.organizations.create({
+      data: {
+        legal_name: `GAP06 Node A ${ts}`,
+        slug: `gap06-node-a-${ts}`,
+        parent_id: orgA.id,
+        root_organization_id: orgA.id,
+        country: 'Yemen',
+        governorate_id: governorate.id,
+        default_language: 'ar',
+        timezone: 'Asia/Aden',
+        date_format: 'DD/MM/YYYY',
+        primary_color: '#0e5f66',
+        secondary_color: '#0a464b',
+        accent_color: '#c77b3f',
+        anonymous_complaints_policy: 'allowed',
+        notification_settings: {},
+        is_active: true,
+        create_date: new Date(),
+        write_date: new Date(),
+      },
+    });
+
+    // Org B (cross-tenant test organization)
+    orgB = await prisma.organizations.create({
+      data: {
+        legal_name: `GAP06 Org B ${ts}`,
+        slug: `gap06-org-b-${ts}`,
+        country: 'Yemen',
+        governorate_id: governorate.id,
+        default_language: 'ar',
+        timezone: 'Asia/Aden',
+        date_format: 'DD/MM/YYYY',
+        primary_color: '#0e5f66',
+        secondary_color: '#0a464b',
+        accent_color: '#c77b3f',
+        anonymous_complaints_policy: 'allowed',
+        notification_settings: {},
+        is_active: true,
+        create_date: new Date(),
+        write_date: new Date(),
+      },
+    });
+
+    // Org with Zero Admins
+    orgZeroAdmin = await prisma.organizations.create({
+      data: {
+        legal_name: `GAP06 Zero Admin Org ${ts}`,
+        slug: `gap06-zero-admin-${ts}`,
+        country: 'Yemen',
+        governorate_id: governorate.id,
+        default_language: 'ar',
+        timezone: 'Asia/Aden',
+        date_format: 'DD/MM/YYYY',
+        primary_color: '#0e5f66',
+        secondary_color: '#0a464b',
+        accent_color: '#c77b3f',
+        anonymous_complaints_policy: 'allowed',
+        notification_settings: {},
+        is_active: true,
+        create_date: new Date(),
+        write_date: new Date(),
+      },
+    });
+
+    // Helper to create users with org membership and roles
+    const createUser = async (name, email) => {
+      return prisma.users.create({
+        data: {
+          full_name: name,
+          email,
+          password_hash: 'not-used',
+          is_active: true,
+          create_date: new Date(),
+          write_date: new Date(),
+        },
+      });
+    };
+
+    // Active Admin in Org A (tenant-wide, organization_node_id: null)
+    adminA = await createUser(`GAP06 Admin A ${ts}`, `gap06-admin-a-${ts}@cfms.local`);
+    await prisma.user_organizations.create({
+      data: { user_id: adminA.id, organization_id: orgA.id, is_active: true, create_date: new Date(), write_date: new Date() },
+    });
+    await prisma.user_roles.create({
+      data: { user_id: adminA.id, role_id: adminRole.id, organization_id: orgA.id, organization_node_id: null, create_date: new Date(), write_date: new Date() },
+    });
+
+    // Active Admin in Org B (tenant-wide, organization_node_id: null)
+    adminB = await createUser(`GAP06 Admin B ${ts}`, `gap06-admin-b-${ts}@cfms.local`);
+    await prisma.user_organizations.create({
+      data: { user_id: adminB.id, organization_id: orgB.id, is_active: true, create_date: new Date(), write_date: new Date() },
+    });
+    await prisma.user_roles.create({
+      data: { user_id: adminB.id, role_id: adminRole.id, organization_id: orgB.id, organization_node_id: null, create_date: new Date(), write_date: new Date() },
+    });
+
+    // Inactive Admin in Org A
+    inactiveAdminA = await createUser(`GAP06 Inactive Admin A ${ts}`, `gap06-inact-admin-a-${ts}@cfms.local`);
+    await prisma.users.update({ where: { id: inactiveAdminA.id }, data: { is_active: false } });
+    await prisma.user_organizations.create({
+      data: { user_id: inactiveAdminA.id, organization_id: orgA.id, is_active: true, create_date: new Date(), write_date: new Date() },
+    });
+    await prisma.user_roles.create({
+      data: { user_id: inactiveAdminA.id, role_id: adminRole.id, organization_id: orgA.id, organization_node_id: null, create_date: new Date(), write_date: new Date() },
+    });
+
+    // Node-scoped Admin in Org A (organization_node_id: nodeA.id)
+    nodeAdminA = await createUser(`GAP06 Node Admin A ${ts}`, `gap06-node-admin-a-${ts}@cfms.local`);
+    await prisma.user_organizations.create({
+      data: { user_id: nodeAdminA.id, organization_id: orgA.id, is_active: true, create_date: new Date(), write_date: new Date() },
+    });
+    await prisma.user_roles.create({
+      data: { user_id: nodeAdminA.id, role_id: adminRole.id, organization_id: orgA.id, organization_node_id: nodeA.id, create_date: new Date(), write_date: new Date() },
+    });
+
+    // Staff user in Org A (caseworker for assigned complaints)
+    staffA = await createUser(`GAP06 Staff A ${ts}`, `gap06-staff-a-${ts}@cfms.local`);
+    await prisma.user_organizations.create({
+      data: { user_id: staffA.id, organization_id: orgA.id, is_active: true, create_date: new Date(), write_date: new Date() },
+    });
+    await prisma.user_roles.create({
+      data: { user_id: staffA.id, role_id: staffRole.id, organization_id: orgA.id, organization_node_id: null, create_date: new Date(), write_date: new Date() },
+    });
+
+    // Tenant-wide user with only complaints.escalate; useful for any/all policy checks.
+    restrictedA = await createUser(`GAP06 Restricted A ${ts}`, `gap06-restricted-a-${ts}@cfms.local`);
+    await prisma.user_organizations.create({
+      data: { user_id: restrictedA.id, organization_id: orgA.id, is_active: true, create_date: new Date(), write_date: new Date() },
+    });
+    await prisma.user_roles.create({
+      data: { user_id: restrictedA.id, role_id: recipientRole.id, organization_id: orgA.id, organization_node_id: null, create_date: new Date(), write_date: new Date() },
+    });
+
+    // Fast SLA rules for Org A, Org B, OrgZeroAdmin
+    for (const targetOrg of [orgA, orgB, orgZeroAdmin]) {
+      await slaService.createSlaRule(
+        targetOrg.id,
+        {
+          name: `GAP06 SLA ${targetOrg.slug}`,
+          complaintType: 'complaint',
+          firstResponseHours: 1,
+          resolutionHours: 2,
+          escalationIntervalHours: 2,
+          maxEscalationLevel: 3,
+        },
+        adminA.id
+      );
+    }
+  });
+
+  const createTestComplaint = (targetOrgId) =>
+    complaintService.createComplaint(targetOrgId, {
+      type: 'complaint',
+      isAnonymous: true,
+      governorateId: locations.governorateId,
+      districtId: locations.districtId,
+      category: 'service_quality',
+      description: 'A test complaint for GAP-06 fallback notification testing.',
+      consentGiven: true,
+    }).then((result) => {
+      createdComplaintIds.push(result.complaint.id);
+      return result;
+    });
+
+  const processOutbox = () => notificationService.processNotificationOutboxBatch(50);
+  const basePolicy = { enabled: true, permissionCodes: ['complaints.view_all'], matchMode: 'any' };
+  const setPolicy = (policy) => organizationService.updateOrganization(
+    String(orgA.id),
+    { notificationSettings: { slaEscalation: policy } },
+    adminA.id
+  );
+
+  beforeEach(async () => {
+    await setPolicy(basePolicy);
+  });
+
+  afterAll(async () => {
+    if (createdComplaintIds.length > 0) {
+      await prisma.notification_outbox.deleteMany({ where: { complaint_id: { in: createdComplaintIds } } });
+      await prisma.notifications.deleteMany({ where: { entity_type: 'complaint', entity_id: { in: createdComplaintIds } } });
+      await prisma.audit_logs.deleteMany({ where: { entity_type: 'complaint', entity_id: { in: createdComplaintIds } } });
+      await prisma.complaint_escalation_events.deleteMany({ where: { complaint_id: { in: createdComplaintIds } } });
+      await prisma.complaint_status_history.deleteMany({ where: { complaint_id: { in: createdComplaintIds } } });
+      await prisma.complaints.deleteMany({ where: { id: { in: createdComplaintIds } } });
+    }
+    const orgIds = [orgA?.id, orgB?.id, orgZeroAdmin?.id, nodeA?.id].filter(Boolean);
+    if (orgIds.length > 0) {
+      await prisma.sla_rules.deleteMany({ where: { organization_id: { in: orgIds } } });
+    }
+    const userIds = [adminA?.id, adminB?.id, inactiveAdminA?.id, nodeAdminA?.id, staffA?.id, restrictedA?.id].filter(Boolean);
+    if (userIds.length > 0) {
+      await prisma.user_roles.deleteMany({ where: { user_id: { in: userIds } } });
+      await prisma.user_organizations.deleteMany({ where: { user_id: { in: userIds } } });
+      await prisma.users.deleteMany({ where: { id: { in: userIds } } });
+    }
+    if (recipientRole?.id) {
+      await prisma.role_permissions.deleteMany({ where: { role_id: recipientRole.id } });
+      await prisma.roles.delete({ where: { id: recipientRole.id } });
+    }
+    if (nodeA?.id) await prisma.organizations.delete({ where: { id: nodeA.id } });
+    if (orgB?.id) await prisma.organizations.delete({ where: { id: orgB.id } });
+    if (orgZeroAdmin?.id) await prisma.organizations.delete({ where: { id: orgZeroAdmin.id } });
+    if (orgA?.id) await prisma.organizations.delete({ where: { id: orgA.id } });
+  });
+
+  it('notifies active tenant-wide admin when an unassigned complaint escalates', async () => {
+    const { complaint } = await createTestComplaint(orgA.id);
+    expect(complaint.assigned_to_user_id).toBeUndefined();
+
+    const dueAt = new Date(complaint.slaDueAt);
+    await slaService.evaluateOrganizationSla(orgA.id, { now: dueAt });
+    await processOutbox();
+
+    const notifications = await prisma.notifications.findMany({
+      where: {
+        organization_id: orgA.id,
+        entity_id: complaint.id,
+        notification_type: 'complaint.escalated',
+      },
+    });
+
+    expect(notifications).toHaveLength(1);
+    expect(notifications[0].user_id).toBe(adminA.id);
+    expect(notifications[0].metadata).toMatchObject({ escalationLevel: 1 });
+  });
+
+  it('notifies assigned user only (not tenant admin) when an assigned complaint escalates', async () => {
+    const { complaint } = await createTestComplaint(orgA.id);
+    await complaintService.assignComplaint(
+      orgA.id,
+      complaint.id,
+      { assigneeUserId: staffA.id },
+      adminA.id,
+      scopeFor(adminA.id, orgA.id, { code: 'complaints.assign', orgUnitId: null })
+    );
+
+    const dueAt = new Date(complaint.slaDueAt);
+    await slaService.evaluateOrganizationSla(orgA.id, { now: dueAt });
+    await processOutbox();
+
+    const notifications = await prisma.notifications.findMany({
+      where: {
+        organization_id: orgA.id,
+        entity_id: complaint.id,
+        notification_type: 'complaint.escalated',
+      },
+    });
+
+    expect(notifications).toHaveLength(1);
+    expect(notifications[0].user_id).toBe(staffA.id);
+  });
+
+  it('falls back when the assigned user is inactive or no longer eligible', async () => {
+    const { complaint } = await createTestComplaint(orgA.id);
+    await prisma.complaints.update({
+      where: { id: complaint.id },
+      data: { assigned_to_user_id: inactiveAdminA.id },
+    });
+
+    await slaService.evaluateOrganizationSla(orgA.id, { now: new Date(complaint.slaDueAt) });
+    await processOutbox();
+
+    const notifications = await prisma.notifications.findMany({
+      where: { organization_id: orgA.id, entity_id: complaint.id, notification_type: 'complaint.escalated' },
+      select: { user_id: true },
+    });
+    expect(notifications.map((row) => row.user_id)).toEqual([adminA.id]);
+    expect(notifications.some((row) => row.user_id === inactiveAdminA.id)).toBe(false);
+  });
+
+  it('resolves recipients from configured permissions in any and all modes', async () => {
+    await setPolicy({
+      enabled: true,
+      permissionCodes: ['complaints.view_all', 'complaints.escalate'],
+      matchMode: 'any',
+    });
+    const anyCase = await createTestComplaint(orgA.id);
+    await slaService.evaluateOrganizationSla(orgA.id, { now: new Date(anyCase.complaint.slaDueAt) });
+    await processOutbox();
+    const anyRecipients = await prisma.notifications.findMany({
+      where: { organization_id: orgA.id, entity_id: anyCase.complaint.id, notification_type: 'complaint.escalated' },
+      select: { user_id: true },
+      orderBy: { user_id: 'asc' },
+    });
+    expect(anyRecipients.map((row) => row.user_id)).toEqual([adminA.id, restrictedA.id].sort((a, b) => a - b));
+
+    await setPolicy({
+      enabled: true,
+      permissionCodes: ['complaints.view_all', 'complaints.escalate'],
+      matchMode: 'all',
+    });
+    const allCase = await createTestComplaint(orgA.id);
+    await slaService.evaluateOrganizationSla(orgA.id, { now: new Date(allCase.complaint.slaDueAt) });
+    await processOutbox();
+    const allRecipients = await prisma.notifications.findMany({
+      where: { organization_id: orgA.id, entity_id: allCase.complaint.id, notification_type: 'complaint.escalated' },
+      select: { user_id: true },
+    });
+    expect(allRecipients.map((row) => row.user_id)).toEqual([adminA.id]);
+  });
+
+  it('fails closed for invalid policy configuration and missing policy', async () => {
+    await expect(organizationService.updateOrganization(String(orgA.id), {
+      notificationSettings: {
+        slaEscalation: { enabled: true, permissionCodes: ['unknown.permission'], matchMode: 'any' },
+      },
+    }, adminA.id)).rejects.toMatchObject({ statusCode: 422 });
+
+    const missingCase = await createTestComplaint(orgZeroAdmin.id);
+    const missingResult = await slaService.evaluateOrganizationSla(orgZeroAdmin.id, { now: new Date(missingCase.complaint.slaDueAt) });
+    expect(missingResult.escalated).toBe(1);
+    const missingAudit = await prisma.audit_logs.findFirst({
+      where: { entity_type: 'complaint', entity_id: missingCase.complaint.id, action: 'complaint.escalation_recipient_unresolved' },
+      orderBy: { id: 'desc' },
+    });
+    expect(missingAudit.metadata).toMatchObject({ unresolvedReason: 'no_assigned_user:policy_missing' });
+
+    await prisma.organizations.update({
+      where: { id: orgZeroAdmin.id },
+      data: { notification_settings: { slaEscalation: { enabled: true, permissionCodes: ['complaints.view_all'], matchMode: 'xor' } } },
+    });
+    const { complaint } = await createTestComplaint(orgZeroAdmin.id);
+    const result = await slaService.evaluateOrganizationSla(orgZeroAdmin.id, { now: new Date(complaint.slaDueAt) });
+    expect(result.escalated).toBe(1);
+    const audit = await prisma.audit_logs.findFirst({
+      where: { entity_type: 'complaint', entity_id: complaint.id, action: 'complaint.escalation_recipient_unresolved' },
+      orderBy: { id: 'desc' },
+    });
+    expect(audit.metadata).toMatchObject({ unresolvedReason: 'no_assigned_user:policy_invalid' });
+    expect(await prisma.notifications.count({ where: { entity_id: complaint.id } })).toBe(0);
+  });
+
+  it('queues escalation notifications atomically before delivery', async () => {
+    const { complaint } = await createTestComplaint(orgA.id);
+    await slaService.evaluateOrganizationSla(orgA.id, { now: new Date(complaint.slaDueAt) });
+
+    const outbox = await prisma.notification_outbox.findMany({
+      where: { complaint_id: complaint.id },
+    });
+    expect(outbox).toHaveLength(1);
+    expect(outbox[0]).toMatchObject({ status: 'pending', recipient_user_id: adminA.id, attempt_count: 0 });
+    expect(await prisma.notifications.count({
+      where: { entity_id: complaint.id, notification_type: 'complaint.escalated' },
+    })).toBe(0);
+
+    await processOutbox();
+    expect(await prisma.notifications.count({
+      where: { entity_id: complaint.id, notification_type: 'complaint.escalated' },
+    })).toBe(1);
+  });
+
+  it('preserves escalation across delivery failure and retries, then records exhaustion', async () => {
+    const retryCase = await createTestComplaint(orgA.id);
+    await slaService.evaluateOrganizationSla(orgA.id, { now: new Date(retryCase.complaint.slaDueAt) });
+    const upsertSpy = jest.spyOn(prisma.notifications, 'upsert').mockRejectedValueOnce(new Error('synthetic delivery failure'));
+    const failedAttempt = await notificationService.processNextNotificationOutbox();
+    expect(failedAttempt).toBe('retry');
+    upsertSpy.mockRestore();
+
+    const retryOutbox = await prisma.notification_outbox.findFirst({ where: { complaint_id: retryCase.complaint.id } });
+    expect(retryOutbox).toMatchObject({ status: 'pending', attempt_count: 1 });
+    await prisma.notification_outbox.update({ where: { id: retryOutbox.id }, data: { next_attempt_at: new Date() } });
+    expect(await notificationService.processNextNotificationOutbox()).toBe('delivered');
+    expect((await prisma.complaints.findUnique({ where: { id: retryCase.complaint.id } })).escalation_level).toBe(1);
+
+    const exhaustedCase = await createTestComplaint(orgA.id);
+    await slaService.evaluateOrganizationSla(orgA.id, { now: new Date(exhaustedCase.complaint.slaDueAt) });
+    const exhaustedOutbox = await prisma.notification_outbox.findFirst({ where: { complaint_id: exhaustedCase.complaint.id } });
+    await prisma.notification_outbox.update({
+      where: { id: exhaustedOutbox.id },
+      data: { attempt_count: 4, next_attempt_at: new Date() },
+    });
+    const exhaustedSpy = jest.spyOn(prisma.notifications, 'upsert').mockRejectedValueOnce(new Error('synthetic exhausted failure'));
+    const exhaustedAttempt = await notificationService.processNextNotificationOutbox();
+    exhaustedSpy.mockRestore();
+    expect(exhaustedAttempt).toBe('failed');
+    const exhaustedRow = await prisma.notification_outbox.findUnique({ where: { id: exhaustedOutbox.id } });
+    expect(exhaustedRow).toMatchObject({ status: 'failed', attempt_count: 5 });
+    expect((await prisma.complaints.findUnique({ where: { id: exhaustedCase.complaint.id } })).escalation_level).toBe(1);
+  });
+
+  it('does not duplicate outbox notifications under concurrent evaluations', async () => {
+    const { complaint } = await createTestComplaint(orgA.id);
+    const dueAt = new Date(complaint.slaDueAt);
+    await Promise.all([
+      slaService.evaluateOrganizationSla(orgA.id, { now: dueAt }),
+      slaService.evaluateOrganizationSla(orgA.id, { now: dueAt }),
+    ]);
+    expect(await prisma.notification_outbox.count({ where: { complaint_id: complaint.id } })).toBe(1);
+    await processOutbox();
+    expect(await prisma.notifications.count({
+      where: { entity_id: complaint.id, notification_type: 'complaint.escalated' },
+    })).toBe(1);
+  });
+
+  it('does not duplicate fallback notifications on repeated SLA evaluations', async () => {
+    const { complaint } = await createTestComplaint(orgA.id);
+    const dueAt = new Date(complaint.slaDueAt);
+
+    await slaService.evaluateOrganizationSla(orgA.id, { now: dueAt });
+    await processOutbox();
+    const afterFirst = await prisma.notifications.count({
+      where: {
+        organization_id: orgA.id,
+        entity_id: complaint.id,
+        user_id: adminA.id,
+        notification_type: 'complaint.escalated',
+      },
+    });
+    expect(afterFirst).toBe(1);
+
+    // Repeated evaluation at same due time
+    await slaService.evaluateOrganizationSla(orgA.id, { now: dueAt });
+    await processOutbox();
+    const afterSecond = await prisma.notifications.count({
+      where: {
+        organization_id: orgA.id,
+        entity_id: complaint.id,
+        user_id: adminA.id,
+        notification_type: 'complaint.escalated',
+      },
+    });
+    expect(afterSecond).toBe(1);
+  });
+
+  it('preserves multi-tenant isolation: unassigned escalation in Org A does not notify admin of Org B', async () => {
+    const { complaint } = await createTestComplaint(orgA.id);
+    const dueAt = new Date(complaint.slaDueAt);
+
+    await slaService.evaluateOrganizationSla(orgA.id, { now: dueAt });
+    await processOutbox();
+
+    const orgBNotifications = await prisma.notifications.findMany({
+      where: {
+        user_id: adminB.id,
+        entity_id: complaint.id,
+      },
+    });
+    expect(orgBNotifications).toHaveLength(0);
+  });
+
+  it('excludes inactive administrators and node-scoped administrators from fallback dispatch', async () => {
+    const { complaint } = await createTestComplaint(orgA.id);
+    const dueAt = new Date(complaint.slaDueAt);
+
+    await slaService.evaluateOrganizationSla(orgA.id, { now: dueAt });
+    await processOutbox();
+
+    const inactiveAdminNotifications = await prisma.notifications.findMany({
+      where: {
+        user_id: inactiveAdminA.id,
+        entity_id: complaint.id,
+        notification_type: 'complaint.escalated',
+      },
+    });
+    expect(inactiveAdminNotifications).toHaveLength(0);
+
+    const nodeAdminNotifications = await prisma.notifications.findMany({
+      where: {
+        user_id: nodeAdminA.id,
+        entity_id: complaint.id,
+        notification_type: 'complaint.escalated',
+      },
+    });
+    expect(nodeAdminNotifications).toHaveLength(0);
+  });
+
+  it('routes to tenant admin when complaint is assigned to an org node but unassigned to a user', async () => {
+    const { complaint } = await createTestComplaint(orgA.id);
+    await complaintService.assignComplaint(
+      orgA.id,
+      complaint.id,
+      { assigneeOrganizationId: nodeA.id },
+      adminA.id,
+      scopeFor(adminA.id, orgA.id, { code: 'complaints.assign', orgUnitId: null })
+    );
+
+    const dueAt = new Date(complaint.slaDueAt);
+    await slaService.evaluateOrganizationSla(orgA.id, { now: dueAt });
+    await processOutbox();
+
+    const notifications = await prisma.notifications.findMany({
+      where: {
+        organization_id: orgA.id,
+        entity_id: complaint.id,
+        notification_type: 'complaint.escalated',
+      },
+    });
+
+    expect(notifications).toHaveLength(1);
+    expect(notifications[0].user_id).toBe(adminA.id);
+  });
+
+  it('succeeds without throwing when an organization has zero eligible administrators', async () => {
+    const { complaint } = await createTestComplaint(orgZeroAdmin.id);
+    const dueAt = new Date(complaint.slaDueAt);
+
+    const result = await slaService.evaluateOrganizationSla(orgZeroAdmin.id, { now: dueAt });
+    expect(result.escalated).toBe(1);
+
+    const updatedComplaint = await prisma.complaints.findUnique({
+      where: { id: complaint.id },
+    });
+    expect(updatedComplaint.escalation_level).toBe(1);
+
+    const notifications = await prisma.notifications.findMany({
+      where: { entity_id: complaint.id },
+    });
+    expect(notifications).toHaveLength(0);
   });
 });

@@ -44,6 +44,21 @@ export default function OrganizationPage() {
       };
     });
 
+  const slaPolicy = (data?.notificationSettings as Record<string, any> | undefined)?.slaEscalation as {
+    enabled?: boolean;
+    permissionCodes?: string[];
+    matchMode?: 'any' | 'all';
+  } | null | undefined;
+
+  const updateSlaPolicy = (patch: Record<string, unknown>) => {
+    changeSettings('slaEscalation', {
+      enabled: true,
+      permissionCodes: slaPolicy?.permissionCodes || [],
+      matchMode: slaPolicy?.matchMode || 'any',
+      ...patch,
+    });
+  };
+
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!data) return;
@@ -267,6 +282,57 @@ export default function OrganizationPage() {
                       onChange={(e) => changeSettings('whatsapp', { ...((data.notificationSettings as any)?.whatsapp || {}), sendPin: e.target.checked })}
                     />
                   </div>
+                </>
+              )}
+            </div>
+
+            <hr style={{ margin: '32px 0', borderColor: 'var(--color-border)' }} />
+
+            <div style={{ marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '1.1rem', color: 'var(--color-text-strong)', marginBottom: '4px' }}>SLA Escalation Recipients</h3>
+              <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
+                اختر صلاحيات RBAC الحالية التي تؤهل المستخدمين ذوي النطاق العام داخل المؤسسة لاستلام تصعيدات SLA. لا يتم استخدام اسم الدور لتحديد المستلمين.
+              </p>
+            </div>
+
+            <div className="admin-form-grid">
+              <div className="field admin-field--full">
+                <CheckboxRow
+                  label="تفعيل المستلمين الاحتياطيين لتصعيدات SLA"
+                  checked={Boolean(slaPolicy?.enabled)}
+                  onChange={(e) => changeSettings('slaEscalation', e.target.checked ? {
+                    enabled: true,
+                    permissionCodes: slaPolicy?.permissionCodes || [],
+                    matchMode: slaPolicy?.matchMode || 'any',
+                  } : null)}
+                />
+              </div>
+
+              {slaPolicy?.enabled && (
+                <>
+                  <label className="field admin-field--full">
+                    رموز الصلاحيات (مفصولة بفواصل)
+                    <input
+                      dir="ltr"
+                      value={(slaPolicy.permissionCodes || []).join(', ')}
+                      onChange={(e) => updateSlaPolicy({
+                        permissionCodes: e.target.value.split(',').map((code) => code.trim()).filter(Boolean),
+                      })}
+                      placeholder="complaints.escalate"
+                    />
+                    <small>يجب أن تكون الرموز موجودة في كتالوج الصلاحيات وليست صلاحيات منصة.</small>
+                  </label>
+
+                  <label className="field">
+                    طريقة المطابقة
+                    <select
+                      value={slaPolicy.matchMode || 'any'}
+                      onChange={(e) => updateSlaPolicy({ matchMode: e.target.value })}
+                    >
+                      <option value="any">أي صلاحية</option>
+                      <option value="all">كل الصلاحيات</option>
+                    </select>
+                  </label>
                 </>
               )}
             </div>

@@ -1,4 +1,7 @@
+import { Prisma } from '@prisma/client';
 import prisma from '../prisma/client';
+
+type RbacClient = typeof prisma | Prisma.TransactionClient;
 
 export interface EffectivePermission {
   code: string;
@@ -106,6 +109,66 @@ export const userHasPermission = async (
     if (orgUnitId === null) return true;
     return permission.orgUnitId === null || permission.orgUnitId === orgUnitId;
   });
+};
+
+/**
+ * Resolves active tenant-wide users from the same RBAC graph used by request
+ * authorization. Node-scoped assignments are deliberately excluded because
+ * this helper is only for tenant-level recipient policies.
+ */
+export const findTenantWideUsersWithPermissions = async (
+  client: RbacClient,
+  organizationId: number,
+  permissionCodes: string[],
+  matchMode: 'any' | 'all'
+): Promise<number[]> => {
+  const assignments = await client.user_roles.findMany({
+    where: {
+      organization_id: organizationId,
+      organization_node_id: null,
+      users: {
+        is_active: true,
+        user_organizations: {
+          some: { organization_id: organizationId, is_active: true },
+        },
+      },
+      roles: {
+        is_active: true,
+        scope: 'tenant',
+        role_permissions: {
+          some: {
+            permissions: {
+              code: { in: permissionCodes },
+              module: { not: 'platform' },
+            },
+          },
+        },
+      },
+    },
+    select: {
+      user_id: true,
+      roles: {
+        select: {
+          role_permissions: {
+            select: { permissions: { select: { code: true } } },
+          },
+        },
+      },
+    },
+  });
+
+  const permissionsByUser = new Map<number, Set<string>>();
+  for (const assignment of assignments) {
+    const granted = permissionsByUser.get(assignment.user_id) || new Set<string>();
+    for (const entry of assignment.roles.role_permissions) granted.add(entry.permissions.code);
+    permissionsByUser.set(assignment.user_id, granted);
+  }
+
+  return [...permissionsByUser.entries()]
+    .filter(([, granted]) => matchMode === 'any'
+      ? permissionCodes.some((code) => granted.has(code))
+      : permissionCodes.every((code) => granted.has(code)))
+    .map(([userId]) => userId);
 };
 
 export { getUserRoleAssignments };

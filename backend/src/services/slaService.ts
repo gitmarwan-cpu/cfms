@@ -2,7 +2,9 @@ import { Prisma } from '@prisma/client';
 import prisma from '../prisma/client';
 import ApiError from '../utils/ApiError';
 import { recordAuditEvent } from './auditService';
-import { createNotification } from './notificationService';
+import { enqueueNotificationOutbox } from './notificationService';
+import { findTenantWideUsersWithPermissions } from './rbacService';
+import { parseSlaEscalationPolicy } from './slaEscalationPolicy';
 import { assertComplaintActorScopeTenant, ComplaintActorScope, hasNodePermission } from './complaintService';
 
 type DatabaseClient = typeof prisma | Prisma.TransactionClient;
@@ -487,20 +489,80 @@ const notifyEscalation = async (
     assigned_to_organization_id?: number | null;
   },
   toLevel: number,
-  reason: EscalationReason
+  reason: EscalationReason,
+  actorUserId: number | null
 ) => {
-  let userId = complaint.assigned_to_user_id;
-  if (userId === null) return;
-  await createNotification(client, {
-    organizationId,
-    userId,
-    notificationType: 'complaint.escalated',
-    title: 'تصعيد شكوى',
-    message: `تم تصعيد الشكوى إلى المستوى ${toLevel}`,
-    entityType: 'complaint',
-    entityId: complaint.id,
-    metadata: { escalationLevel: toLevel, reason },
-  });
+  let unresolvedReason: string | null = null;
+  let recipientUserIds: number[] = [];
+
+  if (complaint.assigned_to_user_id !== null) {
+    const assignedUser = await client.users.findFirst({
+      where: {
+        id: complaint.assigned_to_user_id,
+        is_active: true,
+        user_organizations: {
+          some: { organization_id: organizationId, is_active: true },
+        },
+      },
+      select: { id: true },
+    });
+    if (assignedUser) recipientUserIds = [assignedUser.id];
+    else unresolvedReason = 'assigned_user_ineligible';
+  } else {
+    unresolvedReason = 'no_assigned_user';
+  }
+
+  if (recipientUserIds.length === 0) {
+    const organization = await client.organizations.findUnique({
+      where: { id: organizationId },
+      select: { notification_settings: true },
+    });
+    const settings = organization?.notification_settings;
+    const policyValue = settings && typeof settings === 'object' && !Array.isArray(settings)
+      ? (settings as Record<string, unknown>).slaEscalation
+      : undefined;
+    const policyResult = parseSlaEscalationPolicy(policyValue);
+
+    if (policyResult.kind === 'missing') unresolvedReason = `${unresolvedReason || 'no_assigned_user'}:policy_missing`;
+    else if (policyResult.kind === 'invalid') unresolvedReason = `${unresolvedReason || 'no_assigned_user'}:policy_invalid`;
+    else if (!policyResult.policy.enabled) unresolvedReason = `${unresolvedReason || 'no_assigned_user'}:policy_disabled`;
+    else {
+      recipientUserIds = await findTenantWideUsersWithPermissions(
+        client,
+        organizationId,
+        policyResult.policy.permissionCodes,
+        policyResult.policy.matchMode
+      );
+      if (recipientUserIds.length === 0) unresolvedReason = `${unresolvedReason || 'no_assigned_user'}:no_eligible_recipients`;
+    }
+  }
+
+  if (recipientUserIds.length === 0) {
+    await recordAuditEvent(client, {
+      organizationId,
+      actorUserId,
+      action: 'complaint.escalation_recipient_unresolved',
+      entityType: 'complaint',
+      entityId: complaint.id,
+      metadata: { escalationLevel: toLevel, reason, unresolvedReason },
+    });
+    return;
+  }
+
+  for (const userId of [...new Set(recipientUserIds)]) {
+    await enqueueNotificationOutbox(client, {
+      organizationId,
+      userId,
+      complaintId: complaint.id,
+      idempotencyKey: `sla-escalation:${organizationId}:${complaint.id}:${toLevel}:${userId}`,
+      notificationType: 'complaint.escalated',
+      title: 'تصعيد شكوى',
+      message: `تم تصعيد الشكوى إلى المستوى ${toLevel}`,
+      entityType: 'complaint',
+      entityId: complaint.id,
+      metadata: { escalationLevel: toLevel, reason },
+    });
+  }
 };
 
 const persistEscalation = async (
@@ -557,7 +619,7 @@ const persistEscalation = async (
     entityId: complaint.id,
     metadata: { fromLevel, toLevel, reason },
   });
-  await notifyEscalation(client, organizationId, complaint, toLevel, reason);
+  await notifyEscalation(client, organizationId, complaint, toLevel, reason, actorUserId);
 };
 
 export const evaluateOrganizationSla = async (

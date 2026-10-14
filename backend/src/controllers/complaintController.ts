@@ -122,4 +122,17 @@ const regenerateTrackingPin = catchAsync(async (req: AppRequest, res: AppRespons
   res.status(200).json({ success: true, message: `تم إنشاء رمز متابعة جديد وإرساله عبر ${result.channel}`, data: result });
 });
 
-export { submitPublicComplaint, trackPublicComplaint, createStaffComplaint, listComplaints, getComplaint, downloadComplaintAttachment, listComplaintTransitions, updateComplaintStatus, assignComplaint, escalateComplaint, regenerateTrackingPin };
+const addComplaintAttachments = catchAsync(async (req: AppRequest, res: AppResponse) => {
+  const actorScope = complaintService.resolveComplaintActorScope(req.organizationId, req.user);
+  const attachments = await complaintService.addComplaintAttachments(
+    req.organizationId,
+    req.params.id,
+    req.files,
+    resolveComplaintVisibility(req),
+    actorScope,
+    req.user!.id
+  );
+  res.status(201).json({ success: true, message: 'تم رفع المرفقات بنجاح', data: attachments });
+});
+
+export { submitPublicComplaint, trackPublicComplaint, createStaffComplaint, listComplaints, getComplaint, downloadComplaintAttachment, listComplaintTransitions, updateComplaintStatus, assignComplaint, escalateComplaint, regenerateTrackingPin, addComplaintAttachments };

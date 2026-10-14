@@ -2,7 +2,7 @@ import express from 'express';
 import { param } from 'express-validator';
 import * as complaintController from '../controllers/complaintController';
 import validate from '../middlewares/validate';
-import upload, { validateUploadedFileSignatures } from '../middlewares/upload';
+import upload, { cleanupUploadedFilesOnError, validateUploadedFileSignatures } from '../middlewares/upload';
 import { authenticate, authorizeAnyPermission, authorizePermission, authorizePermissionForBodyValue } from '../middlewares/auth';
 import { resolveAuthenticatedTenant } from '../middlewares/tenant';
 import { createComplaintValidation, listComplaintsValidation, complaintIdParamValidation, updateStatusValidation, assignmentValidation, escalateComplaintValidation } from '../validations/complaintValidation';
@@ -45,5 +45,17 @@ router.patch(
 router.patch('/:id/assignment', authorizePermission('complaints.assign'), validate(assignmentValidation), complaintController.assignComplaint);
 router.post('/:id/escalate', authorizePermission('complaints.escalate'), validate(escalateComplaintValidation), complaintController.escalateComplaint);
 router.post('/:id/regenerate-pin', authorizePermission('complaints.assign'), validate(complaintIdParamValidation), complaintController.regenerateTrackingPin);
+// Post-creation attachment upload (GAP-02 / PADR-02): caseworkers with assign or view_own may
+// supplement an existing complaint with additional files. Tenant-filtered lookup plus explicit
+// read-scope and node-aware assignment authorization are enforced in the service layer (never from request params).
+router.post(
+  '/:id/attachments',
+  authorizeAnyPermission('complaints.assign', 'complaints.view_own'),
+  upload.array('attachments', 3),
+  validateUploadedFileSignatures,
+  validate(complaintIdParamValidation),
+  complaintController.addComplaintAttachments,
+  cleanupUploadedFilesOnError
+);
 
 export default router;

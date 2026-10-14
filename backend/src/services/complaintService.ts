@@ -10,7 +10,7 @@ import { sendComplaintReceipt, sendTrackingPinUpdate } from './whatsappService';
 import generateReferenceCode from '../utils/generateReferenceCode';
 import { generatePin, hashPin, verifyPin } from '../utils/pin';
 import { resolveActiveItem } from './referenceDataService';
-import { resolveStoredUploadPath } from '../middlewares/upload';
+import { cleanupUploadedFiles, resolveStoredUploadPath } from '../middlewares/upload';
 
 type DatabaseClient = typeof prisma | Prisma.TransactionClient;
 type IdInput = string | number | null | undefined;
@@ -1411,4 +1411,102 @@ export const trackComplaint = async (organizationId: IdInput, referenceCode: str
     submittedAt: complaint.create_date,
     lastUpdatedAt: complaint.write_date,
   };
+};
+
+/**
+ * GAP-02 / PADR-02: Post-creation attachment upload.
+ *
+ * Adds one or more files to an existing complaint. A tenant-filtered lookup is followed by
+ * explicit read-scope and node-aware assignment authorization, ensuring the caller can only attach
+ * files to complaints within their permitted scope. On DB failure the newly written disk files
+ * are removed; pre-existing files on the complaint are never touched.
+ *
+ * Authorization: complaints.assign OR complaints.view_own (enforced at route layer).
+ * Tenant isolation: organizationId is always derived server-side, never from the client.
+ * No audit action string is emitted (PADR-02 prohibits inventing new audit actions).
+ */
+export const addComplaintAttachments = async (
+  organizationId: IdInput,
+  complaintId: IdInput,
+  files: UploadedComplaintFile[] | Express.Multer.File[] | unknown,
+  visibility: ComplaintVisibility,
+  actorScope: ComplaintActorScope,
+  uploadedByUserId: IdInput
+): Promise<{ id: number; complaintId: number; originalName: string; storedFileName: string; mimeType: string; sizeBytes: number; createDate: Date; writeDate: Date; createdAt: Date }[]> => {
+  const uploadedFiles = Array.isArray(files) ? (files as UploadedComplaintFile[]) : [];
+  if (uploadedFiles.length === 0) throw new ApiError(400, 'يجب تحديد ملف واحد على الأقل');
+  let created: Awaited<ReturnType<typeof prisma.complaint_attachments.create>>[] = [];
+
+  try {
+    const parsedOrganizationId = requireOrganizationId(organizationId);
+    const parsedComplaintId = requireComplaintId(complaintId);
+    const parsedUploadedByUserId = uploadedByUserId === null || uploadedByUserId === undefined
+      ? null
+      : toPositiveInteger(uploadedByUserId);
+    assertComplaintActorScopeTenant(parsedOrganizationId, actorScope);
+
+    // Query only within the trusted tenant, then apply either read visibility or the
+    // node-scoped assignment authority. Out-of-scope records remain indistinguishable from
+    // nonexistent records and return 404.
+    const complaint = await prisma.complaints.findFirst({
+      where: { id: parsedComplaintId, organization_id: parsedOrganizationId },
+      select: { id: true, assigned_to_user_id: true, assigned_to_organization_id: true },
+    });
+    if (!complaint) throw new ApiError(404, NOT_FOUND_ERROR);
+
+    const visibleByReadScope = visibility.viewAll
+      || (visibility.viewOwn && visibility.viewerUserId === complaint.assigned_to_user_id)
+      || (complaint.assigned_to_organization_id !== null
+        && visibility.allowedNodeIds.includes(complaint.assigned_to_organization_id));
+    const authorizedByAssignment = hasNodePermission(
+      actorScope,
+      'complaints.assign',
+      complaint.assigned_to_organization_id
+    );
+    if (!visibleByReadScope && !authorizedByAssignment) throw new ApiError(404, NOT_FOUND_ERROR);
+
+    const now = new Date();
+    created = await prisma.$transaction(async (tx) => {
+      const rows = await Promise.all(
+        uploadedFiles.map((file) =>
+          tx.complaint_attachments.create({
+            data: {
+              complaint_id: complaint.id,
+              original_name: file.originalname,
+              stored_file_name: file.filename,
+              mime_type: file.mimetype,
+              size_bytes: file.size,
+              create_date: now,
+              write_date: now,
+              create_uid: parsedUploadedByUserId,
+              write_uid: parsedUploadedByUserId,
+            },
+          })
+        )
+      );
+
+      await tx.complaints.update({
+        where: { id: complaint.id },
+        data: { write_date: now, write_uid: parsedUploadedByUserId },
+      });
+
+      return rows;
+    });
+  } catch (err) {
+    // Clean up only files created by this request; the helper is idempotent across service and route cleanup.
+    await cleanupUploadedFiles(uploadedFiles);
+    throw err;
+  }
+
+  return created.map((attachment) => ({
+    id: attachment.id,
+    complaintId: attachment.complaint_id,
+    originalName: attachment.original_name,
+    storedFileName: attachment.stored_file_name,
+    mimeType: attachment.mime_type,
+    sizeBytes: attachment.size_bytes,
+    createDate: attachment.create_date,
+    writeDate: attachment.write_date,
+    createdAt: attachment.create_date,
+  }));
 };

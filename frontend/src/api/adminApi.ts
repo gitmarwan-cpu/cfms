@@ -275,6 +275,21 @@ export const downloadComplaintAttachment = async (
   return res.data;
 };
 
+export const uploadComplaintAttachments = async (
+  complaintId: number,
+  files: File[]
+): Promise<Attachment[]> => {
+  const formData = new FormData();
+  files.forEach((file) => formData.append('attachments', file));
+  const res = await axiosClient.post<{ success: boolean; data: Attachment[] }>(
+    `/complaints/${complaintId}/attachments`,
+    formData,
+    { headers: { 'Content-Type': 'multipart/form-data' } }
+  );
+  return res.data.data;
+};
+
+
 
 // ── Notification Types ───────────────────────────────────────────────
 

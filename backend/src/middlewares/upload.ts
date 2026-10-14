@@ -18,6 +18,66 @@ const MIME_TO_EXTENSION: Record<string, string> = {
 const uploadDirectory = process.env.CFMS_UPLOAD_DIR || path.join(process.cwd(), 'uploads');
 fs.mkdirSync(uploadDirectory, { recursive: true });
 
+const TRACKED_UPLOAD_NAMES = Symbol('cfmsTrackedUploadNames');
+const CLEANED_UPLOAD_NAMES = Symbol('cfmsCleanedUploadNames');
+const CLEANED_REQUEST_UPLOADS = Symbol('cfmsCleanedRequestUploads');
+
+type UploadRequest = {
+  files?: unknown;
+  [TRACKED_UPLOAD_NAMES]?: Set<string>;
+  [CLEANED_REQUEST_UPLOADS]?: boolean;
+};
+
+const getOrCreateSet = (target: object, key: symbol): Set<string> => {
+  const existing = (target as Record<symbol, unknown>)[key];
+  if (existing instanceof Set) return existing as Set<string>;
+  const created = new Set<string>();
+  Object.defineProperty(target, key, { configurable: true, value: created });
+  return created;
+};
+
+const cleanupStoredUploadNames = async (names: Iterable<string>, cleanedNames: Set<string>): Promise<void> => {
+  const pendingNames = [...new Set(names)].filter((name) => {
+    if (!name || cleanedNames.has(name)) return false;
+    cleanedNames.add(name);
+    return true;
+  });
+
+  await Promise.all(
+    pendingNames.map((name) => {
+      const storedPath = resolveStoredUploadPath(name);
+      return storedPath ? fsPromises.unlink(storedPath).catch(() => undefined) : undefined;
+    })
+  );
+};
+
+export const cleanupUploadedFiles = async (files: unknown): Promise<void> => {
+  if (!Array.isArray(files)) return;
+  const cleanedNames = getOrCreateSet(files, CLEANED_UPLOAD_NAMES);
+  const names = files.flatMap((file: any) => (typeof file?.filename === 'string' ? [file.filename] : []));
+  await cleanupStoredUploadNames(names, cleanedNames);
+};
+
+export const cleanupRequestUploadedFiles = async (req: UploadRequest): Promise<void> => {
+  if (req[CLEANED_REQUEST_UPLOADS]) return;
+  req[CLEANED_REQUEST_UPLOADS] = true;
+
+  const files = Array.isArray(req.files) ? req.files : [];
+  const cleanedNames = getOrCreateSet(files, CLEANED_UPLOAD_NAMES);
+  const trackedNames = req[TRACKED_UPLOAD_NAMES] || new Set<string>();
+  const fileNames = files.flatMap((file: any) => (typeof file?.filename === 'string' ? [file.filename] : []));
+  await cleanupStoredUploadNames([...trackedNames, ...fileNames], cleanedNames);
+};
+
+export const cleanupUploadedFilesOnError = (
+  error: unknown,
+  req: UploadRequest,
+  res: unknown,
+  next: (error?: unknown) => void
+): void => {
+  void cleanupRequestUploadedFiles(req).finally(() => next(error));
+};
+
 export const resolveStoredUploadPath = (storedFileName: string): string | null => {
   if (!storedFileName || storedFileName.includes('\0') || path.basename(storedFileName) !== storedFileName) {
     return null;
@@ -37,7 +97,9 @@ const storage = multer.diskStorage({
   filename: (req: any, file: { mimetype: string }, cb: (error: Error | null, filename: string) => void) => {
     const uniqueSuffix = crypto.randomBytes(16).toString('hex');
     const ext = MIME_TO_EXTENSION[file.mimetype] || '';
-    cb(null, `${Date.now()}-${uniqueSuffix}${ext}`);
+    const filename = `${Date.now()}-${uniqueSuffix}${ext}`;
+    getOrCreateSet(req, TRACKED_UPLOAD_NAMES).add(filename);
+    cb(null, filename);
   },
 });
 
@@ -65,10 +127,10 @@ export const validateUploadedFileSignatures = async (req: any, res: any, next: (
       next();
       return;
     }
-    await Promise.all(files.map((file: { path?: string }) => (file.path ? fsPromises.unlink(file.path).catch(() => undefined) : undefined)));
+    await cleanupUploadedFiles(req.files);
     next(new ApiError(422, 'محتوى أحد الملفات لا يطابق نوعه المعلن'));
   } catch {
-    await Promise.all(files.map((file: { path?: string }) => (file.path ? fsPromises.unlink(file.path).catch(() => undefined) : undefined)));
+    await cleanupUploadedFiles(req.files);
     next(new ApiError(422, 'تعذر التحقق من محتوى الملفات المرفوعة'));
   }
 };

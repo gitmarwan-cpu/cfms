@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   getComplaint,
@@ -7,6 +7,7 @@ import {
   updateComplaintAssignment,
   escalateComplaint,
   downloadComplaintAttachment,
+  uploadComplaintAttachments,
   fetchOrganizationNodes,
   type AdminComplaintDetail,
   type ComplaintStatus,
@@ -18,7 +19,7 @@ import type { ApiClientError } from '../../api/axiosClient';
 import AuditMetadata from '../../components/admin/AuditMetadata';
 import { useAuth } from '../../context/AuthContext';
 import { formatDateTime } from '../../utils/dateTime';
-import { AlertTriangle, Download, Paperclip } from 'lucide-react';
+import { AlertTriangle, Download, Paperclip, Upload } from 'lucide-react';
 
 const STATUS_LABELS: Record<ComplaintStatus, string> = {
   new: 'جديد',
@@ -48,6 +49,7 @@ export default function ComplaintDetailPage() {
   // Attachment download still requires `complaints.view_all` on the backend (unchanged contract):
   // do not offer the action when it would result in a 403.
   const canDownloadAttachments = organizationId !== null && organizationId !== undefined && (hasPermission('complaints.view_all', organizationId) || hasPermission('complaints.view_own', organizationId));
+  const canUploadAttachments = organizationId !== null && organizationId !== undefined && (hasPermission('complaints.assign', organizationId) || hasPermission('complaints.view_own', organizationId));
   const [data, setData] = useState<AdminComplaintDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -77,6 +79,11 @@ export default function ComplaintDetailPage() {
   const [organizationNodes, setOrganizationNodes] = useState<OrganizationNodeDto[]>([]);
   const [downloadingAttachmentId, setDownloadingAttachmentId] = useState<number | null>(null);
   const [attachmentError, setAttachmentError] = useState('');
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [uploadSaving, setUploadSaving] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const [uploadSuccess, setUploadSuccess] = useState('');
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const loadData = useCallback(() => {
     if (!id) return;
@@ -217,6 +224,56 @@ export default function ComplaintDetailPage() {
       setAttachmentError(apiErr.message || 'تعذر تنزيل المرفق');
     } finally {
       setDownloadingAttachmentId(null);
+    }
+  };
+
+  const handleFileSelection = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setUploadError('');
+    setUploadSuccess('');
+    const files = Array.from(e.target.files || []);
+    if (files.length > 3) {
+      setUploadError('يمكن رفع 3 ملفات كحد أقصى في كل مرة');
+      setSelectedFiles([]);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+    const maxSizeBytes = 5 * 1024 * 1024;
+    const oversized = files.find((f) => f.size > maxSizeBytes);
+    if (oversized) {
+      setUploadError(`حجم الملف ${oversized.name} يتجاوز الحد المسموح (5 ميجابايت)`);
+    }
+    setSelectedFiles(files);
+  };
+
+  const handleUploadAttachments = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!data || selectedFiles.length === 0) return;
+    if (selectedFiles.length > 3) {
+      setUploadError('يمكن رفع 3 ملفات كحد أقصى في كل مرة');
+      return;
+    }
+    const maxSizeBytes = 5 * 1024 * 1024;
+    const oversized = selectedFiles.find((f) => f.size > maxSizeBytes);
+    if (oversized) {
+      setUploadError(`حجم الملف ${oversized.name} يتجاوز الحد المسموح (5 ميجابايت)`);
+      return;
+    }
+    setUploadError('');
+    setUploadSuccess('');
+    setUploadSaving(true);
+    try {
+      await uploadComplaintAttachments(data.id, selectedFiles);
+      setUploadSuccess('تم رفع المرفقات بنجاح');
+      setSelectedFiles([]);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      loadData();
+    } catch (err) {
+      const apiErr = err as ApiClientError;
+      setUploadError(apiErr.message || 'حدث خطأ أثناء رفع المرفقات');
+    } finally {
+      setUploadSaving(false);
     }
   };
 
@@ -384,11 +441,12 @@ export default function ComplaintDetailPage() {
               )}
 
               {/* Attachments */}
-              {data.attachments.length > 0 && (
+              {(data.attachments.length > 0 || canUploadAttachments) && (
                 <div className="cd-section">
                   <h3 className="cd-section-title">المرفقات</h3>
                   {attachmentError && <div className="alert alert-danger">{attachmentError}</div>}
-                  <ul className="cd-attachment-list">
+                  {data.attachments.length > 0 ? (
+                    <ul className="cd-attachment-list">
                     {data.attachments.map((att) => (
                       <li key={att.id} className="cd-attachment">
                         <Paperclip size={14} aria-hidden="true" className="cd-attachment-icon" /> {att.originalName}
@@ -410,6 +468,37 @@ export default function ComplaintDetailPage() {
                       </li>
                     ))}
                   </ul>
+                  ) : (
+                    <div className="cd-timeline-note" style={{ marginBottom: '8px' }}>لا توجد مرفقات حالياً.</div>
+                  )}
+
+                  {canUploadAttachments && (
+                    <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: data.attachments.length > 0 ? '1px solid var(--color-border, #e5e7eb)' : 'none' }}>
+                      {uploadError && <div className="alert alert-danger cd-alert-sm">{uploadError}</div>}
+                      {uploadSuccess && <div className="alert alert-success cd-alert-sm">{uploadSuccess}</div>}
+                      <form onSubmit={handleUploadAttachments} className="cd-inline" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
+                        <input
+                          id="newAttachmentsInput"
+                          ref={fileInputRef}
+                          type="file"
+                          multiple
+                          accept=".jpg,.jpeg,.png,.webp,.pdf"
+                          onChange={handleFileSelection}
+                          disabled={uploadSaving}
+                          style={{ fontSize: '13px' }}
+                        />
+                        <button
+                          type="submit"
+                          className="btn btn-primary"
+                          disabled={uploadSaving || selectedFiles.length === 0}
+                          style={{ whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                        >
+                          <Upload size={14} aria-hidden="true" />
+                          {uploadSaving ? 'جاري الرفع...' : 'رفع المرفقات'}
+                        </button>
+                      </form>
+                    </div>
+                  )}
                 </div>
               )}
 

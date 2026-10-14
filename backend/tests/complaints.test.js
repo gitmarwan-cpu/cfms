@@ -778,13 +778,13 @@ describe("Complaint close authorization (complaints.close)", () => {
     expect(stillNew.status).toBe("new");
   });
 
-  it("يحافظ على دلالات سير العمل في قائمة الانتقالات (الترشيح مسؤولية الواجهة)", async () => {
+  it("يحجب خيار الإغلاق closed من مسار الانتقالات لمن لا يملك complaints.close (GAP-04)", async () => {
     const complaintId = await createComplaint();
     expect(
       (await setStatus(assignOnlyToken, complaintId, "in_review")).status,
     ).toBe(200);
     expect(
-      (await setStatus(assignOnlyToken, complaintId, "resolved")).status,
+      (await setStatus(assignOnlyToken, complaintId, "resolved", { note: "تم حل الشكوى" })).status,
     ).toBe(200);
 
     const assignOnlyTransitions = await request(app)
@@ -793,7 +793,7 @@ describe("Complaint close authorization (complaints.close)", () => {
     expect(assignOnlyTransitions.status).toBe(200);
     expect(
       assignOnlyTransitions.body.data.map((transition) => transition.toStatus),
-    ).toEqual(["closed"]);
+    ).not.toContain("closed");
 
     const assignAndCloseTransitions = await request(app)
       .get(`/api/complaints/${complaintId}/transitions`)
@@ -803,7 +803,7 @@ describe("Complaint close authorization (complaints.close)", () => {
       assignAndCloseTransitions.body.data.map(
         (transition) => transition.toStatus,
       ),
-    ).toEqual(["closed"]);
+    ).toContain("closed");
   });
 
   describe("إلزامية ملاحظة الحل عند الانتقال إلى resolved (GAP-03)", () => {

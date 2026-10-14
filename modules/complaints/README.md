@@ -117,6 +117,6 @@ Response إلى المستفيد: { id, referenceCode, trackingPin }
   أي أن الإغلاق يتطلب `complaints.assign` **و** `complaints.close` معاً.
 - الرفض (`new → rejected` و`in_review → rejected`) يبقى ضمن `complaints.assign`
   وحده دون أي تغيير.
-- `GET /:id/transitions` يحتفظ بدلالته الحالية (انتقالات سير العمل الفعلية) ولا
-  يُرشَّح حسب صلاحية المنفِّذ؛ إخفاء إجراء الإغلاق عمّن لا يملك `complaints.close`
-  مسؤولية الواجهة.
+- `GET /:id/transitions` يعرض انتقالات سير العمل الحالية، لكن الخدمة تحذف انتقال
+  `closed` عندما لا يملك المنفِّذ `complaints.close`. إخفاء الإجراء في الواجهة
+  إجراء تكميلي، بينما يبقى التحقق من الصلاحية في الخادم هو المرجع الملزم.

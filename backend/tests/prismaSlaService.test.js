@@ -366,6 +366,144 @@ describe('Prisma SLA service', () => {
   });
 });
 
+describe('GAP-05: evaluateAllOrganizationsSla — root-only organization scan', () => {
+  let rootOrg;
+  let childOrg;
+  let malformedTopLevelOrg;
+  let actor;
+  let locations;
+  let createdOrgUnitTypeIds = [];
+  let createdSlaRuleIds = [];
+  let createdComplaintIds = [];
+
+  const createTestSlaRule = async (organizationId, name) => {
+    const rule = await slaService.createSlaRule(
+      organizationId,
+      {
+        name,
+        complaintType: 'complaint',
+        firstResponseHours: 1,
+        resolutionHours: 1,
+        escalationIntervalHours: 24,
+        maxEscalationLevel: 3,
+      },
+      actor.id
+    );
+    createdSlaRuleIds.push(rule.id);
+  };
+
+  beforeAll(async () => {
+    locations = await getLocations();
+    actor = await makeUser(`gap05-actor-${Date.now()}`);
+    const ts = Date.now();
+    const governorate = await prisma.governorates.findUnique({ where: { name_en: 'Ibb' } });
+
+    rootOrg = await makeOrganization(`gap05-root-${ts}`);
+
+    const rootNodeType = await prisma.org_unit_types.create({
+      data: {
+        organization_id: rootOrg.id,
+        code: `gap05-node-${ts}`,
+        name_ar: 'وحدة اختبار GAP-05',
+        name_en: 'GAP-05 Test Unit',
+        hierarchy_level: 1,
+        is_active: true,
+        create_date: new Date(),
+        write_date: new Date(),
+      },
+    });
+    createdOrgUnitTypeIds.push(rootNodeType.id);
+
+    childOrg = await prisma.organizations.create({
+      data: {
+        legal_name: `GAP05 Child Org ${ts}`,
+        slug: `gap05-child-${ts}`,
+        country: 'Yemen',
+        governorate_id: governorate.id,
+        default_language: 'ar',
+        timezone: 'Asia/Aden',
+        date_format: 'DD/MM/YYYY',
+        primary_color: '#0e5f66',
+        secondary_color: '#0a464b',
+        accent_color: '#c77b3f',
+        anonymous_complaints_policy: 'allowed',
+        notification_settings: {},
+        is_active: true,
+        org_unit_type_id: rootNodeType.id,
+        parent_id: rootOrg.id,
+        root_organization_id: rootOrg.id,
+        create_date: new Date(),
+        write_date: new Date(),
+      },
+    });
+
+    malformedTopLevelOrg = await makeOrganization(`gap05-malformed-${ts}`);
+    const malformedType = await prisma.org_unit_types.create({
+      data: {
+        organization_id: malformedTopLevelOrg.id,
+        code: `gap05-malformed-type-${ts}`,
+        name_ar: 'نوع اختبار مشوه GAP-05',
+        name_en: 'GAP-05 Malformed Type',
+        hierarchy_level: 1,
+        is_active: true,
+        create_date: new Date(),
+        write_date: new Date(),
+      },
+    });
+    createdOrgUnitTypeIds.push(malformedType.id);
+    await prisma.organizations.update({
+      where: { id: malformedTopLevelOrg.id },
+      data: { org_unit_type_id: malformedType.id },
+    });
+
+    await createTestSlaRule(rootOrg.id, `GAP05 Root SLA ${ts}`);
+    await createTestSlaRule(childOrg.id, `GAP05 Child SLA ${ts}`);
+    await createTestSlaRule(malformedTopLevelOrg.id, `GAP05 Malformed SLA ${ts}`);
+
+    const rootWork = await complaintService.createComplaint(rootOrg.id, makePayload(locations));
+    const childWork = await complaintService.createComplaint(childOrg.id, makePayload(locations));
+    const malformedWork = await complaintService.createComplaint(malformedTopLevelOrg.id, makePayload(locations));
+    createdComplaintIds = [rootWork.complaint.id, childWork.complaint.id, malformedWork.complaint.id];
+  });
+
+  afterAll(async () => {
+    if (createdComplaintIds.length > 0) {
+      await prisma.complaint_attachments.deleteMany({ where: { complaint_id: { in: createdComplaintIds } } });
+      await prisma.complaint_status_history.deleteMany({ where: { complaint_id: { in: createdComplaintIds } } });
+      await prisma.complaint_escalation_events.deleteMany({ where: { complaint_id: { in: createdComplaintIds } } });
+      await prisma.notifications.deleteMany({ where: { entity_type: 'complaint', entity_id: { in: createdComplaintIds } } });
+      await prisma.audit_logs.deleteMany({ where: { entity_id: { in: createdComplaintIds } } });
+      await prisma.complaints.deleteMany({ where: { id: { in: createdComplaintIds } } });
+    }
+    if (createdSlaRuleIds.length > 0) {
+      await prisma.audit_logs.deleteMany({ where: { entity_type: 'sla_rule', entity_id: { in: createdSlaRuleIds } } });
+      await prisma.sla_rules.deleteMany({ where: { id: { in: createdSlaRuleIds } } });
+    }
+    if (childOrg) await prisma.organizations.delete({ where: { id: childOrg.id } });
+    if (malformedTopLevelOrg) await prisma.organizations.delete({ where: { id: malformedTopLevelOrg.id } });
+    if (createdOrgUnitTypeIds.length > 0) {
+      await prisma.org_unit_types.deleteMany({ where: { id: { in: createdOrgUnitTypeIds } } });
+    }
+    if (rootOrg) await prisma.organizations.delete({ where: { id: rootOrg.id } });
+    if (actor) await prisma.users.delete({ where: { id: actor.id } });
+  });
+
+  it('evaluates root work and ignores child and malformed top-level work', async () => {
+    const now = new Date(Date.now() + 2 * slaService.MS_PER_HOUR);
+    await slaService.evaluateAllOrganizationsSla({ now });
+
+    const work = await prisma.complaints.findMany({
+      where: { id: { in: createdComplaintIds } },
+      select: { id: true, sla_status: true, escalation_level: true },
+    });
+    const byId = new Map(work.map((item) => [item.id, item]));
+
+    expect(byId.get(createdComplaintIds[0])).toMatchObject({ sla_status: 'overdue', escalation_level: 1 });
+    expect(byId.get(createdComplaintIds[1])).toMatchObject({ sla_status: 'on_track', escalation_level: 0 });
+    expect(byId.get(createdComplaintIds[2])).toMatchObject({ sla_status: 'on_track', escalation_level: 0 });
+  });
+});
+
 describe('GAP-01: escalation assignment snapshots', () => {
   let org;
   let actor;

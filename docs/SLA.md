@@ -87,7 +87,7 @@ Tie-breaking: Lower `id` wins. If no rule matches, SLA calculation falls back to
 - **Initialization**: Started in `backend/src/server.ts` upon HTTP server boot when `NODE_ENV !== 'test'`.
 - **Execution Cycle**:
   - Runs periodically (default interval: 60 seconds).
-  - Iterates through all active organizations and runs `evaluateOrganizationSla`.
+  - Iterates through active **root tenant** organizations only (`parent_id IS NULL`, `root_organization_id IS NULL`, and `org_unit_type_id IS NULL`); sub-nodes and malformed top-level organization rows are excluded before running `evaluateOrganizationSla`.
   - In-memory lock (`isCycleRunning`) prevents overlapping cycles within the Node process.
   - Timer singleton (`startSlaEvaluationWorker`) prevents accidental duplicate intervals.
 

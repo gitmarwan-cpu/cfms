@@ -736,7 +736,7 @@ export const slaStatusForStatusChange = ({
 
 export const evaluateAllOrganizationsSla = async (options: { now?: Date; actorUserId?: IdInput } = {}) => {
   const activeOrganizations = await prisma.organizations.findMany({
-    where: { is_active: true },
+    where: { is_active: true, parent_id: null, root_organization_id: null, org_unit_type_id: null },
     select: { id: true },
   });
 

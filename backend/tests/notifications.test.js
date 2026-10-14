@@ -62,7 +62,12 @@ describe('Notifications API lifecycle', () => {
       organization.id,
       complaintId,
       { assigneeUserId: assigneeUserId },
-      adminUserId
+      adminUserId,
+      {
+        userId: adminUserId,
+        tenantId: organization.id,
+        grants: [{ code: 'complaints.assign', orgUnitId: null }],
+      }
     );
 
     const notification = await prisma.notifications.findFirst({

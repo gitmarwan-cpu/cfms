@@ -234,11 +234,12 @@ export const updateComplaintStatus = async (
 export const updateComplaintAssignment = async (
   id: number,
   assigneeUserId: number | null,
-  assigneeOrganizationId: number | null
+  assigneeOrganizationId: number | null,
+  reason?: string
 ): Promise<AdminComplaintDetail> => {
   const res = await axiosClient.patch<{ success: boolean; data: AdminComplaintDetail }>(
     `/complaints/${id}/assignment`,
-    { assigneeUserId, assigneeOrganizationId }
+    { assigneeUserId, assigneeOrganizationId, reason }
   );
   return res.data.data;
 };

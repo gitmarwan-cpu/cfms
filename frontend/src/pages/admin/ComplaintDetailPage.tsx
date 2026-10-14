@@ -42,6 +42,7 @@ export default function ComplaintDetailPage() {
   const { user, hasPermission, currentOrganizationId } = useAuth();
   const organizationId = currentOrganizationId ?? user?.defaultOrganizationId ?? null;
   const canAssign = organizationId !== null && organizationId !== undefined && hasPermission('complaints.assign', organizationId);
+  const canTransfer = organizationId !== null && organizationId !== undefined && hasPermission('complaints.transfer', organizationId);
   const canClose = organizationId !== null && organizationId !== undefined && hasPermission('complaints.close', organizationId);
   const canEscalate = organizationId !== null && organizationId !== undefined && hasPermission('complaints.escalate', organizationId);
   // Attachment download still requires `complaints.view_all` on the backend (unchanged contract):
@@ -63,6 +64,7 @@ export default function ComplaintDetailPage() {
   // Assignment state
   const [assignUserId, setAssignUserId] = useState('');
   const [assignOrganizationNodeId, setAssignOrganizationNodeId] = useState('');
+  const [assignReason, setAssignReason] = useState('');
   const [assignError, setAssignError] = useState('');
   const [assignSaving, setAssignSaving] = useState(false);
 
@@ -121,8 +123,8 @@ export default function ComplaintDetailPage() {
 
   // Load canonical organization nodes for assignment; groups are not assignees.
   useEffect(() => {
-    if (canAssign) fetchOrganizationNodes().then(setOrganizationNodes).catch(() => {/* Non-critical */});
-  }, [canAssign]);
+    if (canAssign || canTransfer) fetchOrganizationNodes().then(setOrganizationNodes).catch(() => {/* Non-critical */});
+  }, [canAssign, canTransfer]);
 
   // Closing additionally requires `complaints.close` on the backend. The transitions endpoint keeps
   // returning the real workflow transitions, so the UI hides the actions the active user cannot perform.
@@ -156,16 +158,24 @@ export default function ComplaintDetailPage() {
       setAssignError('معرّف الموظف يجب أن يكون رقماً صحيحاً موجباً.');
       return;
     }
+
+    const isReturningToCentral = Boolean(data?.assignedToOrganization && parsedOrganizationNodeId === null);
+    if (isReturningToCentral && !assignReason.trim()) {
+      setAssignError('سبب إعادة الشكوى إلى فرز الشكاوى المركزي مطلوب.');
+      return;
+    }
     setAssignSaving(true);
     try {
       const updated = await updateComplaintAssignment(
         Number(id),
         parsedUserId,
-        parsedOrganizationNodeId
+        parsedOrganizationNodeId,
+        assignReason.trim() || undefined
       );
       setData(updated);
       setAssignUserId('');
       setAssignOrganizationNodeId('');
+      setAssignReason('');
     } catch (err) {
       const apiErr = err as ApiClientError;
       setAssignError(apiErr.message || 'حدث خطأ أثناء التعيين');
@@ -178,8 +188,8 @@ export default function ComplaintDetailPage() {
     setEscalateError('');
     setEscalateSaving(true);
     try {
-      const updated = await escalateComplaint(Number(id), escalateNote || undefined);
-      setData(updated);
+      await escalateComplaint(Number(id), escalateNote || undefined);
+      loadData();
       setEscalateNote('');
     } catch (err) {
       const apiErr = err as ApiClientError;
@@ -461,7 +471,7 @@ export default function ComplaintDetailPage() {
                 <div className="cd-assign-hint">غير معين</div>
               )}
 
-              {canAssign ? (
+              {canAssign || canTransfer ? (
                 <div className="cd-section">
                   {assignError && <div className="alert alert-danger cd-alert-sm" role="alert" aria-live="polite">{assignError}</div>}
                   <div className="field cd-label-spaced">
@@ -474,6 +484,24 @@ export default function ComplaintDetailPage() {
                       <option value="">— لا يوجد —</option>
                       {organizationNodes.filter((node) => node.isActive).map((node) => <option key={node.id} value={node.id}>{node.name}</option>)}
                     </select>
+                  </div>
+                  <div className="field cd-label-spaced">
+                    <label htmlFor="assignReason">
+                      {data.assignedToOrganization && !assignOrganizationNodeId
+                        ? 'سبب إعادة الشكوى إلى فرز الشكاوى المركزي (مطلوب)'
+                        : 'سبب التعيين / التحويل (اختياري)'}
+                    </label>
+                    <input
+                      id="assignReason"
+                      type="text"
+                      placeholder={
+                        data.assignedToOrganization && !assignOrganizationNodeId
+                          ? 'أدخل سبب الإعادة…'
+                          : 'أدخل سبباً اختيارياً…'
+                      }
+                      value={assignReason}
+                      onChange={(e) => setAssignReason(e.target.value)}
+                    />
                   </div>
                   <button className="btn btn-primary cd-full-btn" onClick={handleAssign} disabled={assignSaving} type="button">{assignSaving ? 'جارٍ تحديث التعيين…' : 'تحديث التعيين'}</button>
                 </div>

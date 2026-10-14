@@ -3,6 +3,7 @@ import prisma from '../prisma/client';
 import ApiError from '../utils/ApiError';
 import { recordAuditEvent } from './auditService';
 import { createNotification } from './notificationService';
+import { assertComplaintActorScopeTenant, ComplaintActorScope, hasNodePermission } from './complaintService';
 
 type DatabaseClient = typeof prisma | Prisma.TransactionClient;
 type IdInput = string | number | null | undefined;
@@ -649,11 +650,13 @@ export const escalateComplaint = async (
   organizationId: IdInput,
   id: IdInput,
   payload: { note?: string | null } = {},
-  actorUserId: IdInput
+  actorUserId: IdInput,
+  actorScope: ComplaintActorScope
 ) => {
   const parsedOrganizationId = requireOrganizationId(organizationId);
   const parsedId = requireComplaintId(id);
   const parsedActorUserId = toPositiveInteger(actorUserId);
+  assertComplaintActorScopeTenant(parsedOrganizationId, actorScope);
   const now = new Date();
 
   return prisma.$transaction(async (tx) => {
@@ -672,6 +675,11 @@ export const escalateComplaint = async (
       },
     });
     if (!complaint) throw new ApiError(404, 'الطلب غير موجود');
+
+    if (!hasNodePermission(actorScope, 'complaints.escalate', complaint.assigned_to_organization_id)) {
+      throw new ApiError(404, 'الطلب غير موجود');
+    }
+
     if ((TERMINAL_STATUSES as readonly string[]).includes(complaint.status)) {
       throw new ApiError(409, 'لا يمكن تصعيد طلب مغلق');
     }

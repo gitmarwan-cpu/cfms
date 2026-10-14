@@ -133,6 +133,99 @@ export const resolveComplaintVisibility = (source: ComplaintVisibilitySource): C
   return visibility;
 };
 
+export interface PermissionGrant {
+  code: string;
+  orgUnitId: number | null;
+}
+
+export interface ComplaintActorScope {
+  userId: number;
+  tenantId: number;
+  grants: PermissionGrant[];
+}
+
+export const assertComplaintActorScopeTenant = (
+  parsedOrganizationId: number,
+  actorScope: ComplaintActorScope | null | undefined
+): void => {
+  if (
+    !Number.isSafeInteger(parsedOrganizationId) ||
+    parsedOrganizationId <= 0 ||
+    !actorScope ||
+    typeof actorScope !== 'object' ||
+    !Number.isSafeInteger(actorScope.userId) ||
+    actorScope.userId <= 0 ||
+    !Number.isSafeInteger(actorScope.tenantId) ||
+    actorScope.tenantId <= 0 ||
+    actorScope.tenantId !== parsedOrganizationId ||
+    !Array.isArray(actorScope.grants)
+  ) {
+    throw new ApiError(403, 'غير مصرح: سياق المؤسسة والصلاحيات غير صالح');
+  }
+};
+
+export const resolveComplaintActorScope = (
+  tenantId: IdInput,
+  user?: { id?: number; permissions?: Array<{ code?: string; organizationId?: number; orgUnitId?: number | null }> | null } | null
+): ComplaintActorScope => {
+  const parsedTenantId = requireOrganizationId(tenantId);
+  const userId = toPositiveInteger(user?.id);
+  if (!userId || !user?.permissions || !Array.isArray(user.permissions)) {
+    throw new ApiError(403, 'غير مصرح: تعذر التحقق من هوية وسياق صلاحيات المستخدم');
+  }
+
+  const grants: PermissionGrant[] = [];
+  for (const p of user.permissions) {
+    if (p && p.organizationId === parsedTenantId && typeof p.code === 'string') {
+      const orgUnitId = toScopeId(p.orgUnitId);
+      grants.push({ code: p.code, orgUnitId });
+    }
+  }
+
+  return {
+    userId,
+    tenantId: parsedTenantId,
+    grants,
+  };
+};
+
+export const hasNodePermission = (
+  scope: ComplaintActorScope,
+  permissionCode: string,
+  nodeId: number | null
+): boolean => {
+  if (!scope || !scope.grants || !Array.isArray(scope.grants)) return false;
+
+  if (nodeId === null) {
+    return scope.grants.some((g) => g.code === permissionCode && g.orgUnitId === null);
+  }
+
+  return scope.grants.some(
+    (g) => g.code === permissionCode && (g.orgUnitId === null || g.orgUnitId === nodeId)
+  );
+};
+
+export const assertComplaintOperationalAuthority = (
+  complaint: { id: number; assigned_to_organization_id: number | null },
+  scope: ComplaintActorScope,
+  requiredPermission: string = 'complaints.assign'
+): void => {
+  if (!scope || !scope.userId || !scope.tenantId) {
+    throw new ApiError(403, 'غير مصرح: سياق الصلاحيات غير متوفر');
+  }
+
+  const isAuthorized = hasNodePermission(
+    scope,
+    requiredPermission,
+    complaint.assigned_to_organization_id
+  );
+
+  if (!isAuthorized) {
+    // Stage 9 existence-hiding security contract: out of operational scope yields 404
+    throw new ApiError(404, NOT_FOUND_ERROR);
+  }
+};
+
 /**
  * Translates a read scope into an additional Prisma predicate (OR between the applicable
  * scopes). `undefined` means "no read-scope enforcement" and preserves the tenant-wide
@@ -840,14 +933,21 @@ export const getComplaintAttachmentForDownload = async (
   };
 };
 
-export const getComplaintTransitions = async (organizationId: IdInput, id: IdInput) => {
+export const getComplaintTransitions = async (
+  organizationId: IdInput,
+  id: IdInput,
+  actorScope: ComplaintActorScope
+) => {
   const parsedOrganizationId = requireOrganizationId(organizationId);
   const parsedId = requireComplaintId(id);
+  assertComplaintActorScopeTenant(parsedOrganizationId, actorScope);
   const complaint = await prisma.complaints.findFirst({
     where: { id: parsedId, organization_id: parsedOrganizationId },
-    select: { id: true, status: true },
+    select: { id: true, status: true, assigned_to_organization_id: true },
   });
   if (!complaint) throw new ApiError(404, NOT_FOUND_ERROR);
+
+  assertComplaintOperationalAuthority(complaint, actorScope, 'complaints.assign');
 
   const currentWorkflowState = await getWorkflowState(prisma, complaint.status);
   const transitions = await prisma.workflow_transitions.findMany({
@@ -867,13 +967,17 @@ export const getComplaintTransitions = async (organizationId: IdInput, id: IdInp
     },
   });
 
-  return transitions.map((transition) => ({
-    id: transition.id,
-    code: transition.code,
-    nameAr: transition.name_ar,
-    nameEn: transition.name_en,
-    toStatus: transition.workflow_states_workflow_transitions_to_state_idToworkflow_states.code,
-  }));
+  const canClose = hasNodePermission(actorScope, 'complaints.close', complaint.assigned_to_organization_id);
+
+  return transitions
+    .map((transition) => ({
+      id: transition.id,
+      code: transition.code,
+      nameAr: transition.name_ar,
+      nameEn: transition.name_en,
+      toStatus: transition.workflow_states_workflow_transitions_to_state_idToworkflow_states.code,
+    }))
+    .filter((transition) => canClose || transition.toStatus !== 'closed');
 };
 
 export const updateComplaintStatus = async (
@@ -881,11 +985,13 @@ export const updateComplaintStatus = async (
   id: IdInput,
   newStatus: string,
   note: string | null | undefined,
-  changedByUserId: IdInput
+  changedByUserId: IdInput,
+  actorScope: ComplaintActorScope
 ) => {
   const parsedOrganizationId = requireOrganizationId(organizationId);
   const parsedId = requireComplaintId(id);
   const parsedChangedByUserId = toPositiveInteger(changedByUserId);
+  assertComplaintActorScopeTenant(parsedOrganizationId, actorScope);
 
   return prisma.$transaction(async (tx) => {
     const complaint = await tx.complaints.findFirst({
@@ -894,11 +1000,21 @@ export const updateComplaintStatus = async (
         id: true,
         status: true,
         assigned_to_user_id: true,
+        assigned_to_organization_id: true,
         sla_due_at: true,
         sla_first_responded_at: true,
       },
     });
     if (!complaint) throw new ApiError(404, NOT_FOUND_ERROR);
+
+    assertComplaintOperationalAuthority(complaint, actorScope, 'complaints.assign');
+
+    if (newStatus === 'closed') {
+      const canClose = hasNodePermission(actorScope, 'complaints.close', complaint.assigned_to_organization_id);
+      if (!canClose) {
+        throw new ApiError(403, 'لا تملك صلاحية إغلاق الشكوى');
+      }
+    }
 
     const currentWorkflowState = await getWorkflowState(tx, complaint.status);
     const targetWorkflowState = await getWorkflowState(tx, newStatus);
@@ -975,6 +1091,7 @@ export const updateComplaintStatus = async (
 export interface ComplaintAssignmentInput {
   assigneeUserId?: IdInput;
   assigneeOrganizationId?: IdInput;
+  reason?: string | null;
 }
 
 const parseOptionalAssigneeId = (value: IdInput, invalidMessage: string): number | null => {
@@ -988,16 +1105,18 @@ export const assignComplaint = async (
   organizationId: IdInput,
   id: IdInput,
   assignment: ComplaintAssignmentInput,
-  assignedByUserId: IdInput
+  assignedByUserId: IdInput,
+  actorScope: ComplaintActorScope
 ) => {
   const parsedOrganizationId = requireOrganizationId(organizationId);
   const parsedId = requireComplaintId(id);
-  const parsedAssigneeUserId = parseOptionalAssigneeId(assignment?.assigneeUserId, 'المستخدم المعيّن غير صالح');
+  let parsedAssigneeUserId = parseOptionalAssigneeId(assignment?.assigneeUserId, 'المستخدم المعيّن غير صالح');
   const parsedAssigneeOrgNodeId = parseOptionalAssigneeId(
     assignment?.assigneeOrganizationId,
     'الوحدة التنظيمية المعيّنة غير صالحة'
   );
   const parsedAssignedByUserId = toPositiveInteger(assignedByUserId);
+  assertComplaintActorScopeTenant(parsedOrganizationId, actorScope);
 
   return prisma.$transaction(async (tx) => {
     const complaint = await tx.complaints.findFirst({
@@ -1005,6 +1124,65 @@ export const assignComplaint = async (
       select: { id: true, assigned_to_user_id: true, assigned_to_organization_id: true },
     });
     if (!complaint) throw new ApiError(404, NOT_FOUND_ERROR);
+
+    const sourceNodeId = complaint.assigned_to_organization_id;
+
+    // 1. Source complaint in-scope validation (existence-hiding contract)
+    if (sourceNodeId === null) {
+      if (!hasNodePermission(actorScope, 'complaints.assign', null)) {
+        throw new ApiError(404, NOT_FOUND_ERROR);
+      }
+    } else {
+      const hasSourceAccess =
+        hasNodePermission(actorScope, 'complaints.assign', null) ||
+        hasNodePermission(actorScope, 'complaints.assign', sourceNodeId) ||
+        hasNodePermission(actorScope, 'complaints.transfer', sourceNodeId);
+      if (!hasSourceAccess) {
+        throw new ApiError(404, NOT_FOUND_ERROR);
+      }
+    }
+
+    // 2. Operation-specific permission enforcement
+    const isReturningToCentralTriage = sourceNodeId !== null && parsedAssigneeOrgNodeId === null;
+    const isCrossNodeTransfer =
+      sourceNodeId !== null &&
+      parsedAssigneeOrgNodeId !== null &&
+      sourceNodeId !== parsedAssigneeOrgNodeId;
+    const isSameNodeAssignment =
+      sourceNodeId !== null &&
+      parsedAssigneeOrgNodeId !== null &&
+      sourceNodeId === parsedAssigneeOrgNodeId;
+
+    let returnReason: string | null = null;
+    if (isReturningToCentralTriage) {
+      const canReturnToCentral =
+        hasNodePermission(actorScope, 'complaints.assign', null) ||
+        hasNodePermission(actorScope, 'complaints.transfer', sourceNodeId);
+      if (!canReturnToCentral) {
+        throw new ApiError(403, 'لا تملك صلاحية إعادة الشكوى إلى فرز الشكاوى المركزي');
+      }
+
+      const trimmedReason = assignment?.reason?.trim();
+      if (!trimmedReason) {
+        throw new ApiError(422, 'سبب إعادة الشكوى إلى فرز الشكاوى المركزي مطلوب');
+      }
+      returnReason = trimmedReason;
+      parsedAssigneeUserId = null;
+    } else if (isCrossNodeTransfer) {
+      const canTransfer =
+        hasNodePermission(actorScope, 'complaints.assign', null) ||
+        hasNodePermission(actorScope, 'complaints.transfer', sourceNodeId);
+      if (!canTransfer) {
+        throw new ApiError(403, 'لا تملك صلاحية تحويل الشكوى بين الوحدات التنظيمية');
+      }
+    } else if (isSameNodeAssignment) {
+      const canAssignInNode =
+        hasNodePermission(actorScope, 'complaints.assign', null) ||
+        hasNodePermission(actorScope, 'complaints.assign', sourceNodeId);
+      if (!canAssignInNode) {
+        throw new ApiError(403, 'لا تملك صلاحية إسناد الشكاوى في هذه الوحدة التنظيمية');
+      }
+    }
 
     if (parsedAssigneeUserId !== null) {
       const assignee = await tx.users.findFirst({
@@ -1060,6 +1238,7 @@ export const assignComplaint = async (
         assigneeUserId: parsedAssigneeUserId,
         previousAssigneeOrganizationId: complaint.assigned_to_organization_id,
         assigneeOrganizationId: parsedAssigneeOrgNodeId,
+        ...(returnReason ? { reason: returnReason } : {}),
       },
     });
 
@@ -1080,6 +1259,47 @@ export const assignComplaint = async (
       });
     }
 
+    if (isReturningToCentralTriage) {
+      const adminAssignments = await tx.user_roles.findMany({
+        where: {
+          organization_id: parsedOrganizationId,
+          organization_node_id: null,
+          roles: {
+            code: 'admin',
+            is_active: true,
+            scope: 'tenant',
+          },
+          users: {
+            is_active: true,
+            user_organizations: {
+              some: {
+                organization_id: parsedOrganizationId,
+                is_active: true,
+              },
+            },
+          },
+        },
+        select: { user_id: true },
+      });
+      const recipientUserIds = [...new Set(adminAssignments.map((a) => a.user_id))];
+      for (const recipientUserId of recipientUserIds) {
+        await createNotification(tx, {
+          organizationId: parsedOrganizationId,
+          userId: recipientUserId,
+          notificationType: 'complaint.assigned',
+          title: 'إعادة شكوى إلى فرز الشكاوى المركزي',
+          message: 'تمت إعادة شكوى إلى فرز الشكاوى المركزي للمتابعة',
+          entityType: 'complaint',
+          entityId: complaint.id,
+          metadata: {
+            previousAssigneeId: complaint.assigned_to_user_id,
+            previousAssigneeOrganizationId: complaint.assigned_to_organization_id,
+            reason: returnReason,
+          },
+        });
+      }
+    }
+
     const result = await tx.complaints.findFirst({
       where: { id: complaint.id, organization_id: parsedOrganizationId },
       select: DETAIL_COMPLAINT_SELECT,
@@ -1093,11 +1313,13 @@ export const assignComplaint = async (
 export const regenerateTrackingPin = async (
   organizationId: IdInput,
   id: IdInput,
-  regeneratedByUserId: IdInput
+  regeneratedByUserId: IdInput,
+  actorScope: ComplaintActorScope
 ) => {
   const parsedOrganizationId = requireOrganizationId(organizationId);
   const parsedId = requireComplaintId(id);
   const parsedRegeneratedByUserId = toPositiveInteger(regeneratedByUserId);
+  assertComplaintActorScopeTenant(parsedOrganizationId, actorScope);
 
   const regenerated = await prisma.$transaction(async (tx) => {
     const complaint = await tx.complaints.findFirst({
@@ -1105,10 +1327,14 @@ export const regenerateTrackingPin = async (
       select: {
         id: true,
         reference_code: true,
+        assigned_to_organization_id: true,
         complainants: { select: { phone: true } },
       },
     });
     if (!complaint) throw new ApiError(404, NOT_FOUND_ERROR);
+
+    assertComplaintOperationalAuthority(complaint, actorScope, 'complaints.assign');
+
     if (!complaint.complainants?.phone) {
       throw new ApiError(400, 'لا توجد وسيلة اتصال متاحة لإرسال رمز المتابعة.');
     }

@@ -6,6 +6,8 @@ const { default: prisma } = require('../src/prisma/client');
 const complaintService = require('../src/services/complaintService.ts');
 const slaService = require('../src/services/slaService.ts');
 
+const scopeFor = (userId, tenantId, ...grants) => ({ userId, tenantId, grants });
+
 const makeOrganization = async (suffix) => {
   const governorate = await prisma.governorates.findUnique({ where: { name_en: 'Ibb' } });
   return prisma.organizations.create({
@@ -202,7 +204,8 @@ describe('Prisma SLA service', () => {
       organization.id,
       created.complaint.id,
       { assigneeUserId: actor.id },
-      actor.id
+      actor.id,
+      scopeFor(actor.id, organization.id, { code: 'complaints.assign', orgUnitId: null })
     );
 
     const dueAt = new Date(created.complaint.slaDueAt);
@@ -250,14 +253,27 @@ describe('Prisma SLA service', () => {
       organization.id,
       created.complaint.id,
       { assigneeUserId: actor.id },
-      actor.id
+      actor.id,
+      scopeFor(actor.id, organization.id, { code: 'complaints.assign', orgUnitId: null })
     );
-    const escalated = await slaService.escalateComplaint(organization.id, created.complaint.id, { note: 'Need manager' }, actor.id);
+    const escalated = await slaService.escalateComplaint(
+      organization.id,
+      created.complaint.id,
+      { note: 'Need manager' },
+      actor.id,
+      scopeFor(actor.id, organization.id, { code: 'complaints.escalate', orgUnitId: null })
+    );
     expect(escalated.escalationLevel).toBe(1);
 
     const foreign = await complaintService.createComplaint(otherOrganization.id, makePayload(locations));
     await expect(
-      slaService.escalateComplaint(organization.id, foreign.complaint.id, { note: 'cross tenant' }, actor.id)
+      slaService.escalateComplaint(
+        organization.id,
+        foreign.complaint.id,
+        { note: 'cross tenant' },
+        actor.id,
+        scopeFor(actor.id, organization.id, { code: 'complaints.escalate', orgUnitId: null })
+      )
     ).rejects.toMatchObject({ statusCode: 404 });
     await expect(
       slaService.evaluateOrganizationSla(otherOrganization.id, { now: new Date('2099-01-01T00:00:00.000Z') })
@@ -324,7 +340,8 @@ describe('Prisma SLA service', () => {
       organization.id,
       created.complaint.id,
       { assigneeUserId: actor.id },
-      actor.id
+      actor.id,
+      scopeFor(actor.id, organization.id, { code: 'complaints.assign', orgUnitId: null })
     );
 
     const dueTime = new Date(created.complaint.slaDueAt).getTime() + 60000;

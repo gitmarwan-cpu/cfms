@@ -65,6 +65,8 @@ const makePayload = (locations, overrides = {}) => ({
   ...overrides,
 });
 
+const scopeFor = (userId, tenantId, ...grants) => ({ userId, tenantId, grants });
+
 describe('Prisma complaint service', () => {
   let organization;
   let locations;
@@ -193,7 +195,8 @@ describe('Prisma complaint service', () => {
       String(created.complaint.id),
       'in_review',
       'Assigned for review',
-      String(user.id)
+      String(user.id),
+      scopeFor(user.id, organization.id, { code: 'complaints.assign', orgUnitId: null })
     );
     expect(updated).toMatchObject({ id: created.complaint.id, status: 'in_review' });
     expect(updated.statusHistory).toEqual(expect.arrayContaining([
@@ -209,9 +212,22 @@ describe('Prisma complaint service', () => {
 
   it('rejects status changes that are not defined by the complaint workflow', async () => {
     const created = await complaintService.createComplaint(organization.id, makePayload(locations));
+    const actor = await makeUser('invalid-status');
 
     await expect(
-      complaintService.updateComplaintStatus(organization.id, String(created.complaint.id), 'closed', null, null)
+      complaintService.updateComplaintStatus(
+        organization.id,
+        String(created.complaint.id),
+        'closed',
+        null,
+        null,
+        scopeFor(
+          actor.id,
+          organization.id,
+          { code: 'complaints.assign', orgUnitId: null },
+          { code: 'complaints.close', orgUnitId: null }
+        )
+      )
     ).rejects.toMatchObject({ statusCode: 409 });
   });
 
@@ -233,7 +249,8 @@ describe('Prisma complaint service', () => {
       organization.id,
       created.complaint.id,
       { assigneeUserId: assignee.id },
-      assignee.id
+      assignee.id,
+      scopeFor(assignee.id, organization.id, { code: 'complaints.assign', orgUnitId: null })
     );
     expect(assigned.assignedToUserId).toBe(assignee.id);
     expect(assigned.assignedToOrganizationId).toBeNull();
@@ -242,7 +259,8 @@ describe('Prisma complaint service', () => {
       organization.id,
       created.complaint.id,
       { assigneeUserId: null, assigneeOrganizationId: null },
-      assignee.id
+      assignee.id,
+      scopeFor(assignee.id, organization.id, { code: 'complaints.assign', orgUnitId: null })
     );
     expect(unassigned.assignedToUserId).toBeNull();
     expect(unassigned.assignedToOrganizationId).toBeNull();
@@ -300,7 +318,13 @@ describe('Prisma complaint service', () => {
       organization.id,
       created.complaint.id,
       { assigneeOrganizationId: orgNode.id },
-      actor.id
+      actor.id,
+      scopeFor(
+        actor.id,
+        organization.id,
+        { code: 'complaints.assign', orgUnitId: null },
+        { code: 'complaints.transfer', orgUnitId: null }
+      )
     );
     expect(teamAssigned.assignedToOrganizationId).toBe(orgNode.id);
     expect(teamAssigned.assignedToUserId).toBeNull();
@@ -321,7 +345,13 @@ describe('Prisma complaint service', () => {
       organization.id,
       created.complaint.id,
       { assigneeUserId: assignee.id, assigneeOrganizationId: orgNode.id },
-      actor.id
+      actor.id,
+      scopeFor(
+        actor.id,
+        organization.id,
+        { code: 'complaints.assign', orgUnitId: null },
+        { code: 'complaints.transfer', orgUnitId: null }
+      )
     );
     expect(bothAssigned.assignedToUserId).toBe(assignee.id);
     expect(bothAssigned.assignedToOrganizationId).toBe(orgNode.id);
@@ -331,7 +361,13 @@ describe('Prisma complaint service', () => {
         organization.id,
         created.complaint.id,
         { assigneeOrganizationId: foreignNode.id },
-        actor.id
+        actor.id,
+        scopeFor(
+          actor.id,
+          organization.id,
+          { code: 'complaints.assign', orgUnitId: null },
+          { code: 'complaints.transfer', orgUnitId: null }
+        )
       )
     ).rejects.toMatchObject({ statusCode: 422 });
     await expect(
@@ -339,15 +375,27 @@ describe('Prisma complaint service', () => {
         organization.id,
         created.complaint.id,
         { assigneeOrganizationId: inactiveNode.id },
-        actor.id
+        actor.id,
+        scopeFor(
+          actor.id,
+          organization.id,
+          { code: 'complaints.assign', orgUnitId: null },
+          { code: 'complaints.transfer', orgUnitId: null }
+        )
       )
     ).rejects.toMatchObject({ statusCode: 422 });
 
     const cleared = await complaintService.assignComplaint(
       organization.id,
       created.complaint.id,
-      {},
-      actor.id
+      { reason: 'إعادة إلى الفرز المركزي' },
+      actor.id,
+      scopeFor(
+        actor.id,
+        organization.id,
+        { code: 'complaints.assign', orgUnitId: null },
+        { code: 'complaints.transfer', orgUnitId: null }
+      )
     );
     expect(cleared.assignedToUserId).toBeNull();
     expect(cleared.assignedToOrganizationId).toBeNull();
@@ -434,7 +482,12 @@ describe('Prisma complaint service', () => {
       select: { tracking_pin_hash: true },
     });
 
-    const result = await complaintService.regenerateTrackingPin(organization.id, created.complaint.id, actor.id);
+    const result = await complaintService.regenerateTrackingPin(
+      organization.id,
+      created.complaint.id,
+      actor.id,
+      scopeFor(actor.id, organization.id, { code: 'complaints.assign', orgUnitId: null })
+    );
     const updated = await prisma.complaints.findUnique({
       where: { id: created.complaint.id },
       select: { tracking_pin_hash: true, write_uid: true },
@@ -462,7 +515,12 @@ describe('Prisma complaint service', () => {
     ]);
     expect(JSON.stringify(audits)).not.toContain(created.trackingPin);
 
-    await expect(complaintService.regenerateTrackingPin(organization.id, foreign.complaint.id, actor.id))
+    await expect(complaintService.regenerateTrackingPin(
+      organization.id,
+      foreign.complaint.id,
+      actor.id,
+      scopeFor(actor.id, organization.id, { code: 'complaints.assign', orgUnitId: null })
+    ))
       .rejects.toMatchObject({ statusCode: 404 });
   });
 });

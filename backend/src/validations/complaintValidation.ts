@@ -61,6 +61,7 @@ const assignmentValidation = [
   param('id').isInt({ min: 1 }).withMessage('معرّف الشكوى غير صالح'),
   body('assigneeUserId').optional({ nullable: true }).isInt({ min: 1 }).withMessage('المستخدم المعيّن غير صالح'),
   body('assigneeOrganizationId').optional({ nullable: true }).isInt({ min: 1 }).withMessage('الوحدة التنظيمية المعيّنة غير صالحة'),
+  body('reason').optional({ nullable: true }).isString().trim().isLength({ max: 1000 }).withMessage('سبب إعادة التعيين غير صالح'),
 ];
 const escalateComplaintValidation = [
   param('id').isInt({ min: 1 }).withMessage('معرّف الشكوى غير صالح'),

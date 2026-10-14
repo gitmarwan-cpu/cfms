@@ -67,6 +67,23 @@ const makePayload = (locations, overrides = {}) => ({
 
 const scopeFor = (userId, tenantId, ...grants) => ({ userId, tenantId, grants });
 
+const countComplaintAudits = (organizationId, complaintId, action) =>
+  prisma.audit_logs.count({
+    where: { organization_id: organizationId, entity_id: complaintId, action },
+  });
+
+const complaintAuditCounts = async (organizationId, complaintId) => ({
+  assigned: await countComplaintAudits(organizationId, complaintId, 'complaint.assigned'),
+  reassigned: await countComplaintAudits(organizationId, complaintId, 'complaint.reassigned'),
+  unassigned: await countComplaintAudits(organizationId, complaintId, 'complaint.unassigned'),
+});
+
+const auditDelta = (before, after) => ({
+  assigned: after.assigned - before.assigned,
+  reassigned: after.reassigned - before.reassigned,
+  unassigned: after.unassigned - before.unassigned,
+});
+
 describe('Prisma complaint service', () => {
   let organization;
   let locations;
@@ -243,33 +260,76 @@ describe('Prisma complaint service', () => {
         write_date: new Date(),
       },
     });
+    const secondAssignee = await makeUser('second-assignee');
+    await prisma.user_organizations.create({
+      data: {
+        user_id: secondAssignee.id,
+        organization_id: organization.id,
+        is_primary: true,
+        is_active: true,
+        create_date: new Date(),
+        write_date: new Date(),
+      },
+    });
     const created = await complaintService.createComplaint(organization.id, makePayload(locations));
+    const complaintId = created.complaint.id;
+    const auditCounts = () => complaintAuditCounts(organization.id, complaintId);
 
+    // nothing -> user only: complaint.assigned
+    let before = await auditCounts();
     const assigned = await complaintService.assignComplaint(
       organization.id,
-      created.complaint.id,
+      complaintId,
       { assigneeUserId: assignee.id },
       assignee.id,
       scopeFor(assignee.id, organization.id, { code: 'complaints.assign', orgUnitId: null })
     );
     expect(assigned.assignedToUserId).toBe(assignee.id);
     expect(assigned.assignedToOrganizationId).toBeNull();
+    expect(auditDelta(before, await auditCounts())).toEqual({ assigned: 1, reassigned: 0, unassigned: 0 });
 
+    // user A -> user B: complaint.reassigned
+    before = await auditCounts();
+    const reassigned = await complaintService.assignComplaint(
+      organization.id,
+      complaintId,
+      { assigneeUserId: secondAssignee.id, reason: '  تغيير المسؤول  ' },
+      assignee.id,
+      scopeFor(assignee.id, organization.id, { code: 'complaints.assign', orgUnitId: null })
+    );
+    expect(reassigned.assignedToUserId).toBe(secondAssignee.id);
+    expect(reassigned.assignedToOrganizationId).toBeNull();
+    expect(auditDelta(before, await auditCounts())).toEqual({ assigned: 0, reassigned: 1, unassigned: 0 });
+    const reassignedAudit = await prisma.audit_logs.findFirst({
+      where: { organization_id: organization.id, entity_id: complaintId, action: 'complaint.reassigned' },
+      orderBy: { id: 'desc' },
+    });
+    expect(reassignedAudit?.metadata).toMatchObject({ reason: 'تغيير المسؤول' });
+
+    // identical user again: no assignment audit event
+    before = await auditCounts();
+    const unchanged = await complaintService.assignComplaint(
+      organization.id,
+      complaintId,
+      { assigneeUserId: secondAssignee.id },
+      assignee.id,
+      scopeFor(assignee.id, organization.id, { code: 'complaints.assign', orgUnitId: null })
+    );
+    expect(unchanged.assignedToUserId).toBe(secondAssignee.id);
+    expect(auditDelta(before, await auditCounts())).toEqual({ assigned: 0, reassigned: 0, unassigned: 0 });
+
+    // user -> nothing: complaint.unassigned
+    before = await auditCounts();
     const unassigned = await complaintService.assignComplaint(
       organization.id,
-      created.complaint.id,
+      complaintId,
       { assigneeUserId: null, assigneeOrganizationId: null },
       assignee.id,
       scopeFor(assignee.id, organization.id, { code: 'complaints.assign', orgUnitId: null })
     );
     expect(unassigned.assignedToUserId).toBeNull();
     expect(unassigned.assignedToOrganizationId).toBeNull();
-    await expect(
-      prisma.audit_logs.findMany({ where: { organization_id: organization.id, entity_id: created.complaint.id, action: 'complaint.assigned' } })
-    ).resolves.toHaveLength(1);
-    await expect(
-      prisma.audit_logs.findMany({ where: { organization_id: organization.id, entity_id: created.complaint.id, action: 'complaint.unassigned' } })
-    ).resolves.toHaveLength(1);
+    expect(auditDelta(before, await auditCounts())).toEqual({ assigned: 0, reassigned: 0, unassigned: 1 });
   });
 
   it('assigns complaints to active tenant organization nodes and rejects cross-tenant or inactive nodes', async () => {
@@ -306,6 +366,7 @@ describe('Prisma complaint service', () => {
     };
 
     const orgNode = await makeOrgNode('Complaints Team');
+    const secondOrgNode = await makeOrgNode('Follow-up Team');
     const otherOrganization = await makeOrganization('team-other');
     const foreignNode = await makeOrgNode('Foreign Team');
     await prisma.organizations.update({ where: { id: foreignNode.id }, data: { root_organization_id: otherOrganization.id } });
@@ -314,9 +375,14 @@ describe('Prisma complaint service', () => {
 
 
     const created = await complaintService.createComplaint(organization.id, makePayload(locations));
+    const complaintId = created.complaint.id;
+    const auditCounts = () => complaintAuditCounts(organization.id, complaintId);
+
+    // nothing -> node only: complaint.assigned
+    let before = await auditCounts();
     const teamAssigned = await complaintService.assignComplaint(
       organization.id,
-      created.complaint.id,
+      complaintId,
       { assigneeOrganizationId: orgNode.id },
       actor.id,
       scopeFor(
@@ -329,6 +395,41 @@ describe('Prisma complaint service', () => {
     expect(teamAssigned.assignedToOrganizationId).toBe(orgNode.id);
     expect(teamAssigned.assignedToUserId).toBeNull();
     expect(teamAssigned.assignedToOrganization).toMatchObject({ id: orgNode.id, name: 'Complaints Team' });
+    expect(auditDelta(before, await auditCounts())).toEqual({ assigned: 1, reassigned: 0, unassigned: 0 });
+    const firstAssignAudit = await prisma.audit_logs.findFirst({
+      where: { organization_id: organization.id, entity_id: complaintId, action: 'complaint.assigned' },
+      orderBy: { id: 'desc' },
+    });
+    expect(firstAssignAudit?.metadata).toMatchObject({
+      previousAssigneeOrganizationId: null,
+      assigneeOrganizationId: orgNode.id,
+    });
+
+    // node A -> node B: complaint.reassigned with the previous node preserved in metadata
+    before = await auditCounts();
+    const nodeChanged = await complaintService.assignComplaint(
+      organization.id,
+      complaintId,
+      { assigneeOrganizationId: secondOrgNode.id },
+      actor.id,
+      scopeFor(
+        actor.id,
+        organization.id,
+        { code: 'complaints.assign', orgUnitId: null },
+        { code: 'complaints.transfer', orgUnitId: null }
+      )
+    );
+    expect(nodeChanged.assignedToOrganizationId).toBe(secondOrgNode.id);
+    expect(nodeChanged.assignedToUserId).toBeNull();
+    expect(auditDelta(before, await auditCounts())).toEqual({ assigned: 0, reassigned: 1, unassigned: 0 });
+    const nodeChangeAudit = await prisma.audit_logs.findFirst({
+      where: { organization_id: organization.id, entity_id: complaintId, action: 'complaint.reassigned' },
+      orderBy: { id: 'asc' },
+    });
+    expect(nodeChangeAudit?.metadata).toMatchObject({
+      previousAssigneeOrganizationId: orgNode.id,
+      assigneeOrganizationId: secondOrgNode.id,
+    });
 
     const assignee = await makeUser('team-member');
     await prisma.user_organizations.create({
@@ -341,10 +442,12 @@ describe('Prisma complaint service', () => {
         write_date: new Date(),
       },
     });
+    // node only -> node + user: complaint.assigned (no existing value was replaced)
+    before = await auditCounts();
     const bothAssigned = await complaintService.assignComplaint(
       organization.id,
-      created.complaint.id,
-      { assigneeUserId: assignee.id, assigneeOrganizationId: orgNode.id },
+      complaintId,
+      { assigneeUserId: assignee.id, assigneeOrganizationId: secondOrgNode.id },
       actor.id,
       scopeFor(
         actor.id,
@@ -354,12 +457,26 @@ describe('Prisma complaint service', () => {
       )
     );
     expect(bothAssigned.assignedToUserId).toBe(assignee.id);
-    expect(bothAssigned.assignedToOrganizationId).toBe(orgNode.id);
+    expect(bothAssigned.assignedToOrganizationId).toBe(secondOrgNode.id);
+    expect(auditDelta(before, await auditCounts())).toEqual({ assigned: 1, reassigned: 0, unassigned: 0 });
 
+    await expect(
+      prisma.notifications.findMany({
+        where: {
+          organization_id: organization.id,
+          entity_id: complaintId,
+          notification_type: 'complaint.assigned',
+          user_id: assignee.id,
+        },
+      })
+    ).resolves.toHaveLength(1);
+
+    // rejected assignments must not record any assignment audit event
+    before = await auditCounts();
     await expect(
       complaintService.assignComplaint(
         organization.id,
-        created.complaint.id,
+        complaintId,
         { assigneeOrganizationId: foreignNode.id },
         actor.id,
         scopeFor(
@@ -373,7 +490,7 @@ describe('Prisma complaint service', () => {
     await expect(
       complaintService.assignComplaint(
         organization.id,
-        created.complaint.id,
+        complaintId,
         { assigneeOrganizationId: inactiveNode.id },
         actor.id,
         scopeFor(
@@ -384,11 +501,50 @@ describe('Prisma complaint service', () => {
         )
       )
     ).rejects.toMatchObject({ statusCode: 422 });
+    expect(auditDelta(before, await auditCounts())).toEqual({ assigned: 0, reassigned: 0, unassigned: 0 });
 
+    // identical user + node again: no assignment audit event
+    before = await auditCounts();
+    const repeated = await complaintService.assignComplaint(
+      organization.id,
+      complaintId,
+      { assigneeUserId: assignee.id, assigneeOrganizationId: secondOrgNode.id },
+      actor.id,
+      scopeFor(
+        actor.id,
+        organization.id,
+        { code: 'complaints.assign', orgUnitId: null },
+        { code: 'complaints.transfer', orgUnitId: null }
+      )
+    );
+    expect(repeated.assignedToUserId).toBe(assignee.id);
+    expect(repeated.assignedToOrganizationId).toBe(secondOrgNode.id);
+    expect(auditDelta(before, await auditCounts())).toEqual({ assigned: 0, reassigned: 0, unassigned: 0 });
+
+    // user removed while the node stays assigned: complaint.unassigned
+    before = await auditCounts();
+    const userRemoved = await complaintService.assignComplaint(
+      organization.id,
+      complaintId,
+      { assigneeOrganizationId: secondOrgNode.id },
+      actor.id,
+      scopeFor(
+        actor.id,
+        organization.id,
+        { code: 'complaints.assign', orgUnitId: null },
+        { code: 'complaints.transfer', orgUnitId: null }
+      )
+    );
+    expect(userRemoved.assignedToUserId).toBeNull();
+    expect(userRemoved.assignedToOrganizationId).toBe(secondOrgNode.id);
+    expect(auditDelta(before, await auditCounts())).toEqual({ assigned: 0, reassigned: 0, unassigned: 1 });
+
+    // everything cleared: complaint.unassigned
+    before = await auditCounts();
     const cleared = await complaintService.assignComplaint(
       organization.id,
-      created.complaint.id,
-      { reason: 'إعادة إلى الفرز المركزي' },
+      complaintId,
+      { reason: '  إعادة إلى الفرز المركزي  ' },
       actor.id,
       scopeFor(
         actor.id,
@@ -399,24 +555,12 @@ describe('Prisma complaint service', () => {
     );
     expect(cleared.assignedToUserId).toBeNull();
     expect(cleared.assignedToOrganizationId).toBeNull();
-
-    const assignedAudits = await prisma.audit_logs.findMany({
-      where: { organization_id: organization.id, entity_id: created.complaint.id, action: 'complaint.assigned' },
-      orderBy: { id: 'asc' },
+    expect(auditDelta(before, await auditCounts())).toEqual({ assigned: 0, reassigned: 0, unassigned: 1 });
+    const centralTriageAudit = await prisma.audit_logs.findFirst({
+      where: { organization_id: organization.id, entity_id: complaintId, action: 'complaint.unassigned' },
+      orderBy: { id: 'desc' },
     });
-    expect(assignedAudits.length).toBeGreaterThanOrEqual(2);
-    expect(assignedAudits.some((row) => row.metadata?.assigneeOrganizationId === orgNode.id)).toBe(true);
-
-    await expect(
-      prisma.notifications.findMany({
-        where: {
-          organization_id: organization.id,
-          entity_id: created.complaint.id,
-          notification_type: 'complaint.assigned',
-          user_id: assignee.id,
-        },
-      })
-    ).resolves.toHaveLength(1);
+    expect(centralTriageAudit?.metadata).toMatchObject({ reason: 'إعادة إلى الفرز المركزي' });
   });
 
   it('returns tenant-scoped complaint summary aggregates', async () => {

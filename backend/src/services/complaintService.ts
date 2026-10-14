@@ -1109,6 +1109,36 @@ const parseOptionalAssigneeId = (value: IdInput, invalidMessage: string): number
   return parsed;
 };
 
+type AssignmentAuditAction = 'complaint.assigned' | 'complaint.reassigned' | 'complaint.unassigned';
+
+// Classifies the assignment audit event by comparing the persisted assignment before the update
+// with the persisted assignment after it. Both assignment columns are fully overwritten on every
+// call (omitted, null and '' inputs all resolve to null), so the parsed inputs are exactly the
+// resulting persisted values.
+// Returns null when the persisted assignment did not change (no assignment event).
+const resolveAssignmentAuditAction = (
+  previousUserId: number | null,
+  previousOrganizationId: number | null,
+  nextUserId: number | null,
+  nextOrganizationId: number | null
+): AssignmentAuditAction | null => {
+  if (previousUserId === nextUserId && previousOrganizationId === nextOrganizationId) return null;
+  if (nextUserId === null && nextOrganizationId === null) return 'complaint.unassigned';
+
+  const replacedExistingUser = previousUserId !== null && nextUserId !== null && previousUserId !== nextUserId;
+  const replacedExistingNode =
+    previousOrganizationId !== null &&
+    nextOrganizationId !== null &&
+    previousOrganizationId !== nextOrganizationId;
+  if (replacedExistingUser || replacedExistingNode) return 'complaint.reassigned';
+
+  const clearedExistingUser = previousUserId !== null && nextUserId === null;
+  const clearedExistingNode = previousOrganizationId !== null && nextOrganizationId === null;
+  if (clearedExistingUser || clearedExistingNode) return 'complaint.unassigned';
+
+  return 'complaint.assigned';
+};
+
 export const assignComplaint = async (
   organizationId: IdInput,
   id: IdInput,
@@ -1234,21 +1264,35 @@ export const assignComplaint = async (
     });
     if (updated.count !== 1) throw new ApiError(409, 'تغير تعيين الشكوى قبل إتمام العملية');
 
-    const isUnassigned = parsedAssigneeUserId === null && parsedAssigneeOrgNodeId === null;
-    await recordAuditEvent(tx, {
-      organizationId: parsedOrganizationId,
-      actorUserId: parsedAssignedByUserId,
-      action: isUnassigned ? 'complaint.unassigned' : 'complaint.assigned',
-      entityType: 'complaint',
-      entityId: complaint.id,
-      metadata: {
+    const auditAction = resolveAssignmentAuditAction(
+      complaint.assigned_to_user_id,
+      complaint.assigned_to_organization_id,
+      parsedAssigneeUserId,
+      parsedAssigneeOrgNodeId
+    );
+    // No assignment audit event when the persisted assignment did not change.
+    if (auditAction !== null) {
+      const metadata: Record<string, any> = {
         previousAssigneeId: complaint.assigned_to_user_id,
         assigneeUserId: parsedAssigneeUserId,
         previousAssigneeOrganizationId: complaint.assigned_to_organization_id,
         assigneeOrganizationId: parsedAssigneeOrgNodeId,
-        ...(returnReason ? { reason: returnReason } : {}),
-      },
-    });
+      };
+      if (returnReason) {
+        metadata.reason = returnReason;
+      } else if (assignment?.reason?.trim()) {
+        metadata.reason = assignment.reason.trim();
+      }
+
+      await recordAuditEvent(tx, {
+        organizationId: parsedOrganizationId,
+        actorUserId: parsedAssignedByUserId,
+        action: auditAction,
+        entityType: 'complaint',
+        entityId: complaint.id,
+        metadata,
+      });
+    }
 
     if (parsedAssigneeUserId !== null) {
       await createNotification(tx, {

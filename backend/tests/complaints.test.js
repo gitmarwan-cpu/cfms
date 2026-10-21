@@ -467,11 +467,17 @@ describe("Complaint close authorization (complaints.close)", () => {
     return complaint.id;
   };
 
-  const setStatus = (token, complaintId, status) =>
+  const setStatus = (token, complaintId, status, payload = {}) =>
     request(app)
       .patch(`/api/complaints/${complaintId}/status`)
       .set("Authorization", `Bearer ${token}`)
-      .send({ status });
+      .send({
+        status,
+        ...(status === "resolved" && !Object.prototype.hasOwnProperty.call(payload, "note")
+          ? { note: "ملاحظة حل تلقائية لاختبارات الإغلاق" }
+          : {}),
+        ...payload,
+      });
 
   const statusSnapshot = async (complaintId) => ({
     status: (

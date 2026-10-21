@@ -659,12 +659,14 @@ describe('Prisma complaint service', () => {
     ]);
     expect(JSON.stringify(audits)).not.toContain(created.trackingPin);
 
-    await expect(complaintService.regenerateTrackingPin(
-      organization.id,
-      foreign.complaint.id,
-      actor.id,
-      scopeFor(actor.id, organization.id, { code: 'complaints.assign', orgUnitId: null })
-    ))
+    await expect(
+      complaintService.regenerateTrackingPin(
+        organization.id,
+        foreign.complaint.id,
+        actor.id,
+        scopeFor(actor.id, organization.id, { code: 'complaints.assign', orgUnitId: null })
+      )
+    )
       .rejects.toMatchObject({ statusCode: 404 });
   });
 });

@@ -139,6 +139,7 @@ describe('Notifications API lifecycle', () => {
   it('يرفض وسم إشعار مستخدم آخر بالقراءة حتى بمعرفة المعرّف', async () => {
     const target = await prisma.notifications.findFirst({
       where: { user_id: assigneeUserId, organization_id: organization.id },
+      orderBy: { id: 'desc' },
     });
 
     const res = await request(app)

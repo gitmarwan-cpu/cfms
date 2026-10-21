@@ -29,7 +29,7 @@ SLA enforcement consists of three core components:
      - `sla_due_at`: UTC timestamp when complaint resolution is due.
      - `sla_first_response_due_at`: Target timestamp for first response.
      - `sla_first_responded_at`: Timestamp when first status transition occurred.
-     - `sla_status`: `'on_track'` | `'overdue'` | `'escalated'` | `'resolved'` | `'closed'`.
+      - `sla_status`: `'none'` | `'on_track'` | `'overdue'` | `'met'`. (`'none'` = no SLA rule matched; `'met'` = complaint reached a terminal status before or at `sla_due_at`.)
      - `escalation_level`: Integer level (0 = initial, up to `max_escalation_level`).
      - `last_escalated_at`: Timestamp of last escalation event.
 

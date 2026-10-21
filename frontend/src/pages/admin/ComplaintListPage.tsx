@@ -33,7 +33,10 @@ const SLA_STATUS_LABELS: Record<SlaStatus, { label: string; tone: string }> = {
 };
 
 export default function ComplaintListPage() {
-  const { currentOrganization } = useAuth();
+  const { currentOrganization, currentOrganizationId, user, hasPermission } = useAuth();
+  const organizationId = currentOrganizationId ?? user?.defaultOrganizationId ?? null;
+  // Regenerating the tracking PIN is a mutation (`complaints.assign`); hide the action otherwise.
+  const canAssign = organizationId !== null && organizationId !== undefined && hasPermission('complaints.assign', organizationId);
   const [complaints, setComplaints] = useState<AdminComplaint[]>([]);
   const [pagination, setPagination] = useState<PaginationInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -203,10 +206,14 @@ export default function ComplaintListPage() {
                         )}
                       </td>
                       <td className="cl-table__center cl-table__nowrap">
-                        <RegeneratePinAction
-                          complaintId={item.id}
-                          onSuccess={loadComplaints}
-                        />
+                        {canAssign ? (
+                          <RegeneratePinAction
+                            complaintId={item.id}
+                            onSuccess={loadComplaints}
+                          />
+                        ) : (
+                          <span className="admin-muted">—</span>
+                        )}
                       </td>
                       <td>
                         {item.isAnonymous || !item.consentGiven ? (

@@ -51,6 +51,8 @@ export const changePassword = async (input: ChangePasswordInput): Promise<void> 
 
 export interface ForgotPasswordResponse {
   message: string;
+  resetUrl?: string;
+  devResetUrl?: string;
 }
 
 export interface ResetPasswordResponse {
@@ -59,8 +61,12 @@ export interface ResetPasswordResponse {
 
 /** Request password reset email / token (POST /auth/forgot-password). */
 export const forgotPassword = async (email: string): Promise<ForgotPasswordResponse> => {
-  const res = await axiosClient.post<{ success: boolean; message: string }>('/auth/forgot-password', { email });
-  return { message: res.data.message };
+  const res = await axiosClient.post<{ success: boolean; message: string; resetUrl?: string; devResetUrl?: string }>('/auth/forgot-password', { email });
+  return {
+    message: res.data.message,
+    resetUrl: res.data.resetUrl || res.data.devResetUrl,
+    devResetUrl: res.data.devResetUrl || res.data.resetUrl,
+  };
 };
 
 /** Reset password using token (POST /auth/reset-password). */

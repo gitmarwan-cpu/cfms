@@ -4,6 +4,7 @@ import catchAsync from '../utils/catchAsync';
 import * as authService from '../services/authService';
 import * as passwordService from '../services/passwordService';
 import * as passwordRecoveryService from '../services/passwordRecoveryService';
+import * as emailService from '../services/emailService';
 const login = catchAsync(async (req: AppRequest, res: AppResponse) => {
   const { email, password } = req.body;
   const result = await authService.login(email, password);
@@ -52,21 +53,160 @@ const changePassword = catchAsync(async (req: AppRequest, res: AppResponse) => {
   res.status(200).json({ success: true, message: 'تم تغيير كلمة المرور بنجاح' });
 });
 
-const forgotPassword = catchAsync(async (req: AppRequest, res: AppResponse) => {
-  const token = await passwordRecoveryService.issuePasswordResetToken(req.body.email);
-  if (process.env.NODE_ENV !== 'production' && token) {
-    const origin = (process.env.CORS_ORIGIN || 'http://localhost:5173').replace(/\/+$/, '');
-    console.log(`[DEV ONLY] Password reset link: ${origin}/reset-password?token=${token}`);
+const DEFAULT_FORGOT_PASSWORD_DELAY_MS = 750;
+const MAX_FORGOT_PASSWORD_DELAY_MS = 5000;
+
+/**
+ * Resolves and strictly validates the minimum response-time floor for password recovery.
+ *
+ * Rules:
+ * - When unset: defaults to 0 ms in test environment (`NODE_ENV === 'test'`),
+ *   and 750 ms in production / development.
+ * - Strict format validation: accepts only non-negative integer digit strings (`^\d+$`).
+ *   Rejects malformed values (e.g., '750abc', decimals, negatives, non-numeric).
+ * - Safe fallback: Malformed configuration in production falls back to the safe default
+ *   (750 ms) rather than silently disabling the timing floor (0 ms).
+ * - Upper bound: Clamped to MAX_FORGOT_PASSWORD_DELAY_MS (5000 ms) to prevent accidental
+ *   or excessive request hanging and gateway timeouts.
+ */
+export const resolveForgotPasswordMinDelayMs = (
+  envValue = process.env.FORGOT_PASSWORD_MIN_DELAY_MS,
+  nodeEnv = process.env.NODE_ENV
+): number => {
+  const isTest = nodeEnv === 'test';
+  const defaultDelay = isTest ? 0 : DEFAULT_FORGOT_PASSWORD_DELAY_MS;
+
+  if (envValue === undefined || envValue.trim() === '') {
+    return defaultDelay;
   }
-  res.status(200).json({
+
+  const trimmed = envValue.trim();
+  if (!/^\d+$/.test(trimmed)) {
+    if (!isTest) {
+      console.warn('[Auth] Invalid FORGOT_PASSWORD_MIN_DELAY_MS configuration; falling back to default floor');
+    }
+    return defaultDelay;
+  }
+
+  const parsed = Number(trimmed);
+  if (parsed > MAX_FORGOT_PASSWORD_DELAY_MS) {
+    if (!isTest) {
+      console.warn(`[Auth] FORGOT_PASSWORD_MIN_DELAY_MS exceeds maximum allowed limit (${MAX_FORGOT_PASSWORD_DELAY_MS}ms); clamping to upper bound`);
+    }
+    return MAX_FORGOT_PASSWORD_DELAY_MS;
+  }
+
+  return parsed;
+};
+
+/**
+ * Determines whether development-only reset link exposure is explicitly enabled.
+ *
+ * Security rules:
+ * - In production (NODE_ENV === 'production'), strictly returns false regardless of any flags.
+ * - In non-production, requires explicit enablement via ALLOW_DEV_RESET_LINK='true' | '1'.
+ */
+export const isDevResetLinkEnabled = (
+  envValue = process.env.ALLOW_DEV_RESET_LINK,
+  nodeEnv = process.env.NODE_ENV
+): boolean => {
+  if (nodeEnv === 'production') {
+    return false;
+  }
+  const normalized = envValue?.trim().toLowerCase();
+  return normalized === 'true' || normalized === '1';
+};
+
+/**
+ * Request password recovery instructions:
+ * Mitigates timing-based account enumeration attacks by enforcing a strictly validated,
+ * bounded minimum response-time floor (`FORGOT_PASSWORD_MIN_DELAY_MS`, default 750ms; 0ms in test).
+ *
+ * NOTE: This establishes a conservative minimum baseline duration to blunt fast-path
+ * enumeration (where non-existent accounts resolve in milliseconds). It does NOT make
+ * response times mathematically constant, as network variability, TLS negotiation, and
+ * SMTP dispatch latency may naturally exceed this floor.
+ *
+ * Security rules:
+ * - Emits the exact same generic HTTP 200 payload regardless of account existence.
+ * - Traps token-issuance and email-delivery exceptions safely within the flow, preventing
+ *   internal database or provider errors from leaking account existence via HTTP 500.
+ * - Preserves upstream input-validation (422) and rate-limiting (429) middleware behaviors.
+ * - Suppresses all raw errors, recipient addresses, tokens, SQL queries, and credentials from logs.
+ * - Token expiry, hashing, and consumption lifecycles remain completely unaffected.
+ * - Safe development delivery: When explicitly enabled (ALLOW_DEV_RESET_LINK='true' in non-production)
+ *   and email delivery is unavailable, provides a resetUrl constructed from trusted FRONTEND_URL.
+ *   Production NEVER exposes reset tokens or URLs under any circumstance.
+ */
+const forgotPassword = catchAsync(async (req: AppRequest, res: AppResponse) => {
+  const startTime = Date.now();
+  const minFloorMs = resolveForgotPasswordMinDelayMs();
+
+  let devResetUrl: string | undefined;
+
+  try {
+    try {
+      const token = await passwordRecoveryService.issuePasswordResetToken(req.body.email);
+      let emailDelivered = false;
+
+      if (token) {
+        try {
+          const dispatchResult = await emailService.sendPasswordResetEmail(req.body.email, token);
+          emailDelivered = dispatchResult?.accepted === true;
+        } catch {
+          // Record delivery failure safely without leaking internal failure, recipient email, tokens, or credentials
+          console.error('[Auth] Password reset email dispatch failed');
+        }
+
+        // Safe development-only delivery: expose reset URL only if explicitly enabled
+        // in development/test and email delivery is unavailable. Never in production.
+        if (!emailDelivered && isDevResetLinkEnabled()) {
+          try {
+            const frontendUrl = emailService.validateFrontendUrl();
+            devResetUrl = `${frontendUrl}/reset-password?token=${encodeURIComponent(token)}`;
+          } catch {
+            // Frontend URL resolution failure must not compromise request safety
+          }
+        }
+      }
+    } catch {
+      // Record token issuance failure safely without leaking internal failure, recipient email, or database errors
+      console.error('[Auth] Password reset token issuance failed');
+    }
+  } finally {
+    const elapsed = Date.now() - startTime;
+    const remaining = minFloorMs - elapsed;
+    if (remaining > 0) {
+      await new Promise((resolve) => setTimeout(resolve, remaining));
+    }
+  }
+
+  const responsePayload: { success: boolean; message: string; resetUrl?: string; devResetUrl?: string } = {
     success: true,
     message: 'إذا كان البريد الإلكتروني مرتبطاً بحساب، فسيتم إرسال تعليمات إعادة التعيين إليه',
-  });
+  };
+
+  if (devResetUrl) {
+    responsePayload.resetUrl = devResetUrl;
+    responsePayload.devResetUrl = devResetUrl;
+  }
+
+  res.status(200).json(responsePayload);
 });
+
 
 const resetPassword = catchAsync(async (req: AppRequest, res: AppResponse) => {
   await passwordRecoveryService.resetPasswordWithToken(req.body.token, req.body.newPassword);
   res.status(200).json({ success: true, message: 'تم إعادة تعيين كلمة المرور بنجاح' });
 });
 
-export { login, register, me, changePassword, forgotPassword, resetPassword };
+export {
+  login,
+  register,
+  me,
+  changePassword,
+  forgotPassword,
+  resetPassword,
+  DEFAULT_FORGOT_PASSWORD_DELAY_MS,
+  MAX_FORGOT_PASSWORD_DELAY_MS,
+};

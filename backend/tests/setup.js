@@ -211,6 +211,7 @@ beforeAll(async () => {
     'platform.users.manage',
     'platform.memberships.manage',
     'platform.audit.view',
+    'platform.settings.manage',
   ];
   const platformPermissions = await prisma.permissions.createManyAndReturn({
     data: platformPermissionCodes.map((code) => ({

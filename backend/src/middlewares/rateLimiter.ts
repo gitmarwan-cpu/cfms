@@ -40,10 +40,19 @@ const submitComplaintRateLimiter = rateLimit({
   message: { success: false, message: 'عدد كبير جداً من الطلبات، الرجاء المحاولة لاحقاً' },
 });
 
+const testEmailRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 3,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'محاولات إرسال بريد تجريبي كثيرة جداً، الرجاء المحاولة لاحقاً بعد 15 دقيقة' },
+});
+
 export {
   loginRateLimiter,
   forgotPasswordRateLimiter,
   passwordResetRateLimiter,
   trackComplaintRateLimiter,
   submitComplaintRateLimiter,
+  testEmailRateLimiter,
 };

@@ -28,6 +28,7 @@ import TenantProvisioningPage from './pages/admin/TenantProvisioningPage';
 import PlatformMembershipsRolesPage from './pages/admin/PlatformMembershipsRolesPage';
 import PlatformRolesPage from './pages/admin/PlatformRolesPage';
 import PlatformAuditLogPage from './pages/admin/PlatformAuditLogPage';
+import PlatformEmailSettingsPage from './pages/admin/PlatformEmailSettingsPage';
 import PermissionGate, { AdminRoleGate, PlatformPermissionGate } from './components/admin/PermissionGate';
 
 function PlatformPlaceholder({ title }: { title: string }) {
@@ -151,8 +152,8 @@ export default function App() {
       >
         <Route element={<AppShell />}>
           <Route index element={<PermissionGate permission="complaints.view_all"><DashboardPage /></PermissionGate>} />
-          <Route path="complaints" element={<PermissionGate permission="complaints.view_all"><ComplaintListPage /></PermissionGate>} />
-          <Route path="complaints/:id" element={<PermissionGate permission="complaints.view_all"><ComplaintDetailPage /></PermissionGate>} />
+          <Route path="complaints" element={<PermissionGate anyPermission={['complaints.view_all', 'complaints.view_own']}><ComplaintListPage /></PermissionGate>} />
+          <Route path="complaints/:id" element={<PermissionGate anyPermission={['complaints.view_all', 'complaints.view_own']}><ComplaintDetailPage /></PermissionGate>} />
           <Route path="notifications" element={<NotificationsPage />} />
           <Route path="organization" element={<PermissionGate permission="organization.view"><OrganizationPage /></PermissionGate>} />
           <Route path="roles" element={<PermissionGate permission="roles.view"><RolesPage /></PermissionGate>} />
@@ -237,6 +238,14 @@ export default function App() {
             element={
               <PlatformPermissionGate permission="platform.audit.view">
                 <PlatformAuditLogPage />
+              </PlatformPermissionGate>
+            }
+          />
+          <Route
+            path="platform/settings/email"
+            element={
+              <PlatformPermissionGate permission="platform.settings.manage">
+                <PlatformEmailSettingsPage />
               </PlatformPermissionGate>
             }
           />

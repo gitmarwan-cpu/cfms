@@ -3,18 +3,28 @@ import { useAuth } from '../../context/AuthContext';
 import { ForbiddenState } from './AdminUi';
 
 interface PermissionGateProps {
-  permission: string;
+  /** Single required permission. Ignored when `anyPermission` is provided. */
+  permission?: string;
+  /** Alternative permissions: access is granted when the user holds at least one of them. */
+  anyPermission?: string[];
   children: ReactNode;
   title?: string;
 }
 
 /** UX guard only; backend authorization remains authoritative. */
-export default function PermissionGate({ permission, children, title }: PermissionGateProps) {
+export default function PermissionGate({ permission, anyPermission = [], children, title }: PermissionGateProps) {
   const { user, hasPermission, currentOrganizationId } = useAuth();
   const organizationId = currentOrganizationId ?? user?.defaultOrganizationId ?? null;
 
   if (!user || organizationId === null || organizationId === undefined) return <ForbiddenState title={title} permission={permission} />;
-  if (!hasPermission(permission, organizationId)) return <ForbiddenState title={title} permission={permission} />;
+
+  const isAuthorized = anyPermission.length > 0
+    ? anyPermission.some((permissionCode) => hasPermission(permissionCode, organizationId))
+    : permission !== undefined && hasPermission(permission, organizationId);
+
+  if (!isAuthorized) {
+    return <ForbiddenState title={title} permission={permission ?? (anyPermission.length > 0 ? anyPermission.join(' / ') : undefined)} />;
+  }
   return <>{children}</>;
 }
 

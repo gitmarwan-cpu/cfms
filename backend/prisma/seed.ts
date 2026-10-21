@@ -143,6 +143,7 @@ const PLATFORM_PERMISSIONS = [
   ['platform.roles.manage', 'إدارة أدوار المنصة'],
   ['platform.memberships.manage', 'إدارة عضويات المستأجرين'],
   ['platform.audit.view', 'عرض سجل تدقيق المنصة'],
+  ['platform.settings.manage', 'إدارة إعدادات المنصة'],
 ] as const;
 const STAFF_DEFAULT_CODES = ['organization.view', 'reference_data.view', 'org_structure.view', 'complaints.view_own'];
 

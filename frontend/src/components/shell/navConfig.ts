@@ -1,4 +1,4 @@
-﻿import type { LucideIcon } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import {
   LayoutDashboard,
   MessageSquareWarning,
@@ -10,6 +10,7 @@ import {
   Timer,
   ScrollText,
   Bell,
+  Mail,
 } from 'lucide-react';
 import type { AuthUser } from '../../api/authApi';
 
@@ -67,6 +68,17 @@ export const NAV_GROUPS: NavGroup[] = [
       { to: '/admin/platform/tenants', label: 'دليل المستأجرين', icon: Building2, platformPermission: 'platform.tenant.lifecycle' },
       { to: '/admin/platform/tenants/new', label: 'تهيئة مستأجر', icon: Building2, platformPermission: 'platform.tenant.create' },
       { to: '/admin/platform/memberships-roles', label: 'العضويات والأدوار', icon: ShieldCheck, platformPermission: 'platform.memberships.manage' },
+    ],
+  },
+  {
+    label: 'إعدادات المنصة',
+    items: [
+      {
+        to: '/admin/platform/settings/email',
+        label: 'البريد والإشعارات',
+        icon: Mail,
+        platformPermission: 'platform.settings.manage',
+      },
     ],
   },
 ];

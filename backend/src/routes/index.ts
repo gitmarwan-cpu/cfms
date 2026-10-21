@@ -16,6 +16,7 @@ import platformTenantRoutes from './platformTenantRoutes';
 import platformUserRoutes from './platformUserRoutes';
 import platformAuditRoutes from './platformAuditRoutes';
 import platformRoleRoutes from './platformRoleRoutes';
+import platformSettingsRoutes from './platformSettingsRoutes';
 import prisma from '../prisma/client';
 import type { AppRequest, AppResponse } from '../types/http';
 
@@ -46,5 +47,6 @@ router.use('/platform', platformTenantRoutes);
 router.use('/platform', platformUserRoutes);
 router.use('/platform/roles', platformRoleRoutes);
 router.use('/platform/audit-logs', platformAuditRoutes);
+router.use('/platform/settings', platformSettingsRoutes);
 
 export default router;
